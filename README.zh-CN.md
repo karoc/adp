@@ -118,7 +118,7 @@ Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 sym
 
 `adp tasks` 和 `adp progress` 管理 `$ADP_HOME/workspaces/<workspace>/planning` 下的 workspace-scoped 规划和执行进度。`adp run --task <task-id>` 会把这份本地任务状态绑定到 runtime 环境变量、生成的 adapter instructions、events 和 sessions，同时不会把 planning 文件写入真实项目根目录。详见 [docs/task-management.zh-CN.md](docs/task-management.zh-CN.md)。
 
-P3 聚焦项目规划和执行进度管理的 Phase Gate MVP。目标是提供本地 phase ledger，记录任务归属、验收记录、commit 记录、push 记录和明确的阶段门禁纪律。该能力仍然保持 terminal-first、local-first；它不是 Web dashboard、SaaS tracker、cloud sync layer 或 hosted orchestration service。
+P3 提供项目规划和执行进度管理的本地 phase ledger。它会在 `$ADP_HOME` 下记录任务归属、可选 claim lease、验收记录、commit 记录、push 记录和明确的阶段门禁纪律。该能力仍然保持 terminal-first、local-first；它不是 Web dashboard、SaaS tracker、cloud sync layer 或 hosted orchestration service。
 
 仓库包含 `examples/basic-workspace`，作为可复制的本地 workspace 配置示例，内含 Codex 和 Claude profile、base prompt、shared memory 与 MCP 设置。实际运行前需要替换其中的 `project.root`。它展示了 ADP 如何在保持 terminal-first 的前提下，把 Agent 配置保存在真实项目目录之外。
 

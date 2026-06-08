@@ -43,8 +43,8 @@ Usage:
 	  adp tasks list [--workspace <name>]
 	  adp tasks show [--workspace <name>] <task-id>
 	  adp tasks update [--workspace <name>] <task-id> --status <status>
-	  adp tasks claim [--workspace <name>] <task-id> --owner <owner>
-	  adp tasks release [--workspace <name>] <task-id>
+	  adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]
+	  adp tasks release [--workspace <name>] <task-id> [--owner <owner>]
 	  adp tasks done [--workspace <name>] <task-id>
 	  adp tasks block [--workspace <name>] <task-id> --reason <reason>
 	  adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>
@@ -92,8 +92,8 @@ type TaskStore interface {
 	Get(context.Context, string) (taskstore.Task, error)
 	UpdateStatus(context.Context, string, taskstore.Status) (taskstore.Task, error)
 	Block(context.Context, string, string) (taskstore.Task, error)
-	Claim(context.Context, string, string) (taskstore.Task, error)
-	Release(context.Context, string) (taskstore.Task, error)
+	Claim(context.Context, taskstore.ClaimRequest) (taskstore.Task, error)
+	Release(context.Context, taskstore.ReleaseRequest) (taskstore.Task, error)
 	Progress(context.Context) (taskstore.Progress, error)
 	AddPhase(context.Context, taskstore.PhaseAddRequest) (taskstore.Phase, error)
 	ListPhases(context.Context) ([]taskstore.Phase, error)

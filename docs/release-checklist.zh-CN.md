@@ -41,7 +41,7 @@ git diff --check
 - 该 commit 已推送到配置的远端分支。
 - 下一阶段没有混入同一个 commit。
 
-P3 Phase Gate MVP 会把这条纪律转化为 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地记录。release evidence 应区分已经实现的 CLI 覆盖，以及仍处于计划中的更严格 lifecycle guard。
+P3 phase gate 工作会把这条纪律转化为 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地记录。release evidence 应同时包含正向 lifecycle path，以及拒绝乱序 phase evidence 的本地 guards。
 
 ## 门禁覆盖范围
 
@@ -75,7 +75,7 @@ example workspace smoke 验证：
 
 `scripts/task-manager-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/show/update/claim/release/block/done`、`adp phase add/list/show/start/accept/commit/push` 和 `adp progress`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，而不是写入真实项目根目录。
 
-phase gate smoke 路径覆盖 phase records、task claim ownership、acceptance 或 gate records、commit records、push records，以及项目根目录污染防护。不要为尚不存在的命令添加 placeholder assertions。
+phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership、带 owner 校验的 release、task phase validation、acceptance 或 gate records、commit records、push records、lifecycle ordering guards，以及项目根目录污染防护。Go 测试还会覆盖 planning lock 行为、claim conflicts、lease expiry、terminal-task claim rejection、failed acceptance 和 failed push 语义。不要为尚不存在的命令添加 placeholder assertions。
 
 `go test -count=1 ./...` 会运行完整 Go 测试套件，并且不使用缓存测试结果。
 
@@ -129,7 +129,7 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储，以及项目根目录污染防护。
 
-如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录来修复失败。
+如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、claim lease parsing、owner-checked release、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录来修复失败。
 
 如果 `go test -count=1 ./...` 失败，先定位失败 package，并在修改前单独重跑该 package：
 

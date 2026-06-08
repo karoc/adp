@@ -96,25 +96,113 @@ func TestStoreClaimsAndReleasesTasks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	claimed, err := store.Claim(context.Background(), task.ID, "codex-main")
+	claimed, err := store.Claim(context.Background(), ClaimRequest{TaskID: task.ID, Owner: "codex-main", Lease: 30 * time.Minute})
 	if err != nil {
 		t.Fatalf("Claim returned error: %v", err)
 	}
-	if claimed.Owner != "codex-main" || claimed.Status != StatusInProgress {
+	if claimed.Owner != "codex-main" || claimed.Status != StatusInProgress || claimed.ClaimedAt.IsZero() || claimed.LeaseExpiresAt.IsZero() {
 		t.Fatalf("claimed task = %+v", claimed)
 	}
 
-	released, err := store.Release(context.Background(), task.ID)
+	released, err := store.Release(context.Background(), ReleaseRequest{TaskID: task.ID, Owner: "codex-main"})
 	if err != nil {
 		t.Fatalf("Release returned error: %v", err)
 	}
-	if released.Owner != "" || released.Status != StatusReady {
+	if released.Owner != "" || released.Status != StatusReady || !released.ClaimedAt.IsZero() || !released.LeaseExpiresAt.IsZero() {
 		t.Fatalf("released task = %+v", released)
 	}
 
 	progressPath := filepath.Join(store.WorkspaceDir, "planning", "progress.jsonl")
 	assertFileContains(t, progressPath, `"type":"task_claimed"`)
 	assertFileContains(t, progressPath, `"type":"task_released"`)
+}
+
+func TestStoreClaimConflictLeaseAndReleaseOwnerGuards(t *testing.T) {
+	store := testStore(t)
+	base := store.now()
+	task, err := store.Add(context.Background(), AddRequest{Title: "Lease guarded task"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	claimed, err := store.Claim(context.Background(), ClaimRequest{TaskID: task.ID, Owner: "agent-a", Lease: time.Hour})
+	if err != nil {
+		t.Fatalf("Claim returned error: %v", err)
+	}
+	if got, want := claimed.LeaseExpiresAt, base.Add(time.Hour); !got.Equal(want) {
+		t.Fatalf("lease expires at = %s, want %s", got, want)
+	}
+
+	if _, err := store.Claim(context.Background(), ClaimRequest{TaskID: task.ID, Owner: "agent-b"}); !errors.Is(err, ErrTaskClaimed) {
+		t.Fatalf("conflicting claim error = %v, want ErrTaskClaimed", err)
+	}
+
+	reclaimed, err := store.Claim(context.Background(), ClaimRequest{TaskID: task.ID, Owner: "agent-a", Lease: 2 * time.Hour})
+	if err != nil {
+		t.Fatalf("same-owner reclaim returned error: %v", err)
+	}
+	if got, want := reclaimed.LeaseExpiresAt, base.Add(2*time.Hour); !got.Equal(want) {
+		t.Fatalf("renewed lease expires at = %s, want %s", got, want)
+	}
+
+	if _, err := store.Release(context.Background(), ReleaseRequest{TaskID: task.ID, Owner: "agent-b"}); !errors.Is(err, ErrTaskOwnerMismatch) {
+		t.Fatalf("release owner mismatch error = %v, want ErrTaskOwnerMismatch", err)
+	}
+
+	store.Now = func() time.Time { return base.Add(3 * time.Hour) }
+	claimed, err = store.Claim(context.Background(), ClaimRequest{TaskID: task.ID, Owner: "agent-b"})
+	if err != nil {
+		t.Fatalf("expired lease claim returned error: %v", err)
+	}
+	if claimed.Owner != "agent-b" || !claimed.LeaseExpiresAt.IsZero() {
+		t.Fatalf("expired lease claim = %+v", claimed)
+	}
+
+	released, err := store.Release(context.Background(), ReleaseRequest{TaskID: task.ID, Owner: "agent-b"})
+	if err != nil {
+		t.Fatalf("matching owner release returned error: %v", err)
+	}
+	if released.Owner != "" || released.Status != StatusReady {
+		t.Fatalf("released task = %+v", released)
+	}
+}
+
+func TestStoreRejectsClaimingTerminalTasks(t *testing.T) {
+	store := testStore(t)
+	done, err := store.Add(context.Background(), AddRequest{Title: "Done task", Status: StatusDone})
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled, err := store.Add(context.Background(), AddRequest{Title: "Canceled task", Status: StatusCanceled})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, task := range []Task{done, canceled} {
+		if _, err := store.Claim(context.Background(), ClaimRequest{TaskID: task.ID, Owner: "agent-a"}); err == nil {
+			t.Fatalf("Claim terminal task %s returned nil error", task.Status)
+		}
+	}
+}
+
+func TestStoreValidatesTaskPhaseWhenPhaseLedgerExists(t *testing.T) {
+	store := testStore(t)
+
+	if _, err := store.Add(context.Background(), AddRequest{Title: "Legacy free-form phase", Phase: "free-form"}); err != nil {
+		t.Fatalf("Add before phase ledger returned error: %v", err)
+	}
+	if _, err := store.AddPhase(context.Background(), PhaseAddRequest{ID: "p3", Title: "Phase three"}); err != nil {
+		t.Fatalf("AddPhase returned error: %v", err)
+	}
+	if _, err := store.Add(context.Background(), AddRequest{Title: "Known phase task", Phase: "p3"}); err != nil {
+		t.Fatalf("Add known phase returned error: %v", err)
+	}
+	if _, err := store.Add(context.Background(), AddRequest{Title: "Unassigned task", Phase: defaultTaskPhase}); err != nil {
+		t.Fatalf("Add unassigned phase returned error: %v", err)
+	}
+	if _, err := store.Add(context.Background(), AddRequest{Title: "Missing phase task", Phase: "p4"}); !errors.Is(err, ErrPhaseNotFound) {
+		t.Fatalf("Add missing phase error = %v, want ErrPhaseNotFound", err)
+	}
 }
 
 func TestStoreRecordsPhaseGateLifecycle(t *testing.T) {
@@ -200,6 +288,118 @@ func TestStoreRecordsPhaseGateLifecycle(t *testing.T) {
 	assertFileContains(t, phasePath, "abc123")
 	assertFileContains(t, progressPath, `"type":"phase_accepted"`)
 	assertFileContains(t, progressPath, `"type":"phase_pushed"`)
+}
+
+func TestStoreEnforcesPhaseGateTransitions(t *testing.T) {
+	store := testStore(t)
+	if _, err := store.AddPhase(context.Background(), PhaseAddRequest{ID: "p3", Title: "Phase three"}); err != nil {
+		t.Fatalf("AddPhase p3 returned error: %v", err)
+	}
+
+	if _, err := store.RecordPhaseCommit(context.Background(), PhaseCommitRequest{ID: "p3", Hash: "abc123"}); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("commit before accept error = %v, want ErrPhaseInvalidTransition", err)
+	}
+
+	phase, err := store.AcceptPhase(context.Background(), PhaseAcceptRequest{ID: "p3", Result: "failed", Notes: "smoke failed"})
+	if err != nil {
+		t.Fatalf("failed AcceptPhase returned error: %v", err)
+	}
+	if phase.Status == PhaseStatusAccepted || phase.Acceptance.Result != "failed" {
+		t.Fatalf("failed acceptance phase = %+v", phase)
+	}
+	if _, err := store.RecordPhaseCommit(context.Background(), PhaseCommitRequest{ID: "p3", Hash: "abc123"}); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("commit after failed accept error = %v, want ErrPhaseInvalidTransition", err)
+	}
+
+	phase, err = store.AcceptPhase(context.Background(), PhaseAcceptRequest{ID: "p3", Result: "passed"})
+	if err != nil {
+		t.Fatalf("passed AcceptPhase returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusAccepted {
+		t.Fatalf("passed acceptance status = %q, want accepted", phase.Status)
+	}
+	phase, err = store.AcceptPhase(context.Background(), PhaseAcceptRequest{ID: "p3", Result: "failed"})
+	if err != nil {
+		t.Fatalf("failed re-accept returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusActive || phase.Acceptance.Result != "failed" {
+		t.Fatalf("failed re-accept phase = %+v", phase)
+	}
+	if _, err := store.AddPhase(context.Background(), PhaseAddRequest{ID: "p4", Title: "Phase four"}); err != nil {
+		t.Fatalf("AddPhase p4 returned error: %v", err)
+	}
+	if _, err := store.StartPhase(context.Background(), "p4"); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("start p4 while p3 active error = %v, want ErrPhaseInvalidTransition", err)
+	}
+	phase, err = store.AcceptPhase(context.Background(), PhaseAcceptRequest{ID: "p3", Result: "passed"})
+	if err != nil {
+		t.Fatalf("second passed AcceptPhase returned error: %v", err)
+	}
+	if _, err := store.StartPhase(context.Background(), "p4"); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("start p4 while p3 accepted error = %v, want ErrPhaseInvalidTransition", err)
+	}
+
+	if _, err := store.RecordPhasePush(context.Background(), PhasePushRequest{ID: "p3", Remote: "origin", Branch: "main"}); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("push before commit error = %v, want ErrPhaseInvalidTransition", err)
+	}
+	phase, err = store.RecordPhaseCommit(context.Background(), PhaseCommitRequest{ID: "p3", Hash: "abc123"})
+	if err != nil {
+		t.Fatalf("RecordPhaseCommit returned error: %v", err)
+	}
+	phase, err = store.RecordPhasePush(context.Background(), PhasePushRequest{ID: "p3", Remote: "origin", Branch: "main", Result: "failed"})
+	if err != nil {
+		t.Fatalf("failed RecordPhasePush returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusCommitted || phase.Push.Result != "failed" {
+		t.Fatalf("failed push phase = %+v", phase)
+	}
+	phase, err = store.RecordPhasePush(context.Background(), PhasePushRequest{ID: "p3", Remote: "origin", Branch: "main", Result: "pushed"})
+	if err != nil {
+		t.Fatalf("pushed RecordPhasePush returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusPushed || phase.Push.Result != "pushed" {
+		t.Fatalf("pushed phase = %+v", phase)
+	}
+	phase, err = store.RecordPhasePush(context.Background(), PhasePushRequest{ID: "p3", Remote: "origin", Branch: "main", Result: "failed"})
+	if err != nil {
+		t.Fatalf("failed push after pushed returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusPushed || phase.Push.Result != "failed" {
+		t.Fatalf("failed push after pushed phase = %+v", phase)
+	}
+	phase, err = store.StartPhase(context.Background(), "p4")
+	if err != nil {
+		t.Fatalf("start p4 after p3 pushed returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusActive {
+		t.Fatalf("p4 status = %q, want active", phase.Status)
+	}
+}
+
+func TestPlanningLockWaitsForFreshLockAndRemovesStaleLock(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "workspace"))
+	if err := os.MkdirAll(store.planningPath(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.lockPath(), []byte("fresh\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+	defer cancel()
+	if _, err := store.Add(ctx, AddRequest{Title: "Blocked by fresh lock"}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("fresh lock Add error = %v, want context deadline exceeded", err)
+	}
+
+	staleTime := time.Now().Add(-planningLockStaleAge - time.Minute)
+	if err := os.Chtimes(store.lockPath(), staleTime, staleTime); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Add(context.Background(), AddRequest{Title: "Removes stale lock"}); err != nil {
+		t.Fatalf("Add with stale lock returned error: %v", err)
+	}
+	if _, err := os.Stat(store.lockPath()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("lock file after Add error = %v, want not exist", err)
+	}
 }
 
 func TestStoreReportsMissingAndInvalidTasks(t *testing.T) {

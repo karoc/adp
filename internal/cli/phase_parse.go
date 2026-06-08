@@ -4,9 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 type tasksClaimOptions struct {
+	workspace string
+	taskID    string
+	owner     string
+	lease     time.Duration
+}
+
+type tasksReleaseOptions struct {
 	workspace string
 	taskID    string
 	owner     string
@@ -59,18 +67,31 @@ func parseTasksClaimArgs(args []string) (tasksClaimOptions, error) {
 				return tasksClaimOptions{}, err
 			}
 			opts.owner, i = value, next
+		case "--lease":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksClaimOptions{}, err
+			}
+			lease, err := time.ParseDuration(value)
+			if err != nil {
+				return tasksClaimOptions{}, fmt.Errorf("parse lease duration: %w", err)
+			}
+			if lease < 0 {
+				return tasksClaimOptions{}, errors.New("lease must not be negative")
+			}
+			opts.lease, i = lease, next
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return tasksClaimOptions{}, fmt.Errorf("unknown tasks claim option %q", arg)
 			}
 			if opts.taskID != "" {
-				return tasksClaimOptions{}, errors.New("usage: adp tasks claim [--workspace <name>] <task-id> --owner <owner>")
+				return tasksClaimOptions{}, errors.New("usage: adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]")
 			}
 			opts.taskID = arg
 		}
 	}
 	if opts.taskID == "" || opts.owner == "" {
-		return tasksClaimOptions{}, errors.New("usage: adp tasks claim [--workspace <name>] <task-id> --owner <owner>")
+		return tasksClaimOptions{}, errors.New("usage: adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]")
 	}
 	return opts, nil
 }
@@ -107,6 +128,39 @@ func parsePhaseAddArgs(args []string) (phaseAddOptions, error) {
 	opts.title = joinTitle(titleParts)
 	if opts.id == "" || opts.title == "" {
 		return phaseAddOptions{}, errors.New("usage: adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>")
+	}
+	return opts, nil
+}
+
+func parseTasksReleaseArgs(args []string) (tasksReleaseOptions, error) {
+	opts := tasksReleaseOptions{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksReleaseOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--owner":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksReleaseOptions{}, err
+			}
+			opts.owner, i = value, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return tasksReleaseOptions{}, fmt.Errorf("unknown tasks release option %q", arg)
+			}
+			if opts.taskID != "" {
+				return tasksReleaseOptions{}, errors.New("usage: adp tasks release [--workspace <name>] <task-id> [--owner <owner>]")
+			}
+			opts.taskID = arg
+		}
+	}
+	if opts.taskID == "" {
+		return tasksReleaseOptions{}, errors.New("usage: adp tasks release [--workspace <name>] <task-id> [--owner <owner>]")
 	}
 	return opts, nil
 }

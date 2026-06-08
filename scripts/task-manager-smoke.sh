@@ -43,6 +43,18 @@ run_adp() {
   printf '%s\n' "$output"
 }
 
+run_adp_expect_fail() {
+  local dir="$1"
+  shift
+  local output
+
+  if output=$(cd "$dir" && "$ADP_BIN" "$@" 2>&1); then
+    printf '%s\n' "$output" >&2
+    fail "adp $* succeeded unexpectedly"
+  fi
+  printf '%s\n' "$output"
+}
+
 if ! command -v go >/dev/null 2>&1; then
   fail "Go is required to build cmd/adp"
 fi
@@ -97,6 +109,16 @@ assert_contains "$output" "goal: phase gate smoke" "phase show output"
 output=$(run_adp "$REPO_ROOT" phase start --workspace game-a p3)
 assert_contains "$output" "phase p3 status: active" "phase start output"
 
+info "checking phase lifecycle guards"
+output=$(run_adp "$REPO_ROOT" phase add --workspace game-a --goal "future gated work" p4 "Future Phase")
+assert_contains "$output" "phase p4 added" "phase add p4 output"
+
+output=$(run_adp_expect_fail "$REPO_ROOT" phase commit --workspace game-a p4 --hash blocked)
+assert_contains "$output" "must be accepted before commit evidence is recorded" "phase commit guard output"
+
+output=$(run_adp_expect_fail "$REPO_ROOT" phase push --workspace game-a p4 --remote origin --branch main --result pushed)
+assert_contains "$output" "must have commit evidence before push evidence is recorded" "phase push guard output"
+
 info "creating task"
 output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority high --phase p3 --description "local task state" "Add task manager")
 assert_contains "$output" "task task-" "tasks add output"
@@ -122,15 +144,19 @@ assert_contains "$output" "title: Add task manager" "tasks show output"
 assert_contains "$output" "description: local task state" "tasks show output"
 assert_contains "$output" "phase: p3" "tasks show output"
 
+output=$(run_adp_expect_fail "$REPO_ROOT" tasks add --workspace game-a --phase missing-phase "Invalid phase task")
+assert_contains "$output" "phase not found" "tasks add phase guard output"
+
 info "claiming and releasing task"
-output=$(run_adp "$REPO_ROOT" tasks claim --workspace game-a "$task_id" --owner smoke-agent)
+output=$(run_adp "$REPO_ROOT" tasks claim --workspace game-a "$task_id" --owner smoke-agent --lease 30m)
 assert_contains "$output" "task $task_id claimed by smoke-agent" "tasks claim output"
 
 output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id")
 assert_contains "$output" "owner: smoke-agent" "tasks show claimed output"
 assert_contains "$output" "status: in_progress" "tasks show claimed output"
+assert_contains "$output" "lease_expires_at: 20" "tasks show claimed output"
 
-output=$(run_adp "$REPO_ROOT" tasks release --workspace game-a "$task_id")
+output=$(run_adp "$REPO_ROOT" tasks release --workspace game-a "$task_id" --owner smoke-agent)
 assert_contains "$output" "task $task_id released" "tasks release output"
 
 output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id")

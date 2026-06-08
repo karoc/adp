@@ -30,8 +30,11 @@ The first task-management slice provides:
 - Workspace-local planning files under `$ADP_HOME/workspaces/<workspace>/planning/`.
 - JSONL progress events for task creation and status changes.
 - Runtime event and session evidence linked by task ID.
+- Planning-file locking for mutating task and phase commands.
+- Claim conflict handling, optional claim leases, and owner-checked release.
+- Phase lifecycle guards for acceptance, commit evidence, push evidence, and next-phase start.
 
-The active P3 work builds on this foundation. Smoke scripts should assert only the Phase Gate MVP commands that exist in the current tree, and should not add placeholder checks for planned commands.
+Smoke scripts should assert only the task-management commands that exist in the current tree, and should not add placeholder checks for planned commands.
 
 ## Storage
 
@@ -41,6 +44,8 @@ Task state lives under the ADP workspace directory:
 $ADP_HOME/workspaces/<workspace>/
 └── planning/
     ├── tasks.yaml
+    ├── phases.yaml
+    ├── .lock
     └── progress.jsonl
 ```
 
@@ -48,8 +53,9 @@ ADP does not write these files into the real project root by default. Exporting 
 
 The Phase Gate MVP keeps using this local planning directory and extends it with structured phase and gate records. The storage remains local-first and terminal-readable:
 
-- `tasks.yaml`: task list, status, priority, phase ID, and owner when a task is claimed.
+- `tasks.yaml`: task list, status, priority, phase ID, owner, claim timestamp, and optional lease expiration.
 - `phases.yaml`: phase records, phase status, acceptance records, commit records, push records, and gate summary.
+- `.lock`: short-lived local planning mutation lock. It is created around task and phase writes, and stale lock files are removed after the configured stale age.
 - `progress.jsonl`: append-only audit events for task, phase, acceptance, commit, and push changes.
 
 Repository documentation can summarize the plan, but the authoritative execution state stays under `$ADP_HOME`. ADP must not create `planning/`, `tasks.yaml`, `phases.yaml`, or `progress.jsonl` in the real project root during normal operation.
@@ -85,10 +91,10 @@ adp tasks show --workspace adp <task-id>
 Move a task through execution:
 
 ```bash
-adp tasks claim --workspace adp <task-id> --owner codex-main
+adp tasks claim --workspace adp <task-id> --owner codex-main --lease 30m
 adp tasks update --workspace adp <task-id> --status in_progress
 adp tasks block --workspace adp <task-id> --reason "waiting for real CLI evidence"
-adp tasks release --workspace adp <task-id>
+adp tasks release --workspace adp <task-id> --owner codex-main
 adp tasks done --workspace adp <task-id>
 ```
 
@@ -111,31 +117,37 @@ adp progress --workspace adp
 
 When `--workspace` is omitted, ADP uses the same workspace resolution model as other workspace-aware commands: `ADP_WORKSPACE` first, then the current directory if it is inside a registered project root.
 
-## Phase Gate MVP
+## Phase Gate Ledger
 
-P3's first slice is the Phase Gate MVP. It turns the current task list into a phase-aware execution ledger that multiple terminal agents can share without adding a Web dashboard, SaaS tracker, cloud sync, hosted orchestration, or remote issue service.
+P3's phase gate work turns the task list into a phase-aware execution ledger that multiple terminal agents can share without adding a Web dashboard, SaaS tracker, cloud sync, hosted orchestration, or remote issue service.
 
-The MVP makes these records explicit:
+The ledger makes these records explicit:
 
 - Phase records: ID, title, status, objective or goal, acceptance command list, commit evidence, push evidence, and latest gate outcome.
-- Task claim records: task ID, owner, claimed timestamp, released timestamp when applicable, and current ownership state.
+- Task claim records: task ID, owner, claimed timestamp, optional lease expiration, release evidence, and current ownership state.
 - Acceptance records: phase ID, command list, result, timestamp, and short evidence text.
 - Gate records: phase ID, gate status, required checks, and operator or agent notes when they are provided.
 - Commit records: phase ID, commit hash, branch, summary, timestamp, and whether the commit contains only the accepted phase.
 - Push records: phase ID, remote, branch, timestamp, and push result. Commit hash evidence is stored separately on the phase record before push evidence is recorded.
 
-The first implementation can remain intentionally small. It should optimize for reliable local evidence over broad project-management features.
+The implementation stays intentionally small. It optimizes for reliable local evidence over broad project-management features.
 
 ## Task Claim And Ownership
 
 Task ownership is a coordination hint for local multi-agent execution. It is not an authorization system.
 
-Phase Gate MVP claim rules:
+Current claim rules:
 
 - A ready task may be claimed by one owner at a time.
 - The owner may be a human name, agent name, or stable local agent identifier.
 - Claiming a task records ownership before implementation starts.
+- `--lease <duration>` records an optional lease expiration. When the lease has expired, another owner may claim the task.
+- A claim without `--lease` is non-expiring until it is released or reclaimed by the same owner.
+- Reclaiming with the same owner refreshes the claim timestamp and lease.
+- A different owner cannot claim a task while the current owner's lease is still active.
+- `tasks release --owner <owner>` checks ownership before clearing it. Omitting `--owner` performs an unowned release for manual recovery.
 - Releasing a task clears ownership when the worker is done, blocked, or reassigned.
+- `done` and `canceled` tasks cannot be claimed.
 - A claimed task still has to respect its assigned file boundaries and phase scope.
 - Sub-agents do not commit, push, change phase gates, or start work outside the active phase.
 
@@ -145,16 +157,26 @@ Claim and release actions should append progress events so another terminal or a
 
 Phase completion is not just "code looks done." A phase slice is complete only after implementation, acceptance, commit, and push have all succeeded.
 
-The Phase Gate MVP should record:
+The phase ledger records:
 
 - The exact acceptance commands run for the phase.
-- Pass or fail result for each command.
+- Pass or fail acceptance result.
 - Any skipped checks and the reason they were skipped.
 - The accepted commit hash.
 - The remote and branch used for push.
 - The push remote, branch, and result, with the accepted commit hash stored in the commit record.
 
 These records are local execution evidence. They should support handoff between tools and agents, but they should not require a hosted service.
+
+Lifecycle guards are enforced locally:
+
+- `phase start` keeps one open phase at a time. Another phase cannot start while an existing phase is `active`, `accepted`, or `committed`.
+- `phase accept --result passed` moves a phase to `accepted`.
+- `phase accept --result failed` records evidence and keeps or returns the phase to `active`.
+- `phase commit` requires `accepted` status and `acceptance.result == passed`.
+- `phase push` requires recorded commit evidence and a non-empty commit hash.
+- `phase push --result failed` records evidence without advancing the phase beyond its prior committed or pushed state.
+- A phase is complete only after it reaches `pushed`.
 
 ## Runtime Binding
 
@@ -190,7 +212,7 @@ adp sessions show <session-id>
 Task management is intended to support phase-by-phase delivery:
 
 - Prioritize planned work before starting execution.
-- Complete one phase slice at a time.
+- Complete one phase slice at a time. The local phase ledger enforces one open phase before the next phase can be started.
 - Run the relevant runtime smoke and full repository gate for that phase.
 - Commit and push the accepted phase before starting the next phase.
 - Do not mix the next phase into the same commit just because the working tree is open.
@@ -204,8 +226,9 @@ This keeps task history, validation evidence, and Git history aligned.
 The current task manager does not yet:
 
 - Automatically split user intent into tasks.
-- Enforce leases, claim conflicts, or automatic lifecycle closure.
 - Export progress reports into repository documentation.
 - Sync with GitHub Issues, Linear, Jira, Notion, or any hosted service.
+- Run Git commit or Git push commands automatically.
+- Infer acceptance from command output or close tasks automatically without explicit task or phase commands.
 
 Those are future slices. The first priority is a reliable local task state that all terminal agents can read.

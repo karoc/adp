@@ -99,14 +99,14 @@ func TestTasksClaimAndReleaseCommandsSetOwner(t *testing.T) {
 	var claimOut bytes.Buffer
 	var releaseOut bytes.Buffer
 
-	claimCode := NewApp(deps, &claimOut, &bytes.Buffer{}).Execute(context.Background(), []string{"tasks", "claim", "--workspace", "game-a", "task-1", "--owner", "codex-main"})
-	releaseCode := NewApp(deps, &releaseOut, &bytes.Buffer{}).Execute(context.Background(), []string{"tasks", "release", "--workspace", "game-a", "task-1"})
+	claimCode := NewApp(deps, &claimOut, &bytes.Buffer{}).Execute(context.Background(), []string{"tasks", "claim", "--workspace", "game-a", "task-1", "--owner", "codex-main", "--lease", "30m"})
+	releaseCode := NewApp(deps, &releaseOut, &bytes.Buffer{}).Execute(context.Background(), []string{"tasks", "release", "--workspace", "game-a", "task-1", "--owner", "codex-main"})
 
 	if claimCode != 0 || releaseCode != 0 {
 		t.Fatalf("codes = (%d, %d), want both 0", claimCode, releaseCode)
 	}
-	if store.claimOwner != "codex-main" || store.releaseID != "task-1" {
-		t.Fatalf("claim/release = (%q, %q)", store.claimOwner, store.releaseID)
+	if store.claimReq.Owner != "codex-main" || store.claimReq.Lease != 30*time.Minute || store.releaseReq.TaskID != "task-1" || store.releaseReq.Owner != "codex-main" {
+		t.Fatalf("claim/release = (%+v, %+v)", store.claimReq, store.releaseReq)
 	}
 	if !strings.Contains(claimOut.String(), "claimed by codex-main") || !strings.Contains(releaseOut.String(), "released") {
 		t.Fatalf("outputs = (%q, %q)", claimOut.String(), releaseOut.String())
@@ -194,8 +194,8 @@ type fakeTaskStore struct {
 	phases        []taskstore.Phase
 	updatedStatus taskstore.Status
 	blockReason   string
-	claimOwner    string
-	releaseID     string
+	claimReq      taskstore.ClaimRequest
+	releaseReq    taskstore.ReleaseRequest
 	progress      taskstore.Progress
 }
 
@@ -229,16 +229,19 @@ func (s *fakeTaskStore) Block(_ context.Context, id string, reason string) (task
 	return task, nil
 }
 
-func (s *fakeTaskStore) Claim(_ context.Context, id string, owner string) (taskstore.Task, error) {
-	s.claimOwner = owner
-	task := testTask(id, "Add task manager", taskstore.StatusInProgress)
-	task.Owner = owner
+func (s *fakeTaskStore) Claim(_ context.Context, req taskstore.ClaimRequest) (taskstore.Task, error) {
+	s.claimReq = req
+	task := testTask(req.TaskID, "Add task manager", taskstore.StatusInProgress)
+	task.Owner = req.Owner
+	if req.Lease > 0 {
+		task.LeaseExpiresAt = task.UpdatedAt.Add(req.Lease)
+	}
 	return task, nil
 }
 
-func (s *fakeTaskStore) Release(_ context.Context, id string) (taskstore.Task, error) {
-	s.releaseID = id
-	return testTask(id, "Add task manager", taskstore.StatusReady), nil
+func (s *fakeTaskStore) Release(_ context.Context, req taskstore.ReleaseRequest) (taskstore.Task, error) {
+	s.releaseReq = req
+	return testTask(req.TaskID, "Add task manager", taskstore.StatusReady), nil
 }
 
 func (s *fakeTaskStore) Progress(context.Context) (taskstore.Progress, error) {

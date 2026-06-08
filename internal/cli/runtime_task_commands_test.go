@@ -165,11 +165,11 @@ func (s *runTaskStore) Block(context.Context, string, string) (taskstore.Task, e
 	return taskstore.Task{}, errors.New("not implemented")
 }
 
-func (s *runTaskStore) Claim(context.Context, string, string) (taskstore.Task, error) {
+func (s *runTaskStore) Claim(context.Context, taskstore.ClaimRequest) (taskstore.Task, error) {
 	return taskstore.Task{}, errors.New("not implemented")
 }
 
-func (s *runTaskStore) Release(context.Context, string) (taskstore.Task, error) {
+func (s *runTaskStore) Release(context.Context, taskstore.ReleaseRequest) (taskstore.Task, error) {
 	return taskstore.Task{}, errors.New("not implemented")
 }
 

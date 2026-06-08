@@ -387,7 +387,7 @@ func renderZshCompletion(commandName string) string {
 	out.WriteString("\t\t\tif (( CURRENT == 3 )); then\n")
 	out.WriteString("\t\t\t\t_describe -t tasks-commands 'tasks command' tasks_commands\n")
 	out.WriteString("\t\t\telse\n")
-	out.WriteString("\t\t\t\t_values 'tasks option' '--workspace[workspace name]' '-w[workspace name]' '--priority[task priority]' '--phase[task phase]' '--description[task description]' '--status[task status]' '--reason[blocked reason]'\n")
+	out.WriteString("\t\t\t\t_values 'tasks option' '--workspace[workspace name]' '-w[workspace name]' '--priority[task priority]' '--phase[task phase]' '--description[task description]' '--status[task status]' '--reason[blocked reason]' '--owner[task owner]' '--lease[claim lease duration]'\n")
 	out.WriteString("\t\t\tfi\n")
 	out.WriteString("\t\t\t;;\n")
 	out.WriteString("\t\tprogress)\n")

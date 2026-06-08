@@ -136,7 +136,11 @@ func (a *App) tasksClaim(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := store.Claim(ctx, opts.taskID, opts.owner)
+	task, err := store.Claim(ctx, taskstore.ClaimRequest{
+		TaskID: opts.taskID,
+		Owner:  opts.owner,
+		Lease:  opts.lease,
+	})
 	if err != nil {
 		return err
 	}
@@ -145,15 +149,15 @@ func (a *App) tasksClaim(ctx context.Context, args []string) error {
 }
 
 func (a *App) tasksRelease(ctx context.Context, args []string) error {
-	workspace, taskID, err := parseTaskIDArgs(args, "adp tasks release [--workspace <name>] <task-id>")
+	opts, err := parseTasksReleaseArgs(args)
 	if err != nil {
 		return err
 	}
-	store, _, err := a.loadTaskStore(ctx, workspace)
+	store, _, err := a.loadTaskStore(ctx, opts.workspace)
 	if err != nil {
 		return err
 	}
-	task, err := store.Release(ctx, taskID)
+	task, err := store.Release(ctx, taskstore.ReleaseRequest{TaskID: opts.taskID, Owner: opts.owner})
 	if err != nil {
 		return err
 	}
@@ -260,6 +264,8 @@ func (a *App) printTask(task taskstore.Task) {
 	fmt.Fprintf(a.stdout, "priority: %s\n", valueOrDash(task.Priority))
 	fmt.Fprintf(a.stdout, "phase: %s\n", valueOrDash(task.Phase))
 	fmt.Fprintf(a.stdout, "owner: %s\n", valueOrDash(task.Owner))
+	fmt.Fprintf(a.stdout, "claimed_at: %s\n", formatEventTime(task.ClaimedAt))
+	fmt.Fprintf(a.stdout, "lease_expires_at: %s\n", formatEventTime(task.LeaseExpiresAt))
 	fmt.Fprintf(a.stdout, "description: %s\n", valueOrDash(task.Description))
 	fmt.Fprintf(a.stdout, "blocked_reason: %s\n", valueOrDash(task.BlockedReason))
 	fmt.Fprintf(a.stdout, "created_at: %s\n", formatEventTime(task.CreatedAt))

@@ -23,8 +23,9 @@ const (
 )
 
 var (
-	ErrPhaseNotFound = errors.New("phase not found")
-	phaseStatuses    = []PhaseStatus{PhaseStatusPlanned, PhaseStatusActive, PhaseStatusAccepted, PhaseStatusCommitted, PhaseStatusPushed}
+	ErrPhaseNotFound          = errors.New("phase not found")
+	ErrPhaseInvalidTransition = errors.New("invalid phase transition")
+	phaseStatuses             = []PhaseStatus{PhaseStatusPlanned, PhaseStatusActive, PhaseStatusAccepted, PhaseStatusCommitted, PhaseStatusPushed}
 )
 
 type Phase struct {
@@ -109,27 +110,34 @@ func (s *Store) AddPhase(ctx context.Context, req PhaseAddRequest) (Phase, error
 	if title == "" {
 		return Phase{}, errors.New("phase title is required")
 	}
-	data, err := s.loadPhases(ctx)
+	var phase Phase
+	err := s.withPlanningLock(ctx, func() error {
+		data, err := s.loadPhases(ctx)
+		if err != nil {
+			return err
+		}
+		if _, ok := findPhase(data.Phases, id); ok {
+			return fmt.Errorf("phase already exists: %s", id)
+		}
+		now := s.now()
+		phase = Phase{
+			ID:        id,
+			Title:     title,
+			Status:    PhaseStatusPlanned,
+			Goal:      strings.TrimSpace(req.Goal),
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		data.Phases = append(data.Phases, phase)
+		if err := s.savePhases(ctx, data); err != nil {
+			return err
+		}
+		return s.appendPhaseEvent(ctx, now, "phase_created", phase, progressEvent{Title: phase.Title})
+	})
 	if err != nil {
 		return Phase{}, err
 	}
-	if _, ok := findPhase(data.Phases, id); ok {
-		return Phase{}, fmt.Errorf("phase already exists: %s", id)
-	}
-	now := s.now()
-	phase := Phase{
-		ID:        id,
-		Title:     title,
-		Status:    PhaseStatusPlanned,
-		Goal:      strings.TrimSpace(req.Goal),
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	data.Phases = append(data.Phases, phase)
-	if err := s.savePhases(ctx, data); err != nil {
-		return Phase{}, err
-	}
-	return phase, s.appendPhaseEvent(ctx, now, "phase_created", phase, progressEvent{Title: phase.Title})
+	return phase, nil
 }
 
 func (s *Store) ListPhases(ctx context.Context) ([]Phase, error) {
@@ -155,10 +163,41 @@ func (s *Store) GetPhase(ctx context.Context, id string) (Phase, error) {
 }
 
 func (s *Store) StartPhase(ctx context.Context, id string) (Phase, error) {
-	return s.updatePhase(ctx, id, func(phase *Phase, now time.Time) progressEvent {
-		phase.Status = PhaseStatusActive
-		return progressEvent{}
-	}, "phase_started")
+	if err := ctx.Err(); err != nil {
+		return Phase{}, err
+	}
+	id = strings.TrimSpace(id)
+	var phase Phase
+	err := s.withPlanningLock(ctx, func() error {
+		data, err := s.loadPhases(ctx)
+		if err != nil {
+			return err
+		}
+		now := s.now()
+		for i := range data.Phases {
+			if data.Phases[i].ID != id {
+				continue
+			}
+			if data.Phases[i].Status != PhaseStatusPlanned && data.Phases[i].Status != PhaseStatusActive {
+				return fmt.Errorf("%w: phase %s with status %s cannot be started", ErrPhaseInvalidTransition, id, data.Phases[i].Status)
+			}
+			if blocker, ok := openPhase(data.Phases, id); ok {
+				return fmt.Errorf("%w: phase %s must be pushed before phase %s can start", ErrPhaseInvalidTransition, blocker.ID, id)
+			}
+			data.Phases[i].Status = PhaseStatusActive
+			data.Phases[i].UpdatedAt = now
+			phase = data.Phases[i]
+			if err := s.savePhases(ctx, data); err != nil {
+				return err
+			}
+			return s.appendPhaseEvent(ctx, now, "phase_started", phase, progressEvent{})
+		}
+		return fmt.Errorf("%w: %s", ErrPhaseNotFound, id)
+	})
+	if err != nil {
+		return Phase{}, err
+	}
+	return phase, nil
 }
 
 func (s *Store) AcceptPhase(ctx context.Context, req PhaseAcceptRequest) (Phase, error) {
@@ -166,16 +205,26 @@ func (s *Store) AcceptPhase(ctx context.Context, req PhaseAcceptRequest) (Phase,
 	if result == "" {
 		result = "passed"
 	}
+	if result != "passed" && result != "failed" {
+		return Phase{}, errors.New("acceptance result must be passed or failed")
+	}
 	commands := cleanStrings(req.Commands)
-	return s.updatePhase(ctx, req.ID, func(phase *Phase, now time.Time) progressEvent {
-		phase.Status = PhaseStatusAccepted
+	return s.updatePhase(ctx, req.ID, func(phase *Phase, now time.Time) (progressEvent, error) {
+		if phase.Status == PhaseStatusCommitted || phase.Status == PhaseStatusPushed {
+			return progressEvent{}, fmt.Errorf("%w: phase %s with status %s cannot record new acceptance evidence", ErrPhaseInvalidTransition, phase.ID, phase.Status)
+		}
+		if result == "passed" {
+			phase.Status = PhaseStatusAccepted
+		} else {
+			phase.Status = PhaseStatusActive
+		}
 		phase.Acceptance = AcceptanceRecord{
 			Commands: commands,
 			Result:   result,
 			Notes:    strings.TrimSpace(req.Notes),
 			At:       now,
 		}
-		return progressEvent{Result: result, Commands: commands, Notes: phase.Acceptance.Notes}
+		return progressEvent{Result: result, Commands: commands, Notes: phase.Acceptance.Notes}, nil
 	}, "phase_accepted")
 }
 
@@ -184,14 +233,20 @@ func (s *Store) RecordPhaseCommit(ctx context.Context, req PhaseCommitRequest) (
 	if hash == "" {
 		return Phase{}, errors.New("commit hash is required")
 	}
-	return s.updatePhase(ctx, req.ID, func(phase *Phase, now time.Time) progressEvent {
+	return s.updatePhase(ctx, req.ID, func(phase *Phase, now time.Time) (progressEvent, error) {
+		if phase.Status != PhaseStatusAccepted && phase.Status != PhaseStatusCommitted {
+			return progressEvent{}, fmt.Errorf("%w: phase %s must be accepted before commit evidence is recorded", ErrPhaseInvalidTransition, phase.ID)
+		}
+		if phase.Acceptance.Result != "passed" {
+			return progressEvent{}, fmt.Errorf("%w: phase %s acceptance result is %q, want passed", ErrPhaseInvalidTransition, phase.ID, phase.Acceptance.Result)
+		}
 		phase.Status = PhaseStatusCommitted
 		phase.Commit = CommitRecord{
 			Hash:    hash,
 			Message: strings.TrimSpace(req.Message),
 			At:      now,
 		}
-		return progressEvent{Commit: hash, Message: phase.Commit.Message}
+		return progressEvent{Commit: hash, Message: phase.Commit.Message}, nil
 	}, "phase_committed")
 }
 
@@ -208,41 +263,64 @@ func (s *Store) RecordPhasePush(ctx context.Context, req PhasePushRequest) (Phas
 	if result == "" {
 		result = "pushed"
 	}
-	return s.updatePhase(ctx, req.ID, func(phase *Phase, now time.Time) progressEvent {
-		phase.Status = PhaseStatusPushed
+	if result != "pushed" && result != "failed" {
+		return Phase{}, errors.New("push result must be pushed or failed")
+	}
+	return s.updatePhase(ctx, req.ID, func(phase *Phase, now time.Time) (progressEvent, error) {
+		if phase.Status != PhaseStatusCommitted && phase.Status != PhaseStatusPushed {
+			return progressEvent{}, fmt.Errorf("%w: phase %s must have commit evidence before push evidence is recorded", ErrPhaseInvalidTransition, phase.ID)
+		}
+		if strings.TrimSpace(phase.Commit.Hash) == "" {
+			return progressEvent{}, fmt.Errorf("%w: phase %s commit hash is required before push evidence", ErrPhaseInvalidTransition, phase.ID)
+		}
+		if pushSucceeded(result) {
+			phase.Status = PhaseStatusPushed
+		} else if phase.Status != PhaseStatusPushed {
+			phase.Status = PhaseStatusCommitted
+		}
 		phase.Push = PushRecord{
 			Remote: remote,
 			Branch: branch,
 			Result: result,
 			At:     now,
 		}
-		return progressEvent{Remote: remote, Branch: branch, Result: result}
+		return progressEvent{Remote: remote, Branch: branch, Result: result}, nil
 	}, "phase_pushed")
 }
 
-func (s *Store) updatePhase(ctx context.Context, id string, mutate func(*Phase, time.Time) progressEvent, eventType string) (Phase, error) {
+func (s *Store) updatePhase(ctx context.Context, id string, mutate func(*Phase, time.Time) (progressEvent, error), eventType string) (Phase, error) {
 	if err := ctx.Err(); err != nil {
 		return Phase{}, err
 	}
-	data, err := s.loadPhases(ctx)
+	var phase Phase
+	err := s.withPlanningLock(ctx, func() error {
+		data, err := s.loadPhases(ctx)
+		if err != nil {
+			return err
+		}
+		id = strings.TrimSpace(id)
+		now := s.now()
+		for i := range data.Phases {
+			if data.Phases[i].ID != id {
+				continue
+			}
+			event, err := mutate(&data.Phases[i], now)
+			if err != nil {
+				return err
+			}
+			data.Phases[i].UpdatedAt = now
+			phase = data.Phases[i]
+			if err := s.savePhases(ctx, data); err != nil {
+				return err
+			}
+			return s.appendPhaseEvent(ctx, now, eventType, phase, event)
+		}
+		return fmt.Errorf("%w: %s", ErrPhaseNotFound, id)
+	})
 	if err != nil {
 		return Phase{}, err
 	}
-	id = strings.TrimSpace(id)
-	now := s.now()
-	for i := range data.Phases {
-		if data.Phases[i].ID != id {
-			continue
-		}
-		event := mutate(&data.Phases[i], now)
-		data.Phases[i].UpdatedAt = now
-		phase := data.Phases[i]
-		if err := s.savePhases(ctx, data); err != nil {
-			return Phase{}, err
-		}
-		return phase, s.appendPhaseEvent(ctx, now, eventType, phase, event)
-	}
-	return Phase{}, fmt.Errorf("%w: %s", ErrPhaseNotFound, id)
+	return phase, nil
 }
 
 func (s *Store) loadPhases(ctx context.Context) (phaseFile, error) {
@@ -320,6 +398,18 @@ func findPhase(phases []Phase, id string) (Phase, bool) {
 	return Phase{}, false
 }
 
+func openPhase(phases []Phase, exceptID string) (Phase, bool) {
+	for _, phase := range phases {
+		if phase.ID == exceptID {
+			continue
+		}
+		if phase.Status == PhaseStatusActive || phase.Status == PhaseStatusAccepted || phase.Status == PhaseStatusCommitted {
+			return phase, true
+		}
+	}
+	return Phase{}, false
+}
+
 func isValidPhaseStatus(status PhaseStatus) bool {
 	for _, known := range phaseStatuses {
 		if status == known {
@@ -347,4 +437,31 @@ func cleanStrings(values []string) []string {
 		}
 	}
 	return cleaned
+}
+
+func (s *Store) validateTaskPhase(ctx context.Context, phase string) error {
+	phase = strings.TrimSpace(phase)
+	if phase == "" || phase == defaultTaskPhase {
+		return nil
+	}
+	file, err := s.loadPhases(ctx)
+	if err != nil {
+		return err
+	}
+	if len(file.Phases) == 0 {
+		return nil
+	}
+	if _, ok := findPhase(file.Phases, phase); !ok {
+		return fmt.Errorf("%w: task phase %s", ErrPhaseNotFound, phase)
+	}
+	return nil
+}
+
+func pushSucceeded(result string) bool {
+	switch strings.ToLower(strings.TrimSpace(result)) {
+	case "pushed", "passed", "success", "succeeded":
+		return true
+	default:
+		return false
+	}
 }

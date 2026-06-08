@@ -94,6 +94,7 @@ fake Codex 和 Claude 命令会断言：
 - `.claude/`。
 - `planning/`。
 - `tasks.yaml`。
+- `phases.yaml`。
 - `progress.jsonl`。
 
 ## Task Manager 与 Phase Gate 验收
@@ -124,11 +125,12 @@ fake Codex 和 Claude 命令会断言：
 对于 Phase Gate MVP 行为，该 smoke 只能验证实际存在的 CLI。它应覆盖：
 
 - 可以创建、列出、查看 phase records，并推进其生命周期。
-- task claim 和 release 命令一次只记录一个 owner。
+- task claim 和 release 命令一次只记录一个 owner，并覆盖 `--lease` 和带 owner 校验的 release。
 - acceptance 或 gate records 能记录命令、结果、时间戳和失败证据。
 - commit records 能记录已验收阶段的 commit hash 和 branch。
 - push records 能记录 remote、branch 和 push 结果；commit 证据保存在同一个 phase record 中。
 - happy path 会在阶段被视为 pushed 前记录 acceptance、commit 和 push 证据。
+- lifecycle guard 检查会拒绝未通过验收前记录 commit、拒绝未记录 commit evidence 前记录 push，并在 phase ledger 存在时拒绝把任务分配到未知 phase。
 - 所有状态都留在临时 `$ADP_HOME` 下，不污染项目根目录。
 
 不要向 smoke 脚本添加 placeholder commands、TODO assertions、Web UI 检查、SaaS 检查、cloud sync 检查或 hosted orchestration 检查。
@@ -172,7 +174,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 通过 `adp doctor` 提供全局 workspace diagnostics。
 - 通过 `adp version` 输出本地 build identity。
 - 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
-- 在对应 CLI 存在后验收 Phase Gate MVP evidence。
+- 验收 Phase Gate ledger evidence、claim lease、release owner check 和 lifecycle ordering。
 - 清理 ADP-owned runtime。
 - 防止项目根目录污染。
 

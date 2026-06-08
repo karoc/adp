@@ -41,7 +41,7 @@ For normal development handoff, a phase slice is not complete when implementatio
 - The commit has been pushed to the configured remote branch.
 - The next phase has not been mixed into the same commit.
 
-P3 Phase Gate MVP work turns this discipline into local records under `$ADP_HOME/workspaces/<workspace>/planning`. Release evidence should distinguish implemented CLI coverage from any stricter lifecycle guard that is still planned.
+P3 phase gate work turns this discipline into local records under `$ADP_HOME/workspaces/<workspace>/planning`. Release evidence should include both the positive lifecycle path and the local guards that reject out-of-order phase evidence.
 
 ## Gate Coverage
 
@@ -75,7 +75,7 @@ The example workspace smoke verifies:
 
 `scripts/task-manager-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/show/update/claim/release/block/done`, `adp phase add/list/show/start/accept/commit/push`, and `adp progress`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning` instead of the real project root.
 
-The phase gate smoke path covers phase records, task claim ownership, acceptance or gate records, commit records, push records, and project-root pollution protection. Do not add placeholder assertions for commands that do not exist yet.
+The phase gate smoke path covers phase records, task claim ownership with leases, owner-checked release, task phase validation, acceptance or gate records, commit records, push records, lifecycle ordering guards, and project-root pollution protection. Go tests additionally cover planning lock behavior, claim conflicts, lease expiry, terminal-task claim rejection, failed acceptance, and failed push semantics. Do not add placeholder assertions for commands that do not exist yet.
 
 `go test -count=1 ./...` verifies the full Go test suite without using cached test results.
 
@@ -129,7 +129,7 @@ If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examp
 
 If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, and project-root pollution checks.
 
-If a phase-gate smoke step fails, inspect phase record storage, task owner state, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root.
+If a phase-gate smoke step fails, inspect phase record storage, task owner state, claim lease parsing, owner-checked release, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root.
 
 If `go test -count=1 ./...` fails, narrow the failing package and rerun that package before making changes:
 

@@ -94,6 +94,7 @@ The script also asserts that the real project root is not polluted with ADP runt
 - `.claude/`.
 - `planning/`.
 - `tasks.yaml`.
+- `phases.yaml`.
 - `progress.jsonl`.
 
 ## Task Manager And Phase Gate Acceptance
@@ -124,11 +125,12 @@ The current smoke covers the implemented task CLI:
 For Phase Gate MVP behavior, this smoke should verify only CLI that actually exists. It should cover:
 
 - Phase records can be created, listed, inspected, and advanced through their lifecycle.
-- Task claim and release commands record one owner at a time.
+- Task claim and release commands record one owner at a time, including `--lease` and owner-checked release.
 - Acceptance or gate records capture command, result, timestamp, and failure evidence.
 - Commit records capture the accepted phase commit hash and branch.
 - Push records capture the remote, branch, and push result, while commit evidence is stored on the same phase record.
 - The happy path records acceptance, commit, and push evidence before a phase is treated as pushed.
+- Lifecycle guard checks reject commit before passed acceptance, reject push before commit evidence, and reject tasks assigned to unknown phases when a phase ledger exists.
 - All state remains under temporary `$ADP_HOME`, with no project-root pollution.
 
 Do not add placeholder commands, TODO assertions, Web UI checks, SaaS checks, cloud sync checks, or hosted orchestration checks to smoke scripts.
@@ -172,7 +174,7 @@ This smoke validates ADP's runtime responsibilities:
 - Global workspace diagnostics through `adp doctor`.
 - Local build identity output through `adp version`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
-- Phase Gate MVP evidence once the matching CLI exists.
+- Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.
 - ADP-owned runtime pruning.
 - Protection against project-root pollution.
 
