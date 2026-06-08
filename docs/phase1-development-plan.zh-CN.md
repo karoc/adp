@@ -823,6 +823,7 @@ symlink overlay 与真实项目已有配置冲突：
 - P9 只属于维护和 hardening。它保留了项目根目录污染防护和只读 progress report 行为的覆盖。
 - P10 task next-work endpoint 已完成：`adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 提供紧凑的只读本地 task-selection snapshot，供终端用户和子 Agent 使用。它把既有 progress-report next-work 数据收窄为专用命令，但不领取任务、不修改状态、不运行 Git、不启动 Agent、不写入 project-root 文件、不同步 hosted tracker，也不创建另一份 planning store。
 - P11 task command test split 已完成：在任何手写代码文件触及 700 行限制前，把持续增长的 task command 测试覆盖拆分到更聚焦的测试文件中。P11 只属于维护和 hardening：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
-- P3/P4/P5/P6/P7/P8/P9/P10/P11 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git execution、automatic task closure、provider-native conversation resume、远程 issue-service 集成、project-root report export 或 hosted tracker semantics。
+- P12 CLI parse helper split 已完成：在 `internal/cli/parse.go` helper 面触及 700 行代码文件限制前，将持续增长的解析辅助逻辑拆分到更聚焦的文件中。P12 只属于维护和 hardening：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
+- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git execution、automatic task closure、provider-native conversation resume、远程 issue-service 集成、project-root report export 或 hosted tracker semantics。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。
