@@ -87,6 +87,43 @@ export ADP_HOME="$(mktemp -d)"
 export ADP_RUNTIME_DIR="$(mktemp -d)"
 ```
 
+## 隔离首次运行演练
+
+使用上面任一安装路径后，可以在仓库根目录运行一次不依赖 provider 的演练。如果你构建的是 `./bin/adp`，而不是把 `adp` 安装到 `PATH`，则把下面命令块中的 `adp` 替换为 `./bin/adp`。
+
+```bash
+ADP_REHEARSAL_ROOT="$(mktemp -d)"
+export ADP_HOME="${ADP_REHEARSAL_ROOT}/adp-home"
+export ADP_RUNTIME_DIR="${ADP_REHEARSAL_ROOT}/runtime"
+mkdir -p "${ADP_REHEARSAL_ROOT}/project" "${ADP_REHEARSAL_ROOT}/fake-bin"
+printf 'module example.com/adp-rehearsal\n' > "${ADP_REHEARSAL_ROOT}/project/go.mod"
+printf 'package main\n' > "${ADP_REHEARSAL_ROOT}/project/main.go"
+
+cat > "${ADP_REHEARSAL_ROOT}/fake-bin/codex" <<'SH'
+#!/usr/bin/env sh
+printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
+test -n "${ADP_SESSION_ID:-}"
+test -n "${ADP_RUNTIME_ROOT:-}"
+test "$(pwd)" = "$ADP_RUNTIME_ROOT"
+test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
+SH
+chmod +x "${ADP_REHEARSAL_ROOT}/fake-bin/codex"
+export PATH="${ADP_REHEARSAL_ROOT}/fake-bin:${PATH}"
+
+adp init
+adp workspace add game-a "${ADP_REHEARSAL_ROOT}/project"
+adp workspace doctor game-a
+TASK_ID=$(adp tasks add --workspace game-a --priority high --phase local-smoke "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+adp run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
+adp events list --workspace game-a --task "$TASK_ID" --limit 2
+adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
+adp plan doctor --workspace game-a --format json
+adp progress --workspace game-a --format json
+find "${ADP_REHEARSAL_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name planning \)
+```
+
+最后一条 `find` 命令应该没有输出。这次演练会把 ADP 状态放在临时 `$ADP_HOME` 下，把 runtime overlay 放在临时 `$ADP_RUNTIME_DIR` 下，使用 fake local `codex`，不会运行 Git，也不会把 planning 或 report export 写入 project root。
+
 ## Bootstrap Workspace
 
 初始化 ADP：
@@ -126,7 +163,7 @@ adp run codex --workspace game-a -- <agent-args>
 adp run claude --workspace game-a -- <agent-args>
 ```
 
-`--` 之后的参数会透传给外部 agent 命令。ADP 不定义某个外部 CLI 支持或安全的具体参数；这需要在 operator 机器上用已安装的 CLI 验证。
+这些命令需要已安装并完成认证的对应外部 CLI。`--` 之后的参数会透传给外部 agent 命令。ADP 不定义某个外部 CLI 支持或安全的具体参数；这需要在 operator 机器上用已安装的 CLI 验证。如果要做不依赖 provider 的验证，使用上面的隔离演练或 `scripts/example-workspace-smoke.sh`。
 
 查看本地历史：
 
@@ -156,7 +193,7 @@ adp runtime prune --older-than 24h
 scripts/check-all.sh
 ```
 
-聚合 gate 包含 fake-agent runtime smoke、广覆盖 runtime audit smoke、release readiness smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go tests、vet、文件行数检查、双语文档检查和 diff 空白检查。
+聚合 gate 包含 fake-agent runtime smoke、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go tests、vet、文件行数检查、双语文档检查和 diff 空白检查。
 
 如需定向 bootstrap 检查，运行：
 
@@ -164,9 +201,10 @@ scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
+scripts/release-rehearsal-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
 ```
 
-runtime smoke 会把当前 `cmd/adp` 二进制构建到临时目录，并使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时 project root。它可以在不安装真实 Codex 或 Claude CLI 的情况下验证 runtime overlay 路径。runtime audit smoke 会扩大覆盖面，验证 CLI help、JSON output、task/phase/plan/progress flow、session、restore planning、completion values 和 local-first runtime 边界。release readiness smoke 会验证 release gate invariant，例如 phase commit 和 push 只记录 evidence 而不会执行 Git。example workspace smoke 会把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，并验证发布的示例仍能针对临时项目完成 bootstrap。plan intake smoke 会验证结构化本地 planning 输入可以只读 preview，并且只能显式 apply 到 `$ADP_HOME`，不会产生 project-root、runtime、Git 或 partial-write 副作用。
+runtime smoke 会把当前 `cmd/adp` 二进制构建到临时目录，并使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时 project root。它可以在不安装真实 Codex 或 Claude CLI 的情况下验证 runtime overlay 路径。runtime audit smoke 会扩大覆盖面，验证 CLI help、JSON output、task/phase/plan/progress flow、session、restore planning、completion values 和 local-first runtime 边界。release readiness smoke 会验证 release gate invariant，例如 phase commit 和 push 只记录 evidence 而不会执行 Git。release rehearsal smoke 会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。example workspace smoke 会把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，并验证发布的示例仍能针对临时项目完成 bootstrap。plan intake smoke 会验证结构化本地 planning 输入可以只读 preview，并且只能显式 apply 到 `$ADP_HOME`，不会产生 project-root、runtime、Git 或 partial-write 副作用。

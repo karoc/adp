@@ -26,6 +26,7 @@ scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
+scripts/release-rehearsal-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -98,6 +99,15 @@ release readiness smoke 验证：
 - Phase evidence 命令不会执行 `git commit`、`git push`、`git pull`、`git fetch`、`git clone` 或 `git ls-remote` 等 Git 副作用命令。
 - 默认 release path 保持本地、确定性，并且不依赖真实 Codex 或 Claude CLI。
 
+`scripts/release-rehearsal-smoke.sh` 会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，使用隔离的 `ADP_HOME` 和 `ADP_RUNTIME_DIR` bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。
+
+release rehearsal smoke 验证：
+
+- 文档化的 preview build/version 路径可以生成 binary，并且 `adp version` 会报告注入的 version、commit 和 build date。
+- 在临时干净 workspace 中，复制后的文档和代码文件仍满足双语文档和 700 行门禁。
+- 发布的 example workspace 可以针对临时项目完成 bootstrap，不依赖开发机本地 `$ADP_HOME` 或 runtime state。
+- Release phase evidence 保持本地记录，不执行 Git 副作用命令。
+
 `scripts/example-workspace-smoke.sh` 会构建当前 `cmd/adp` 二进制，把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，把复制后的 `project.root` 改写为临时项目，并用该示例验证 `adp init`、`workspace doctor`、`workspace show`、`env --cd`、fake Codex runtime launch、本地 events、sessions 和 restore-plan 输出。
 
 example workspace smoke 验证：
@@ -169,11 +179,19 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 `scripts/release-readiness-smoke.sh` 失败，优先检查 phase evidence recording 和 fake Git tripwire。Phase accept、commit 和 push 命令只能记录本地 evidence；不能通过让 ADP 自动执行 Git 或削弱 phase lifecycle gate 来修复失败。
 
+如果 `scripts/release-rehearsal-smoke.sh` 失败，优先检查临时干净 workspace 步骤：复制后的非 ignored 文件、release ldflags、`adp version`、复制后的 example workspace bootstrap、隔离 `ADP_HOME` 和 `ADP_RUNTIME_DIR`，以及 fake Git tripwire 输出。不能通过依赖机器本地 ADP state、真实 provider CLI、网络访问、automatic Git execution 或 project-root export 来修复 rehearsal 失败。
+
 如果可选真实 CLI 检查因为缺少 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1` 而失败，应把它视为 operator 尚未显式启用该检查。如果命令不可用，应在该机器上安装外部 CLI，或通过 `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 指向预期命令路径。如果 `--version` 和 `--help` 都失败，应归类为外部 CLI、wrapper 或 operator 环境的 evidence gap，除非确定性 fake gate 或 ADP launch contract 也同时失败。
+
+如果 operator drill 在 smoke 脚本启动前就因为 workspace 无法解析而失败，要区分两个常见情况。`workspace not found: <name>` 表示请求的名称不在本地 registry 中；运行 `adp workspace list`，用 `adp workspace add <name> <project-root>` 添加 workspace，或通过 `--workspace` / `ADP_WORKSPACE` 传入已注册名称。`workspace is required; pass --workspace, set ADP_WORKSPACE, or run from inside a registered project` 表示没有选择 workspace。不要用在项目根目录创建 planning 文件的方式绕过它。
+
+如果手工 task-bound run 被误写成 `adp run --task <task-id>`，应改为 `adp run <agent> --workspace <name> --task <task-id> -- <agent-args>`。`--task` 是 agent 名称之后的 run option，不能替代必需的 agent 参数。
 
 如果 task-bound runtime smoke 步骤失败，优先检查 workspace 解析、`$ADP_HOME/workspaces/<workspace>/planning` 下的 task lookup、`AGENTS.md` 或 `CLAUDE.md` 中生成的 task context、runtime 环境变量中的 `ADP_TASK_ID`，以及 events 和 sessions 中的 task ID。
 
-如果 diagnostics 步骤失败，对比 `adp doctor [workspace]` 和 `adp workspace doctor [name]`，并检查本地 workspace registry、project root、`ADP_RUNTIME_DIR`、引用的 prompt、memory、MCP、profile 文件和 agent command 设置。对于 runtime parent 失败，确认 `ADP_RUNTIME_DIR` 不是文件系统根目录、不等于 project root、不位于 project root 内部、不是包含 project root 的父目录、不是文件，也不是非预期的 symlink。对于 agent command/profile warning，检查 enabled agent 是否有 adapter default、`command` 是否包含应该放到 `--` 之后或移入 wrapper 的 inline arguments、路径型 command wrapper 是否存在且可执行、非 default profile 文件是否缺失或重复，以及 profile 文件是否通过 symlink 或 path traversal 逃逸出 workspace。
+如果 diagnostics 步骤失败，对比 `adp doctor [workspace]` 和 `adp workspace doctor [name]`，并检查本地 workspace registry、project root、`ADP_RUNTIME_DIR`、引用的 prompt、memory、MCP、profile 文件和 agent command 设置。对于 runtime parent 失败，确认 `ADP_RUNTIME_DIR` 不是文件系统根目录、不等于 project root、不位于 project root 内部、不是包含 project root 的父目录、不是文件，也不是非预期的 symlink。runtime parent error 应让 doctor 返回退出码 `2`，并在 runtime 创建前阻止 `adp env <workspace> --cd`、`adp enter <workspace>` 或 `adp run <agent> --workspace <name>`。应修复目录边界，而不是强行继续运行。
+
+对于 agent command/profile warning，检查 enabled agent 是否有 adapter default、`command` 是否包含应该放到 `--` 之后或移入 wrapper 的 inline arguments、路径型 command wrapper 是否存在且可执行、非 default profile 文件是否缺失或重复，以及 profile 文件是否通过 symlink 或 path traversal 逃逸出 workspace。缺失的非 default profile 在 doctor 输出中是 warning-only；通过在 `$ADP_HOME/workspaces/<workspace>/profiles/` 下添加一个匹配文件，或改用 `default` / 已存在 profile 来修复。只有 release evidence 依赖该 profile 时，才应把它视为 release blocker。
 
 如果 completion value 步骤失败，检查本地 adapter registry、`$ADP_HOME/workspaces` 下的本地 workspace 名称发现、`ADP_WORKSPACE` 或 `--workspace` 解析、workspace agent profiles，以及 workspace `profiles/` 目录下的文件。completion value endpoints 必须保持只读和本地化。
 
@@ -185,7 +203,7 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 `scripts/plan-intake-smoke.sh` 失败，优先检查 plan input 解析、plan preview 只读行为、显式 apply 写入 `$ADP_HOME`、planning batch rollback 行为、JSON 输出结构，以及 project-root/runtime/Git 副作用检查。
 
-如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、claim lease parsing、owner-checked release、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录来修复失败。
+如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、claim lease parsing、owner-checked release、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期的 operator error 包括未通过 acceptance 就记录 commit evidence、未记录 commit evidence 就记录 push evidence，以及 earlier phase 没有 pushed evidence 就启动 later phase。修复路径是在真实 validation、commit 和 push 已经在 ADP 外部完成后，显式按 `adp phase accept`、`adp phase commit`、`adp phase push` 的顺序记录。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录或让 ADP 自动执行 Git 来修复失败。
 
 如果 `go test -count=1 ./...` 失败，先定位失败 package，并在修改前单独重跑该 package：
 

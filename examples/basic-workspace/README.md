@@ -24,11 +24,14 @@ Before using it, replace `workspace.name` with your workspace name and replace `
 
 ## Use It Locally
 
-Set `ADP_HOME` if you do not already have one:
+For a clean rehearsal, keep ADP state and runtime overlays in temporary directories:
 
 ```bash
-export ADP_HOME="${HOME}/.adp"
+export ADP_HOME="$(mktemp -d)"
+export ADP_RUNTIME_DIR="$(mktemp -d)"
 ```
+
+For durable daily use, set `ADP_HOME` to a persistent directory such as `${HOME}/.adp` instead.
 
 Copy the example into a workspace directory:
 
@@ -53,6 +56,8 @@ project:
   root: /absolute/path/to/your/project
 ```
 
+The project root can be a temporary local project for rehearsal. Create a temporary directory, add a minimal `go.mod`, then use that absolute path as `project.root`.
+
 Run diagnostics before launching an agent:
 
 ```bash
@@ -65,12 +70,16 @@ Print shell environment hints for the workspace:
 adp env my-workspace --cd
 ```
 
-Run agents through ADP so they start inside the isolated runtime workspace:
+## Optional Real Agent Runs
+
+Run real agents through ADP only after the corresponding external CLI is installed and authenticated:
 
 ```bash
 adp run codex --workspace my-workspace
 adp run claude --workspace my-workspace
 ```
+
+For provider-free validation, use the fake-agent workflow below instead.
 
 Inspect local runtime history:
 
@@ -99,7 +108,7 @@ cat > "${fake_bin}/codex" <<'SH'
 printf 'fake codex received: %s\n' "$*"
 SH
 chmod +x "${fake_bin}/codex"
-PATH="${fake_bin}:${PATH}"
+export PATH="${fake_bin}:${PATH}"
 ```
 
 Create a task, bind one runtime session to it, and pass local agent arguments after `--`:

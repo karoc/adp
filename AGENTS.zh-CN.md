@@ -50,6 +50,7 @@ scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
+scripts/release-rehearsal-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -131,6 +132,14 @@ scripts/release-readiness-smoke.sh
 ```
 
 它验证不依赖真实 provider CLI 的 release gate invariant，包括 phase commit 和 push 命令只记录证据、不会执行 Git。
+
+release rehearsal smoke 路径是：
+
+```bash
+scripts/release-rehearsal-smoke.sh
+```
+
+它会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，使用隔离 ADP 路径 bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。
 
 可复制 example workspace smoke 路径是：
 

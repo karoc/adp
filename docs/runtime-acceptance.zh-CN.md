@@ -119,6 +119,31 @@ fake Codex 和 Claude 命令会断言：
 - `phases.yaml`。
 - `progress.jsonl`。
 
+## Operator Failure Drill 预期
+
+审计 operator guidance 时，release candidate rehearsal 应在一次性的 `ADP_HOME`、`ADP_RUNTIME_DIR` 和项目根目录中包含 negative drills。这些 drill 不是新产品范围；它们验证现有 CLI error 和 diagnostics 能把 operator 指向已记录的本地修复路径。
+
+可用的 drill 命令包括：
+
+```bash
+adp workspace show missing
+adp run codex -- --probe
+adp doctor <workspace>
+adp env <workspace> --cd
+adp run --task <task-id>
+adp phase commit --workspace <workspace> <phase-id> --hash <commit-hash>
+adp phase push --workspace <workspace> <phase-id> --remote origin --branch main --result pushed
+adp phase start --workspace <workspace> <later-phase-id>
+```
+
+预期结果：
+
+- 缺失的 workspace 名称应以 `workspace not found: <name>` 失败。缺失 workspace 选择应以 `workspace is required; pass --workspace, set ADP_WORKSPACE, or run from inside a registered project` 失败。operator 应使用 `adp workspace list`、`adp workspace add <name> <project-root>`、`--workspace`、`ADP_WORKSPACE`，或进入已注册项目目录来选择 workspace。
+- 不安全的 runtime parent 应从 `adp doctor <workspace>` 或 `adp workspace doctor <workspace>` 产生 error-level diagnostics，并在创建 runtime 前阻止 `adp env <workspace> --cd`、`adp enter <workspace>` 和 `adp run <agent> --workspace <name>`。`ADP_RUNTIME_DIR` 必须位于项目树外部，也不能包含项目树。
+- 缺失的非 default profile 应表现为 warning-only diagnostics，例如 `workspace.agent.profile.missing`。operator 应在 `$ADP_HOME/workspaces/<workspace>/profiles/` 下添加一个匹配文件，选择 `default`，或选择已存在 profile。除非 release evidence 依赖该 profile，否则该 warning 不是默认 release gate failure。
+- 命令 typo `adp run --task <task-id>` 应失败，因为 `adp run` 要求 run options 前必须有 agent 名称。受支持的形态是 `adp run <agent> --workspace <name> --task <task-id> -- <agent-args>`。
+- Phase ordering guards 应拒绝未通过 acceptance 前的 `adp phase commit`、未记录 commit evidence 前的 `adp phase push`，以及 earlier phase 没有 pushed evidence 时对 later phase 执行 `adp phase start`。ADP 只在本地记录 phase evidence；它不能自动运行 Git，也不能从命令输出推断 acceptance。
+
 ## Task Manager 与 Phase Gate 验收
 
 `scripts/task-manager-smoke.sh` 是 workspace-local task、next-work、phase 和 progress report runtime 行为的公开入口和聚焦验收路径。它使用确定性的临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR` 和临时项目根目录。它不能依赖仓库本地用户状态、全局 `adp` 二进制、provider CLI、网络访问，或写入真实项目根目录的文件。
@@ -237,6 +262,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 通过 `adp version` 输出本地 build identity。
 - 通过 `scripts/runtime-audit-smoke.sh` 验收广覆盖 runtime audit。
 - 通过 `scripts/release-readiness-smoke.sh` 验收 release readiness。
+- 通过 `scripts/release-rehearsal-smoke.sh` 验收 release rehearsal。
 - 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
 - 通过 `scripts/plan-intake-smoke.sh` 验收本地 plan intake preview/apply。
 - 验收 Phase Gate ledger evidence、claim lease、release owner check 和 lifecycle ordering。
@@ -256,6 +282,7 @@ scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
+scripts/release-rehearsal-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh

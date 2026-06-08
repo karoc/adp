@@ -51,37 +51,56 @@ Implemented Phase 1 foundations:
 
 For installation and bootstrap details, see [docs/install.md](docs/install.md).
 
+The smoke-first path below uses temporary ADP state, a temporary project root, and a fake `codex` command. It does not require real Codex or Claude CLIs, does not run Git, and should leave the real project root free of ADP-generated files.
+
 ```bash
-go run ./cmd/adp init
-go run ./cmd/adp workspace add game-a /srv/game-a
-go run ./cmd/adp workspace list
-go run ./cmd/adp workspace show game-a
-go run ./cmd/adp workspace doctor game-a
-go run ./cmd/adp doctor game-a
-go run ./cmd/adp env game-a --cd
-go run ./cmd/adp shell-hook --shell bash
-go run ./cmd/adp completion --shell bash
-go run ./cmd/adp completion values agents
-go run ./cmd/adp completion values workspaces
-go run ./cmd/adp completion values profiles --workspace game-a
-go run ./cmd/adp version
-TASK_ID=$(go run ./cmd/adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
-go run ./cmd/adp run codex --workspace game-a --task "$TASK_ID"
-cd /srv/game-a && go run /path/to/adp/cmd/adp run claude
-go run ./cmd/adp run claude --workspace game-a
-go run ./cmd/adp events list --workspace game-a --task "$TASK_ID"
-go run ./cmd/adp tasks list --workspace game-a --format json
-go run ./cmd/adp tasks next --workspace game-a --limit 0 --format json
-go run ./cmd/adp plan doctor --workspace game-a --format json
-go run ./cmd/adp progress --workspace game-a --format json
-go run ./cmd/adp progress report --workspace game-a
-go run ./cmd/adp progress report --workspace game-a --format json
-go run ./cmd/adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
-go run ./cmd/adp sessions show <session-id>
-go run ./cmd/adp sessions restore-plan <session-id>
-go run ./cmd/adp runtime prune --older-than 24h --dry-run
-go run ./cmd/adp enter game-a
+mkdir -p bin
+go build -o ./bin/adp ./cmd/adp
+
+ADP_SMOKE_ROOT="$(mktemp -d)"
+export ADP_HOME="${ADP_SMOKE_ROOT}/adp-home"
+export ADP_RUNTIME_DIR="${ADP_SMOKE_ROOT}/runtime"
+mkdir -p "${ADP_SMOKE_ROOT}/project" "${ADP_SMOKE_ROOT}/fake-bin"
+printf 'module example.com/adp-smoke\n' > "${ADP_SMOKE_ROOT}/project/go.mod"
+printf 'package main\n' > "${ADP_SMOKE_ROOT}/project/main.go"
+
+cat > "${ADP_SMOKE_ROOT}/fake-bin/codex" <<'SH'
+#!/usr/bin/env sh
+printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
+test -n "${ADP_SESSION_ID:-}"
+test -n "${ADP_RUNTIME_ROOT:-}"
+test "$(pwd)" = "$ADP_RUNTIME_ROOT"
+test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
+SH
+chmod +x "${ADP_SMOKE_ROOT}/fake-bin/codex"
+export PATH="${ADP_SMOKE_ROOT}/fake-bin:${PATH}"
+
+./bin/adp init
+./bin/adp workspace add game-a "${ADP_SMOKE_ROOT}/project"
+./bin/adp workspace list
+./bin/adp workspace show game-a
+./bin/adp workspace doctor game-a
+./bin/adp doctor game-a
+./bin/adp env game-a --cd
+./bin/adp completion values agents
+./bin/adp completion values workspaces
+./bin/adp completion values profiles --workspace game-a
+./bin/adp version
+TASK_ID=$(./bin/adp tasks add --workspace game-a --priority high --phase local-smoke "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+./bin/adp run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
+./bin/adp events list --workspace game-a --task "$TASK_ID" --limit 2
+./bin/adp tasks list --workspace game-a --format json
+./bin/adp tasks next --workspace game-a --limit 0 --format json
+./bin/adp plan doctor --workspace game-a --format json
+./bin/adp progress --workspace game-a --format json
+./bin/adp progress report --workspace game-a
+./bin/adp progress report --workspace game-a --format json
+./bin/adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
+./bin/adp runtime prune --older-than 24h --dry-run
+find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name planning \)
 ```
+
+The final `find` command should print nothing. For durable local use, set `ADP_HOME` to a persistent directory such as `~/.adp`; for real agent runs, install and authenticate the external provider CLI first, then use `adp run codex ...` or `adp run claude ...`.
 
 Useful environment variables:
 
@@ -151,7 +170,7 @@ Use the aggregate validation gate before handoff:
 scripts/check-all.sh
 ```
 
-The aggregate gate covers deterministic runtime smoke, broad runtime audit smoke, release readiness smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file length limits, bilingual documentation pairing and command-reference sync, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
+The aggregate gate covers deterministic runtime smoke, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file length limits, bilingual documentation pairing and command-reference sync, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
 
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 

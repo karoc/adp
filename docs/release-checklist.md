@@ -26,6 +26,7 @@ The required gate runs these checks in order:
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
+scripts/release-rehearsal-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -98,6 +99,15 @@ The release readiness smoke verifies:
 - Phase evidence commands do not execute Git side-effect commands such as `git commit`, `git push`, `git pull`, `git fetch`, `git clone`, or `git ls-remote`.
 - The default release path remains local, deterministic, and independent of real Codex or Claude CLIs.
 
+`scripts/release-rehearsal-smoke.sh` copies the current non-ignored repository files into a temporary clean workspace, builds a preview binary with release ldflags, verifies copied docs and file limits, bootstraps the copied example workspace with isolated `ADP_HOME` and `ADP_RUNTIME_DIR`, and checks phase evidence recording with a fake Git tripwire.
+
+The release rehearsal smoke verifies:
+
+- The documented preview build/version path can produce a binary whose `adp version` reports injected version, commit, and build date values.
+- The copied docs and code files still satisfy the bilingual-document and 700-line gates from a clean temporary workspace.
+- The published example workspace can bootstrap against a temporary project without relying on the developer's local `$ADP_HOME` or runtime state.
+- Release phase evidence remains local and does not execute Git side-effect commands.
+
 `scripts/example-workspace-smoke.sh` builds the current `cmd/adp` binary, copies `examples/basic-workspace` into a temporary `ADP_HOME`, rewrites the copied `project.root` to a temporary project, and verifies `adp init`, `workspace doctor`, `workspace show`, `env --cd`, fake Codex runtime launch, local events, sessions, and restore-plan output against that copied example.
 
 The example workspace smoke verifies:
@@ -169,11 +179,19 @@ If `scripts/runtime-audit-smoke.sh` fails, inspect whether the documented runtim
 
 If `scripts/release-readiness-smoke.sh` fails, inspect phase evidence recording and the fake Git tripwire first. Phase accept, commit, and push commands must record local evidence only; failures should not be fixed by making ADP run Git automatically or by weakening the phase lifecycle gate.
 
+If `scripts/release-rehearsal-smoke.sh` fails, inspect the temporary clean workspace step first: copied non-ignored files, release ldflags, `adp version`, copied example workspace bootstrap, isolated `ADP_HOME` and `ADP_RUNTIME_DIR`, and fake Git tripwire output. Do not fix rehearsal failures by relying on machine-local ADP state, real provider CLIs, network access, automatic Git execution, or project-root exports.
+
 If an optional real CLI check fails because `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1` is missing, treat it as an intentionally unenabled operator check. If the command is unavailable, install the external CLI on that machine or set `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN` to the intended command path. If both `--version` and `--help` fail, classify it as an external CLI, wrapper, or operator-environment evidence gap unless the deterministic fake gate or ADP launch contract also fails.
+
+If an operator drill fails before a smoke script starts because the workspace cannot be resolved, distinguish the two common cases. `workspace not found: <name>` means the requested name is absent from the local registry; run `adp workspace list`, add the workspace with `adp workspace add <name> <project-root>`, or pass the registered name through `--workspace` or `ADP_WORKSPACE`. `workspace is required; pass --workspace, set ADP_WORKSPACE, or run from inside a registered project` means no workspace was selected. Do not create project-root planning files as a workaround.
+
+If a manual task-bound run was typed as `adp run --task <task-id>`, correct the command shape to `adp run <agent> --workspace <name> --task <task-id> -- <agent-args>`. `--task` is a run option after the agent name, not a replacement for the required agent argument.
 
 If a task-bound runtime smoke step fails, inspect workspace resolution, task lookup under `$ADP_HOME/workspaces/<workspace>/planning`, generated task context in `AGENTS.md` or `CLAUDE.md`, `ADP_TASK_ID` in the runtime environment, and task IDs in events and sessions.
 
-If a diagnostics step fails, compare `adp doctor [workspace]` with `adp workspace doctor [name]` and inspect the local workspace registry, project root, `ADP_RUNTIME_DIR`, referenced prompts, memory files, MCP files, profile files, and agent command settings. For runtime parent failures, confirm `ADP_RUNTIME_DIR` is not the filesystem root, not equal to the project root, not inside the project root, not a parent directory containing the project root, not a file, and not an unintended symlink. For agent command/profile warnings, check whether the enabled agent has an adapter default, whether `command` contains inline arguments that should be passed after `--` or moved into a wrapper, whether path-like command wrappers exist and are executable, whether non-default profile files are missing or duplicated, and whether profile files escape the workspace through symlinks or path traversal.
+If a diagnostics step fails, compare `adp doctor [workspace]` with `adp workspace doctor [name]` and inspect the local workspace registry, project root, `ADP_RUNTIME_DIR`, referenced prompts, memory files, MCP files, profile files, and agent command settings. For runtime parent failures, confirm `ADP_RUNTIME_DIR` is not the filesystem root, not equal to the project root, not inside the project root, not a parent directory containing the project root, not a file, and not an unintended symlink. A runtime parent error should return exit code `2` from doctor and should stop `adp env <workspace> --cd`, `adp enter <workspace>`, or `adp run <agent> --workspace <name>` before runtime creation. Fix the directory boundary instead of forcing the run.
+
+For agent command/profile warnings, check whether the enabled agent has an adapter default, whether `command` contains inline arguments that should be passed after `--` or moved into a wrapper, whether path-like command wrappers exist and are executable, whether non-default profile files are missing or duplicated, and whether profile files escape the workspace through symlinks or path traversal. A missing non-default profile is warning-only in doctor output; fix it by adding one matching file under `$ADP_HOME/workspaces/<workspace>/profiles/` or by selecting `default` or an existing profile. Treat it as release-blocking only when the release evidence depends on that profile.
 
 If a completion value step fails, inspect the local adapter registry, local workspace name discovery under `$ADP_HOME/workspaces`, `ADP_WORKSPACE` or `--workspace` resolution, workspace agent profiles, and files under the workspace `profiles/` directory. Completion value endpoints must stay read-only and local.
 
@@ -185,7 +203,7 @@ If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace re
 
 If `scripts/plan-intake-smoke.sh` fails, inspect plan input parsing, plan preview read-only behavior, explicit apply writes under `$ADP_HOME`, planning batch rollback behavior, JSON output shape, and the project-root/runtime/Git side-effect checks.
 
-If a phase-gate smoke step fails, inspect phase record storage, task owner state, claim lease parsing, owner-checked release, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root.
+If a phase-gate smoke step fails, inspect phase record storage, task owner state, claim lease parsing, owner-checked release, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. Expected operator errors include commit evidence before passed acceptance, push evidence before commit evidence, and starting a later phase before the earlier phase has pushed evidence. The repair path is the explicit sequence `adp phase accept`, `adp phase commit`, and `adp phase push` after real validation, commit, and push have happened outside ADP. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root or by making ADP run Git automatically.
 
 If `go test -count=1 ./...` fails, narrow the failing package and rerun that package before making changes:
 

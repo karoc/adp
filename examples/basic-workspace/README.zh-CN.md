@@ -24,11 +24,14 @@ project:
 
 ## 本地使用
 
-如果你还没有设置 `ADP_HOME`，可以先设置：
+如果要做干净演练，把 ADP 状态和 runtime overlay 都放在临时目录：
 
 ```bash
-export ADP_HOME="${HOME}/.adp"
+export ADP_HOME="$(mktemp -d)"
+export ADP_RUNTIME_DIR="$(mktemp -d)"
 ```
+
+如果是日常持久使用，可以把 `ADP_HOME` 设置为 `${HOME}/.adp` 这样的持久目录。
 
 把示例复制到工作区目录：
 
@@ -53,6 +56,8 @@ project:
   root: /absolute/path/to/your/project
 ```
 
+Project root 可以是用于演练的临时本地项目。创建一个临时目录，添加最小 `go.mod`，然后把该绝对路径填入 `project.root`。
+
 启动 Agent 前先运行诊断：
 
 ```bash
@@ -65,12 +70,16 @@ adp workspace doctor my-workspace
 adp env my-workspace --cd
 ```
 
-通过 ADP 运行 Agent，使其进入隔离的 runtime workspace：
+## 可选真实 Agent 运行
+
+只有在对应外部 CLI 已安装并完成认证后，才通过 ADP 运行真实 Agent：
 
 ```bash
 adp run codex --workspace my-workspace
 adp run claude --workspace my-workspace
 ```
+
+如果要做不依赖 provider 的验证，使用下面的 fake-agent workflow。
 
 查看本地运行历史：
 
@@ -99,7 +108,7 @@ cat > "${fake_bin}/codex" <<'SH'
 printf 'fake codex received: %s\n' "$*"
 SH
 chmod +x "${fake_bin}/codex"
-PATH="${fake_bin}:${PATH}"
+export PATH="${fake_bin}:${PATH}"
 ```
 
 创建 task，把一次 runtime session 绑定到它，并在 `--` 后传入本地 Agent 参数：

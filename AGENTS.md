@@ -50,6 +50,7 @@ If `scripts/check-all.sh` is unavailable while bootstrapping a change, run the u
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
+scripts/release-rehearsal-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -131,6 +132,14 @@ scripts/release-readiness-smoke.sh
 ```
 
 It verifies release-gate invariants that are not tied to a real provider CLI, including that phase commit and push commands record evidence without executing Git.
+
+The release rehearsal smoke path is:
+
+```bash
+scripts/release-rehearsal-smoke.sh
+```
+
+It copies the current non-ignored repository files into a temporary clean workspace, builds a preview binary with release ldflags, verifies copied docs and file limits, bootstraps the copied example workspace with isolated ADP paths, and checks phase evidence recording with a fake Git tripwire.
 
 The copyable example workspace smoke path is:
 

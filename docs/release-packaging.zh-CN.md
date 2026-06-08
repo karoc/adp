@@ -12,7 +12,7 @@ English: [release-packaging.md](release-packaging.md)
 scripts/check-all.sh
 ```
 
-该门禁覆盖 fake runtime acceptance、广覆盖 runtime audit smoke、release readiness smoke、example workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 whitespace 检查。CI 有意调用同一个脚本，避免 release evidence 被拆成本地路径和独立的 GitHub Actions 路径。
+该门禁覆盖 fake runtime acceptance、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、example workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 whitespace 检查。CI 有意调用同一个脚本，避免 release evidence 被拆成本地路径和独立的 GitHub Actions 路径。
 
 可选的真实 Codex 或 Claude CLI 检查只作为 operator evidence：
 
@@ -42,7 +42,9 @@ go build -trimpath -ldflags="$LDFLAGS" -o dist/adp ./cmd/adp
 dist/adp version
 ```
 
-这些 `-X` 值对应 `github.com/karoc/adp/internal/cli` 包中的变量。省略时，`adp version` 会回退到开发构建标识 `dev`；release artifact 应注入全部三个值，方便 operator 把 binary 关联到 Git commit 和构建时间。
+期望的 release 输出形态是 `adp 0.1.0-preview.1 commit <commit> built <utc-timestamp>`。这些 `-X` 值对应 `github.com/karoc/adp/internal/cli` 包中的变量。省略时，`adp version` 会回退到开发构建标识 `dev`；release artifact 应注入全部三个值，方便 operator 把 binary 关联到 Git commit 和构建时间。
+
+默认的 `COMMIT` 命令假设当前是 Git checkout。如果从没有 `.git` 的 source archive 构建，应在运行 build command 前显式设置 `COMMIT`。
 
 如果需要跨平台 preview artifact，应显式设置 `GOOS` 和 `GOARCH`，并使用带平台信息的名称：
 
@@ -59,6 +61,8 @@ GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="$LDFLAGS" -o dist/adp-win
 - `LICENSE`。
 - `COMMERCIAL.md`。
 - 一份简短 release note，记录 Git commit、目标平台和门禁证据。
+
+每个 package 都必须保留完整的 `LICENSE` 和 `COMMERCIAL.md`。ADP 在公共许可下以 source-available 形式提供给非商业学习、研究、评估和开源协作用途；任何商业使用都必须从版权持有人取得单独的付费授权。
 
 不要包含本地 `.envrc`、`mvp.md`、`$ADP_HOME`、`$ADP_RUNTIME_DIR`、runtime overlay、日志、task state、凭据或机器特定 shell startup files。
 

@@ -12,7 +12,7 @@ Run the same aggregate gate locally and in CI before preparing an artifact:
 scripts/check-all.sh
 ```
 
-The gate covers fake runtime acceptance, broad runtime audit smoke, release readiness smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file-line limits, bilingual documentation pairing, and whitespace checks. CI intentionally calls this same script so release evidence is not split between a local path and a separate GitHub Actions path.
+The gate covers fake runtime acceptance, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file-line limits, bilingual documentation pairing, and whitespace checks. CI intentionally calls this same script so release evidence is not split between a local path and a separate GitHub Actions path.
 
 Optional real Codex or Claude CLI checks remain operator evidence only:
 
@@ -42,7 +42,9 @@ go build -trimpath -ldflags="$LDFLAGS" -o dist/adp ./cmd/adp
 dist/adp version
 ```
 
-The `-X` values target package variables in `github.com/karoc/adp/internal/cli`. When they are omitted, `adp version` falls back to the development identity `dev`; release artifacts should inject all three values so operators can connect a binary to the Git commit and build timestamp.
+The expected release output shape is `adp 0.1.0-preview.1 commit <commit> built <utc-timestamp>`. The `-X` values target package variables in `github.com/karoc/adp/internal/cli`. When they are omitted, `adp version` falls back to the development identity `dev`; release artifacts should inject all three values so operators can connect a binary to the Git commit and build timestamp.
+
+The default `COMMIT` command assumes a Git checkout. If building from a source archive without `.git`, set `COMMIT` explicitly before running the build command.
 
 For cross-platform preview artifacts, set `GOOS` and `GOARCH` explicitly and use platform-specific names:
 
@@ -59,6 +61,8 @@ Each packaged archive should include:
 - `LICENSE`.
 - `COMMERCIAL.md`.
 - A short release note with the Git commit, target platform, and gate evidence.
+
+Keep `LICENSE` and `COMMERCIAL.md` intact in every package. ADP is source-available for noncommercial learning, research, evaluation, and open collaboration under the public license; commercial use requires separate paid authorization from the copyright holder.
 
 Do not include local `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, logs, task state, credentials, or machine-specific shell startup files.
 

@@ -119,6 +119,31 @@ The script also asserts that the real project root is not polluted with ADP runt
 - `phases.yaml`.
 - `progress.jsonl`.
 
+## Operator Failure Drill Expectations
+
+Release candidate rehearsal should include negative drills in throwaway `ADP_HOME`, `ADP_RUNTIME_DIR`, and project roots when operator guidance is being audited. These drills are not new product scope; they verify that existing CLI errors and diagnostics point to the documented local fixes.
+
+Useful drill commands include:
+
+```bash
+adp workspace show missing
+adp run codex -- --probe
+adp doctor <workspace>
+adp env <workspace> --cd
+adp run --task <task-id>
+adp phase commit --workspace <workspace> <phase-id> --hash <commit-hash>
+adp phase push --workspace <workspace> <phase-id> --remote origin --branch main --result pushed
+adp phase start --workspace <workspace> <later-phase-id>
+```
+
+Expected results:
+
+- Missing workspace names should fail with `workspace not found: <name>`. Missing workspace selection should fail with `workspace is required; pass --workspace, set ADP_WORKSPACE, or run from inside a registered project`. Operators should use `adp workspace list`, `adp workspace add <name> <project-root>`, `--workspace`, `ADP_WORKSPACE`, or a registered project directory to select the workspace.
+- Unsafe runtime parents should produce error-level diagnostics from `adp doctor <workspace>` or `adp workspace doctor <workspace>` and should stop `adp env <workspace> --cd`, `adp enter <workspace>`, and `adp run <agent> --workspace <name>` before runtime creation. `ADP_RUNTIME_DIR` must stay outside the project tree and must not contain the project tree.
+- Missing non-default profiles should appear as warning-only diagnostics such as `workspace.agent.profile.missing`. Operators should add one matching file under `$ADP_HOME/workspaces/<workspace>/profiles/`, select `default`, or select an existing profile. The warning is not a default release gate failure unless the release evidence depends on that profile.
+- The command typo `adp run --task <task-id>` should fail because `adp run` requires an agent name before run options. The supported shape is `adp run <agent> --workspace <name> --task <task-id> -- <agent-args>`.
+- Phase ordering guards should reject `adp phase commit` before passed acceptance, `adp phase push` before commit evidence, and `adp phase start` for a later phase before the earlier phase has pushed evidence. ADP records phase evidence locally; it must not run Git automatically or infer acceptance from command output.
+
 ## Task Manager And Phase Gate Acceptance
 
 `scripts/task-manager-smoke.sh` is the public entry point and focused acceptance path for workspace-local task, next-work, phase, and progress report runtime behavior. It uses a deterministic temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, and temporary project root. It must not depend on repository-local user state, global `adp` binaries, provider CLIs, network access, or files written into the real project root.
@@ -237,6 +262,7 @@ This smoke validates ADP's runtime responsibilities:
 - Local build identity output through `adp version`.
 - Broad runtime audit smoke through `scripts/runtime-audit-smoke.sh`.
 - Release readiness smoke through `scripts/release-readiness-smoke.sh`.
+- Release rehearsal smoke through `scripts/release-rehearsal-smoke.sh`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
 - Local plan intake preview/apply smoke through `scripts/plan-intake-smoke.sh`.
 - Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.
@@ -256,6 +282,7 @@ scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
+scripts/release-rehearsal-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh

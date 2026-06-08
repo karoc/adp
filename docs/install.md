@@ -87,6 +87,43 @@ export ADP_HOME="$(mktemp -d)"
 export ADP_RUNTIME_DIR="$(mktemp -d)"
 ```
 
+## Isolated First-Run Rehearsal
+
+After using one of the install paths above, run a provider-free rehearsal from the repository root. If you built `./bin/adp` instead of installing `adp` on `PATH`, replace `adp` with `./bin/adp` in this block.
+
+```bash
+ADP_REHEARSAL_ROOT="$(mktemp -d)"
+export ADP_HOME="${ADP_REHEARSAL_ROOT}/adp-home"
+export ADP_RUNTIME_DIR="${ADP_REHEARSAL_ROOT}/runtime"
+mkdir -p "${ADP_REHEARSAL_ROOT}/project" "${ADP_REHEARSAL_ROOT}/fake-bin"
+printf 'module example.com/adp-rehearsal\n' > "${ADP_REHEARSAL_ROOT}/project/go.mod"
+printf 'package main\n' > "${ADP_REHEARSAL_ROOT}/project/main.go"
+
+cat > "${ADP_REHEARSAL_ROOT}/fake-bin/codex" <<'SH'
+#!/usr/bin/env sh
+printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
+test -n "${ADP_SESSION_ID:-}"
+test -n "${ADP_RUNTIME_ROOT:-}"
+test "$(pwd)" = "$ADP_RUNTIME_ROOT"
+test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
+SH
+chmod +x "${ADP_REHEARSAL_ROOT}/fake-bin/codex"
+export PATH="${ADP_REHEARSAL_ROOT}/fake-bin:${PATH}"
+
+adp init
+adp workspace add game-a "${ADP_REHEARSAL_ROOT}/project"
+adp workspace doctor game-a
+TASK_ID=$(adp tasks add --workspace game-a --priority high --phase local-smoke "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+adp run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
+adp events list --workspace game-a --task "$TASK_ID" --limit 2
+adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
+adp plan doctor --workspace game-a --format json
+adp progress --workspace game-a --format json
+find "${ADP_REHEARSAL_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name planning \)
+```
+
+The final `find` command should print nothing. This rehearsal keeps ADP state under temporary `$ADP_HOME`, keeps runtime overlays under temporary `$ADP_RUNTIME_DIR`, uses a fake local `codex`, does not run Git, and does not write planning or report exports into the project root.
+
 ## Bootstrap A Workspace
 
 Initialize ADP:
@@ -126,7 +163,7 @@ adp run codex --workspace game-a -- <agent-args>
 adp run claude --workspace game-a -- <agent-args>
 ```
 
-Arguments after `--` are forwarded to the external agent command. ADP does not define which arguments are safe or supported by a particular external CLI; verify that with the installed CLI on the operator machine.
+These commands require the corresponding external CLI to be installed and authenticated. Arguments after `--` are forwarded to the external agent command. ADP does not define which arguments are safe or supported by a particular external CLI; verify that with the installed CLI on the operator machine. Use the isolated rehearsal above or `scripts/example-workspace-smoke.sh` for provider-free validation.
 
 Inspect local history:
 
@@ -156,7 +193,7 @@ From the repository root, run the aggregate validation gate:
 scripts/check-all.sh
 ```
 
-The aggregate gate includes fake-agent runtime smoke, broad runtime audit smoke, release readiness smoke, example workspace smoke, task manager smoke, plan intake smoke, Go tests, vet, file line checks, bilingual documentation checks, and diff whitespace checks.
+The aggregate gate includes fake-agent runtime smoke, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, example workspace smoke, task manager smoke, plan intake smoke, Go tests, vet, file line checks, bilingual documentation checks, and diff whitespace checks.
 
 For targeted bootstrap checks, run:
 
@@ -164,9 +201,10 @@ For targeted bootstrap checks, run:
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
+scripts/release-rehearsal-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
 ```
 
-The runtime smoke builds the current `cmd/adp` binary into a temporary directory and uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root. It verifies the runtime overlay path without requiring real Codex or Claude CLIs. The runtime audit smoke broadens coverage across CLI help, JSON outputs, task/phase/plan/progress flows, sessions, restore planning, completion values, and local-first runtime boundaries. The release readiness smoke verifies release-gate invariants such as phase commit and push evidence recording without Git execution. The example workspace smoke copies `examples/basic-workspace` into a temporary `ADP_HOME` and verifies that the published example still bootstraps against a temporary project. The plan intake smoke verifies that structured local planning input can be previewed read-only and explicitly applied to `$ADP_HOME` without project-root, runtime, Git, or partial-write side effects.
+The runtime smoke builds the current `cmd/adp` binary into a temporary directory and uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root. It verifies the runtime overlay path without requiring real Codex or Claude CLIs. The runtime audit smoke broadens coverage across CLI help, JSON outputs, task/phase/plan/progress flows, sessions, restore planning, completion values, and local-first runtime boundaries. The release readiness smoke verifies release-gate invariants such as phase commit and push evidence recording without Git execution. The release rehearsal smoke copies the current non-ignored repository files into a temporary clean workspace, builds a preview binary with release ldflags, verifies copied docs and file limits, bootstraps the copied example workspace, and checks phase evidence recording with a fake Git tripwire. The example workspace smoke copies `examples/basic-workspace` into a temporary `ADP_HOME` and verifies that the published example still bootstraps against a temporary project. The plan intake smoke verifies that structured local planning input can be previewed read-only and explicitly applied to `$ADP_HOME` without project-root, runtime, Git, or partial-write side effects.
