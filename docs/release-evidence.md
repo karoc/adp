@@ -20,8 +20,9 @@ Record these fields for every preview artifact:
 - `scripts/check-all.sh` result.
 - Install-from-artifact rehearsal result.
 - Source archive or no-`.git` rehearsal result when applicable.
-- Package contents manifest.
+- Package contents manifest, either as an attached manifest path or a concise inline excerpt.
 - Explicit list of excluded local state, credentials, logs, and machine-specific files.
+- Failure triage notes for any required check that failed before the final passing run.
 - Optional real Codex or Claude CLI evidence, only when it was intentionally enabled.
 - License notice: ADP is source-available for noncommercial learning, research, evaluation, and open collaboration; commercial use requires separate paid authorization.
 
@@ -86,6 +87,20 @@ find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.
 Record the files included in each package. A preview package should include one target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `docs/release-packaging.md`, `docs/release-packaging.zh-CN.md`, `docs/release-evidence.md`, `docs/release-evidence.zh-CN.md`, and a short release note.
 
 Also record that the package excludes `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, logs, task state, credentials, machine-specific shell startup files, and temporary release rehearsal directories.
+
+Use a sorted archive listing or equivalent package tool output as the manifest:
+
+```bash
+tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort
+```
+
+If the manifest includes local state or misses required notices, classify the release as failed until a rebuilt package passes manifest inspection and checksum verification.
+
+## Failed Or Deferred Checks
+
+Required gate failures must be recorded as failed operator evidence and must stop the release candidate. After a fix, rerun the failed command and the aggregate gate before replacing the failed note with passing evidence. Use [release-troubleshooting.md](release-troubleshooting.md) to classify build, checksum, manifest, install, source archive, and environment failures.
+
+Optional real Codex or Claude evidence can be recorded as `not run` when it was not intentionally enabled. A failed optional real CLI check blocks the release only when the release note claims real-agent compatibility beyond the deterministic fake gate.
 
 ## Optional Real CLI Evidence
 

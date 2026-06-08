@@ -20,8 +20,9 @@ English: [release-evidence.md](release-evidence.md)
 - `scripts/check-all.sh` result。
 - Install-from-artifact rehearsal result。
 - 适用时的 source archive 或 no-`.git` rehearsal result。
-- Package contents manifest。
+- Package contents manifest，可以是 attached manifest path，也可以是简短 inline excerpt。
 - 明确列出被排除的 local state、credentials、logs 和 machine-specific files。
+- 最终 passing run 之前任何 required check 失败时的 failure triage notes。
 - 可选真实 Codex 或 Claude CLI evidence，仅在有意启用时记录。
 - License notice：ADP 以 source-available 形式提供给非商业学习、研究、评估和开源协作用途；商业使用必须取得单独的付费授权。
 
@@ -86,6 +87,20 @@ find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.
 记录每个 package 包含的文件。Preview package 应包含一个目标平台的 `adp` binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、`docs/release-packaging.md`、`docs/release-packaging.zh-CN.md`、`docs/release-evidence.md`、`docs/release-evidence.zh-CN.md`，以及一份简短 release note。
 
 同时记录 package 排除了 `.envrc`、`mvp.md`、`$ADP_HOME`、`$ADP_RUNTIME_DIR`、runtime overlays、logs、task state、credentials、machine-specific shell startup files 和临时 release rehearsal directories。
+
+使用排序后的 archive listing 或等价 package tool output 作为 manifest：
+
+```bash
+tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort
+```
+
+如果 manifest 包含本地状态或缺少 required notices，应把该 release 归类为 failed，直到重新构建的 package 通过 manifest inspection 和 checksum verification。
+
+## 失败或延期检查
+
+required gate failures 必须记录为 failed operator evidence，并且必须停止该 release candidate。修复后，应先重新运行失败 command 和 aggregate gate，再把失败记录替换为 passing evidence。使用 [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md) 对 build、checksum、manifest、install、source archive 和 environment failures 进行分类。
+
+如果真实 Codex 或 Claude evidence 没有被有意启用，可以记录为 `not run`。只有当 release note 声明了 deterministic fake gate 之外的 real-agent compatibility 时，失败的 optional real CLI check 才会阻塞 release。
 
 ## 可选真实 CLI Evidence
 

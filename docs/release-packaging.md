@@ -12,7 +12,7 @@ Run the same aggregate gate locally and in CI before preparing an artifact:
 scripts/check-all.sh
 ```
 
-The gate covers fake runtime acceptance, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file-line limits, bilingual documentation pairing, and whitespace checks. CI intentionally calls this same script so release evidence is not split between a local path and a separate GitHub Actions path.
+The gate covers fake runtime acceptance, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, release artifact smoke, release operator drill smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file-line limits, bilingual documentation pairing, and whitespace checks. CI intentionally calls this same script so release evidence is not split between a local path and a separate GitHub Actions path.
 
 Optional real Codex or Claude CLI checks remain operator evidence only:
 
@@ -22,6 +22,20 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
 They do not replace the aggregate gate and do not prove provider credentials, model access, quota, network reliability, or interactive session quality.
+
+## Operator Drill
+
+Use this sequence for preview release rehearsals:
+
+1. Start from a clean Git checkout and record `git status --short --branch` and the commit hash. If a source archive without `.git` will also be published or used for builds, record the archive origin and set `COMMIT` explicitly before the no-`.git` build rehearsal.
+2. Run `scripts/check-all.sh` from the clean checkout used to produce the artifacts or source archive. If an archive is missing test scripts or Go module files, rebuild it from that clean checkout instead of filling gaps from machine-local files.
+3. Build the target-platform artifact with explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values.
+4. Generate and verify the SHA-256 checksum for the artifact that will be packaged.
+5. Assemble the package from a clean staging directory, then record a sorted package manifest before publishing.
+6. Install at least one packaged binary into a temporary directory on `PATH` and run the provider-free first-run rehearsal from that installed path.
+7. Record release evidence only after the gate, checksum verification, package manifest inspection, install rehearsal, and source archive or no-`.git` rehearsal have passed.
+
+If any required step fails, stop the release candidate, keep the failed command and output in the operator notes, and use [release-troubleshooting.md](release-troubleshooting.md). Do not repair a release failure by adding hosted orchestration, Web UI, cloud sync, automatic Git execution, provider-native resume, project-root planning exports, or default real Codex/Claude requirements.
 
 ## Build Artifacts
 
@@ -100,6 +114,14 @@ Keep `LICENSE` and `COMMERCIAL.md` intact in every package. ADP is source-availa
 
 Do not include local `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, logs, task state, credentials, machine-specific shell startup files, or temporary release rehearsal directories.
 
+Record a package manifest before publishing, for example:
+
+```bash
+tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort > adp-0.1.0-preview.1-linux-amd64.manifest
+```
+
+Inspect the manifest before release. A manifest mismatch is a packaging failure, not a reason to weaken repository ignores or include local operator state.
+
 ## Preview Scope
 
 Early preview packages are local CLI artifacts. Users should install the binary somewhere on `PATH`, run `adp init`, register local workspaces, and keep agent configuration under `$ADP_HOME`.
@@ -128,4 +150,5 @@ Before publishing a preview, record the evidence described in [release-evidence.
 - `scripts/check-all.sh` result.
 - Install-from-artifact rehearsal result.
 - Source archive or no-`.git` rehearsal result when applicable.
+- Package manifest path or inline manifest excerpt.
 - Any optional real CLI evidence that was intentionally collected.

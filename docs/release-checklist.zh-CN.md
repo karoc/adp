@@ -6,7 +6,7 @@ English: [release-checklist.md](release-checklist.md)
 
 发布门禁验证 ADP 自身的 runtime、CLI、workspace、diagnostics、文档和仓库卫生。它不会把发布验证扩展为 hosted service 检查、Web UI 检查、SaaS deployment 检查或远程 provider certification 流程。
 
-early preview artifact 布局和 CLI 构建命令见 [release-packaging.zh-CN.md](release-packaging.zh-CN.md)。
+early preview artifact 布局和 CLI 构建命令见 [release-packaging.zh-CN.md](release-packaging.zh-CN.md)。operator failure triage 见 [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)。相邻工具范围校准见 [comparable-tools.zh-CN.md](comparable-tools.zh-CN.md)。
 
 ## 必跑门禁
 
@@ -27,6 +27,8 @@ scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
+scripts/release-artifact-smoke.sh
+scripts/release-operator-drill-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -37,9 +39,9 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
-## Release Package 内容
+## 发布包内容
 
-发布 preview artifact 前，应先检查 package 内容。Package 应包含目标平台的 `adp` binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`，以及记录 commit、version、target platform、gate result 和 checksum 的 release evidence note 或 release note。
+发布 preview artifact 前，应先检查 package 内容。Package 应包含目标平台的 `adp` binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、`docs/release-packaging.md`、`docs/release-packaging.zh-CN.md`、`docs/release-evidence.md`、`docs/release-evidence.zh-CN.md`，以及记录 commit、version、target platform、gate result 和 checksum 的 release evidence note 或 release note。
 
 Package 必须保留 PolyForm Noncommercial 和 source-available 定位。非商业再分发必须保留许可证文本、必要声明，以及对 ADP 和版权持有人的署名。任何商业使用都必须取得单独付费授权；不得把 preview package 描述成已经授予商业权利。
 
@@ -116,6 +118,26 @@ release rehearsal smoke 验证：
 - 发布的 example workspace 可以针对临时项目完成 bootstrap，不依赖开发机本地 `$ADP_HOME` 或 runtime state。
 - Release phase evidence 保持本地记录，不执行 Git 副作用命令。
 
+`scripts/release-artifact-smoke.sh` 会在临时 source tree 中构建 preview artifacts，组装本地 release package，验证 checksums，检查 package include/exclude boundaries，把 packaged binary 安装到临时 `PATH`，运行 provider-free first-run rehearsal，并通过显式 commit 值验证没有 `.git` 的 source archive build。
+
+release artifact smoke 验证：
+
+- target-platform artifacts 可以使用 release ldflags 构建，并报告注入的 version、commit 和 build date。
+- package 包含 required binary、license、commercial notice、README、release packaging 和 release evidence 文件。
+- package 排除 `.envrc`、`mvp.md`、本地 ADP state、runtime overlays、logs、task state、credentials 和 machine-specific shell startup files。
+- packaged artifacts 在 install rehearsal 前已生成 checksums。
+- installed binary 从 package path 运行，使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、fake Codex、本地 events、本地 sessions，且不污染 project root。
+- 没有 `.git` 的 source archive builds 在 `COMMIT` 显式时仍然有效。
+
+`scripts/release-operator-drill-smoke.sh` 会把仓库复制到没有 `.git` 的 operator source tree，验证 release packaging docs 暴露 required source archive、build、checksum 和 install commands，从该 source tree syntax-check release scripts，使用显式 commit metadata 构建 release binary，验证 checksum，把 artifact 安装到临时 `PATH`，并用 fake Codex 和 fake Git tripwire 运行 provider-free handoff sequence。
+
+release operator drill smoke 验证：
+
+- release path 可以从干净 source form 运行，不依赖 repository `.git` metadata。
+- installed binary 可以初始化 ADP state、添加 workspace、启动 phase、添加 task、用 task context 运行 fake Codex，并在本地记录 accept、commit 和 push evidence。
+- operator handoff sequence 可以到达 `plan_next_phase`，且不执行 Git side-effect commands。
+- 临时 ADP state 和 runtime state 保持在真实 project root 之外。
+
 `scripts/example-workspace-smoke.sh` 会构建当前 `cmd/adp` 二进制，把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，把复制后的 `project.root` 改写为临时项目，并用该示例验证 `adp init`、`workspace doctor`、`workspace show`、`env --cd`、fake Codex runtime launch、本地 events、sessions 和 restore-plan 输出。
 
 example workspace smoke 验证：
@@ -181,6 +203,8 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 ## 失败定位
 
+本节是 default gate failures 的快速索引。operator drill flow、package manifest failures、checksum mismatches 和 source archive issues 见 [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)。
+
 如果 `scripts/runtime-smoke.sh --fake` 失败，优先查看报告的失败步骤。fake smoke 是 runtime overlay 行为、runtime manifest 字段、adapter 启动路径、本地 event history、session 聚合和项目根目录污染防护的最高信号检查。
 
 如果 `scripts/runtime-audit-smoke.sh` 失败，优先检查文档中的 runtime audit matrix 是否仍匹配当前 CLI surface。audit smoke 刻意保持 fake-runtime 和 local-only；不能通过增加真实 Codex/Claude 默认路径、hosted service、automatic Git execution、provider-native resume 或 project-root export 来修复失败。
@@ -188,6 +212,10 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 如果 `scripts/release-readiness-smoke.sh` 失败，优先检查 phase evidence recording 和 fake Git tripwire。Phase accept、commit 和 push 命令只能记录本地 evidence；不能通过让 ADP 自动执行 Git 或削弱 phase lifecycle gate 来修复失败。
 
 如果 `scripts/release-rehearsal-smoke.sh` 失败，优先检查临时干净 workspace 步骤：复制后的非 ignored 文件、release ldflags、`adp version`、复制后的 example workspace bootstrap、隔离 `ADP_HOME` 和 `ADP_RUNTIME_DIR`，以及 fake Git tripwire 输出。不能通过依赖机器本地 ADP state、真实 provider CLI、网络访问、automatic Git execution 或 project-root export 来修复 rehearsal 失败。
+
+如果 `scripts/release-artifact-smoke.sh` 失败，优先检查 package staging directory、artifact checksum、package manifest、install-from-artifact path、显式 source archive `COMMIT`、临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、fake Codex command 和 project-root pollution scan。不能通过从 source tree 直接运行、把本地状态放进 package、在 source archive 里依赖 `.git`，或把真实 Codex/Claude 检查变成默认门禁来修复 artifact failures。
+
+如果 `scripts/release-operator-drill-smoke.sh` 失败，优先检查 no-`.git` source copy、文档化 release commands、release script syntax checks、显式 commit build、checksum verification、installed `PATH` binary、fake Codex handoff sequence、phase evidence records、fake Git tripwire 和 project-root pollution scan。不能通过增加本机 source files、automatic Git execution 或 hosted orchestration 来修复 drill failures。
 
 如果可选真实 CLI 检查因为缺少 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1` 而失败，应把它视为 operator 尚未显式启用该检查。如果命令不可用，应在该机器上安装外部 CLI，或通过 `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 指向预期命令路径。如果 `--version` 和 `--help` 都失败，应归类为外部 CLI、wrapper 或 operator 环境的 evidence gap，除非确定性 fake gate 或 ADP launch contract 也同时失败。
 
@@ -237,6 +265,8 @@ go test -count=1 ./test/e2e
 - `.envrc` 和 `mvp.md` 仍被忽略且未提交。
 - 仓库本地 Git identity 没有配置 `user.name` 或 `user.email`。
 - Preview package 包含 `LICENSE`、`COMMERCIAL.md` 和 `COMMERCIAL.zh-CN.md`，保留必要声明和署名，并且不包含 `.envrc`、`mvp.md`、本地 ADP 状态、runtime overlay、日志、任务状态、凭据或机器特定 shell 配置。
+- 发布前已记录 sorted package manifest，并按 required include/exclude list 检查。
+- 至少一个 artifact 已从 package 安装到临时 `PATH` 并完成演练，且没有使用 source-tree binary。
 - license 文件和 PolyForm Noncommercial/source-available 定位没有被意外修改，公开文档也没有暗示非商业可访问性会授予商业权利。
 - packaged CLI artifact 使用 version、commit 和 build-date ldflags 构建，且 `adp version` 报告符合预期。
 - README 和 focused docs 描述当前 CLI surface，且没有 Web、UI、SaaS、cloud sync、hosted tracker、hosted orchestration、automatic Git execution、automatic task closure、provider-native resume 或 project-root report export 偏移。

@@ -6,7 +6,7 @@ This checklist defines the local release gate for ADP. It keeps release validati
 
 The release gate verifies ADP's own runtime, CLI, workspace, diagnostics, documentation, and repository hygiene. It does not turn release validation into a hosted service check, Web UI check, SaaS deployment check, or remote provider certification process.
 
-For early preview artifact layout and CLI build commands, see [release-packaging.md](release-packaging.md).
+For early preview artifact layout and CLI build commands, see [release-packaging.md](release-packaging.md). For operator failure triage, see [release-troubleshooting.md](release-troubleshooting.md). For adjacent-tool scope calibration, see [comparable-tools.md](comparable-tools.md).
 
 ## Required Gate
 
@@ -27,6 +27,8 @@ scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
+scripts/release-artifact-smoke.sh
+scripts/release-operator-drill-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -39,7 +41,7 @@ git diff --check
 
 ## Release Package Contents
 
-For preview artifacts, inspect the package before publishing it. The package should include the target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, and a release evidence note or release note that records the commit, version, target platform, gate result, and checksum.
+For preview artifacts, inspect the package before publishing it. The package should include the target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `docs/release-packaging.md`, `docs/release-packaging.zh-CN.md`, `docs/release-evidence.md`, `docs/release-evidence.zh-CN.md`, and a release evidence note or release note that records the commit, version, target platform, gate result, and checksum.
 
 The package must preserve the PolyForm Noncommercial and source-available positioning. Noncommercial redistribution must keep the license text, required notices, and attribution to ADP and the copyright holder. Any commercial use requires separate paid authorization; do not describe a preview package as granting commercial rights.
 
@@ -116,6 +118,26 @@ The release rehearsal smoke verifies:
 - The published example workspace can bootstrap against a temporary project without relying on the developer's local `$ADP_HOME` or runtime state.
 - Release phase evidence remains local and does not execute Git side-effect commands.
 
+`scripts/release-artifact-smoke.sh` builds preview artifacts in a temporary source tree, assembles a local release package, verifies checksums, checks package include/exclude boundaries, installs the packaged binary into a temporary `PATH`, runs a provider-free first-run rehearsal, and verifies a source archive build without `.git` by using an explicit commit value.
+
+The release artifact smoke verifies:
+
+- Target-platform artifacts can be built with release ldflags and report the injected version, commit, and build date.
+- The package includes the required binary, license, commercial notice, README, release packaging, and release evidence files.
+- The package excludes `.envrc`, `mvp.md`, local ADP state, runtime overlays, logs, task state, credentials, and machine-specific shell startup files.
+- Checksums are generated for packaged artifacts before install rehearsal.
+- The installed binary runs from the package path with temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, fake Codex, local events, local sessions, and no project-root pollution.
+- Source archive builds without `.git` remain valid when `COMMIT` is explicit.
+
+`scripts/release-operator-drill-smoke.sh` copies the repository into a no-`.git` operator source tree, verifies the release packaging docs expose the required source archive, build, checksum, and install commands, syntax-checks release scripts from that source tree, builds a release binary with explicit commit metadata, verifies the checksum, installs the artifact into a temporary `PATH`, and runs a provider-free handoff sequence with fake Codex and a fake Git tripwire.
+
+The release operator drill smoke verifies:
+
+- The release path works from a clean source form without relying on repository `.git` metadata.
+- The installed binary can initialize ADP state, add a workspace, start a phase, add a task, run fake Codex with task context, and record accept, commit, and push evidence locally.
+- The operator handoff sequence reaches `plan_next_phase` without executing Git side-effect commands.
+- Temporary ADP state and runtime state stay outside the real project root.
+
 `scripts/example-workspace-smoke.sh` builds the current `cmd/adp` binary, copies `examples/basic-workspace` into a temporary `ADP_HOME`, rewrites the copied `project.root` to a temporary project, and verifies `adp init`, `workspace doctor`, `workspace show`, `env --cd`, fake Codex runtime launch, local events, sessions, and restore-plan output against that copied example.
 
 The example workspace smoke verifies:
@@ -181,6 +203,8 @@ Manual interactive evidence is required for any release note that claims real-ag
 
 ## Failure Triage
 
+This section is a quick map for default gate failures. For the operator drill flow, package manifest failures, checksum mismatches, and source archive issues, use [release-troubleshooting.md](release-troubleshooting.md).
+
 If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The fake smoke is the highest-signal check for runtime overlay behavior, runtime manifest fields, adapter launch paths, local event history, session aggregation, and project-root pollution.
 
 If `scripts/runtime-audit-smoke.sh` fails, inspect whether the documented runtime audit matrix still matches the current CLI surface. The audit smoke is intentionally fake-runtime and local-only; failures should not be fixed by adding real Codex/Claude defaults, hosted services, automatic Git execution, provider-native resume, or project-root exports.
@@ -188,6 +212,10 @@ If `scripts/runtime-audit-smoke.sh` fails, inspect whether the documented runtim
 If `scripts/release-readiness-smoke.sh` fails, inspect phase evidence recording and the fake Git tripwire first. Phase accept, commit, and push commands must record local evidence only; failures should not be fixed by making ADP run Git automatically or by weakening the phase lifecycle gate.
 
 If `scripts/release-rehearsal-smoke.sh` fails, inspect the temporary clean workspace step first: copied non-ignored files, release ldflags, `adp version`, copied example workspace bootstrap, isolated `ADP_HOME` and `ADP_RUNTIME_DIR`, and fake Git tripwire output. Do not fix rehearsal failures by relying on machine-local ADP state, real provider CLIs, network access, automatic Git execution, or project-root exports.
+
+If `scripts/release-artifact-smoke.sh` fails, inspect the package staging directory, artifact checksum, package manifest, install-from-artifact path, explicit source archive `COMMIT`, temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, fake Codex command, and project-root pollution scan. Do not fix artifact failures by running from the source tree, including local state in the package, relying on `.git` inside a source archive, or turning real Codex/Claude checks into default gates.
+
+If `scripts/release-operator-drill-smoke.sh` fails, inspect the no-`.git` source copy, documented release commands, release script syntax checks, explicit commit build, checksum verification, installed `PATH` binary, fake Codex handoff sequence, phase evidence records, fake Git tripwire, and project-root pollution scan. Do not repair drill failures by adding machine-local source files, automatic Git execution, or hosted orchestration.
 
 If an optional real CLI check fails because `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1` is missing, treat it as an intentionally unenabled operator check. If the command is unavailable, install the external CLI on that machine or set `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN` to the intended command path. If both `--version` and `--help` fail, classify it as an external CLI, wrapper, or operator-environment evidence gap unless the deterministic fake gate or ADP launch contract also fails.
 
@@ -237,6 +265,8 @@ Before a release candidate is announced, an operator should also confirm:
 - `.envrc` and `mvp.md` remain ignored and uncommitted.
 - Repository-local Git identity is not configured with `user.name` or `user.email`.
 - Preview packages include `LICENSE`, `COMMERCIAL.md`, and `COMMERCIAL.zh-CN.md`, preserve required notices and attribution, and do not include `.envrc`, `mvp.md`, local ADP state, runtime overlays, logs, task state, credentials, or machine-specific shell configuration.
+- A sorted package manifest was recorded and checked against the required include/exclude list before publishing.
+- At least one artifact was installed from the package into a temporary `PATH` and exercised without using the source-tree binary.
 - The license files and PolyForm Noncommercial/source-available positioning were not changed unintentionally, and public docs do not imply that noncommercial availability grants commercial rights.
 - Packaged CLI artifacts were built with version, commit, and build-date ldflags and `adp version` reports the expected values.
 - README and focused docs describe the current CLI surface without Web, UI, SaaS, cloud sync, hosted tracker, hosted orchestration, automatic Git execution, automatic task closure, provider-native resume, or project-root report export drift.

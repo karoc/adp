@@ -12,7 +12,7 @@ English: [release-packaging.md](release-packaging.md)
 scripts/check-all.sh
 ```
 
-该门禁覆盖 fake runtime acceptance、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、example workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 whitespace 检查。CI 有意调用同一个脚本，避免 release evidence 被拆成本地路径和独立的 GitHub Actions 路径。
+该门禁覆盖 fake runtime acceptance、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、example workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 whitespace 检查。CI 有意调用同一个脚本，避免 release evidence 被拆成本地路径和独立的 GitHub Actions 路径。
 
 可选的真实 Codex 或 Claude CLI 检查只作为 operator evidence：
 
@@ -22,6 +22,20 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
 它们不能替代聚合门禁，也不能证明 provider 凭据、模型访问、额度、网络可靠性或交互式 session 质量。
+
+## Operator 演练
+
+preview release rehearsal 使用这条顺序：
+
+1. 从干净 Git checkout 开始，记录 `git status --short --branch` 和 commit hash。如果还要发布没有 `.git` 的 source archive 或用它构建，记录 archive 来源，并在 no-`.git` build rehearsal 前显式设置 `COMMIT`。
+2. 从用于生成 artifacts 或 source archive 的干净 checkout 运行 `scripts/check-all.sh`。如果 archive 缺少测试脚本或 Go module 文件，应从该干净 checkout 重新生成 archive，而不是用本机本地文件补洞。
+3. 使用明确的 `VERSION`、`COMMIT` 和 `BUILD_DATE` 构建目标平台 artifact。
+4. 为将要打包的 artifact 生成并验证 SHA-256 checksum。
+5. 从干净 staging directory 组装 package，然后在发布前记录排序后的 package manifest。
+6. 至少把一个 packaged binary 安装到临时 `PATH` 目录，并从该 installed path 运行 provider-free first-run rehearsal。
+7. 只有在 gate、checksum verification、package manifest inspection、install rehearsal，以及适用的 source archive 或 no-`.git` rehearsal 都通过后，才记录 release evidence。
+
+如果任何 required step 失败，应停止该 release candidate，在 operator notes 中保留失败 command 和 output，并使用 [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)。不能通过增加 hosted orchestration、Web UI、cloud sync、automatic Git execution、provider-native resume、project-root planning export，或默认真实 Codex/Claude 要求来修复 release failure。
 
 ## 构建 Artifact
 
@@ -100,6 +114,14 @@ adp version
 
 不要包含本地 `.envrc`、`mvp.md`、`$ADP_HOME`、`$ADP_RUNTIME_DIR`、runtime overlay、日志、task state、凭据、机器特定 shell startup files 或临时 release rehearsal directories。
 
+发布前记录 package manifest，例如：
+
+```bash
+tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort > adp-0.1.0-preview.1-linux-amd64.manifest
+```
+
+发布前检查该 manifest。manifest mismatch 是 packaging failure，不能通过削弱 repository ignores 或包含本地 operator state 来修复。
+
 ## Preview 范围
 
 early preview package 是本地 CLI artifact。用户应把 binary 安装到 `PATH` 中，运行 `adp init`，注册本地 workspace，并把 agent 配置保存在 `$ADP_HOME` 下。
@@ -128,4 +150,5 @@ package 不应声明：
 - `scripts/check-all.sh` 结果。
 - Install-from-artifact rehearsal 结果。
 - 适用时的 source archive 或 no-`.git` rehearsal 结果。
+- Package manifest path 或 inline manifest excerpt。
 - 任何有意收集的可选真实 CLI evidence。
