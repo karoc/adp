@@ -105,6 +105,7 @@ The repository includes `examples/basic-workspace` as a copyable local workspace
 Run the standard checks before handoff:
 
 ```bash
+scripts/runtime-smoke.sh --fake
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh
@@ -115,6 +116,8 @@ git diff --check
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 
 Documentation defaults to English and must include Simplified Chinese counterparts using `*.zh-CN.md`.
+
+Runtime smoke acceptance is documented in [docs/runtime-acceptance.md](docs/runtime-acceptance.md).
 
 ## License
 

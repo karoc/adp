@@ -105,6 +105,7 @@ Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 sym
 交付前运行标准检查：
 
 ```bash
+scripts/runtime-smoke.sh --fake
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh
@@ -115,6 +116,8 @@ git diff --check
 项目代码文件必须控制在 700 行以内。超过前按职责拆分。详见 [docs/engineering-standards.zh-CN.md](docs/engineering-standards.zh-CN.md)。
 
 文档默认语言为英文，并必须提供 `*.zh-CN.md` 简体中文对应文件。
+
+Runtime smoke 验收说明见 [docs/runtime-acceptance.zh-CN.md](docs/runtime-acceptance.zh-CN.md)。
 
 ## 许可证
 

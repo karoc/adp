@@ -89,27 +89,31 @@ func TestRegistryDiagnoseReportsSymlinkResourceEscapes(t *testing.T) {
 
 	externalDir := t.TempDir()
 	externalPrompt := filepath.Join(externalDir, "base.md")
+	externalMemory := filepath.Join(externalDir, "shared.md")
+	externalMCP := filepath.Join(externalDir, "config.yaml")
 	externalProfile := filepath.Join(externalDir, "senior.yaml")
 	writeFile(t, externalPrompt, "# external prompt\n")
+	writeFile(t, externalMemory, "# external memory\n")
+	writeFile(t, externalMCP, "enabled: true\nservers: []\n")
 	writeFile(t, externalProfile, "profile: external\n")
 
 	workspaceDir := layout.WorkspaceDir("game-a")
 	promptPath := filepath.Join(workspaceDir, "prompts", "base.md")
+	memoryPath := filepath.Join(workspaceDir, "memory", "shared.md")
+	mcpPath := filepath.Join(workspaceDir, "mcp", "config.yaml")
 	profilePath := filepath.Join(workspaceDir, "profiles", "senior.yaml")
 	removeFile(t, promptPath)
-	if err := os.Symlink(externalPrompt, promptPath); err != nil {
-		t.Skipf("symlink not available: %v", err)
-	}
-	if err := os.Symlink(externalProfile, profilePath); err != nil {
-		t.Skipf("symlink not available: %v", err)
-	}
+	removeFile(t, memoryPath)
+	removeFile(t, mcpPath)
+	symlinkOrSkip(t, externalPrompt, promptPath)
+	symlinkOrSkip(t, externalMemory, memoryPath)
+	symlinkOrSkip(t, externalMCP, mcpPath)
+	symlinkOrSkip(t, externalProfile, profilePath)
 
 	codex := cfg.Agents["codex"]
 	codex.Profile = "senior"
 	cfg.Agents["codex"] = codex
-	if err := schema.SaveConfig(layout.WorkspaceConfig("game-a"), cfg); err != nil {
-		t.Fatalf("SaveConfig() error = %v", err)
-	}
+	saveWorkspaceConfig(t, layout.WorkspaceConfig("game-a"), cfg)
 
 	report, err := registry.Diagnose(context.Background(), "game-a")
 	if err != nil {
@@ -117,7 +121,105 @@ func TestRegistryDiagnoseReportsSymlinkResourceEscapes(t *testing.T) {
 	}
 
 	assertDiagnostic(t, report, DiagnosticCodePromptOutsideWorkspace, DiagnosticLevelWarning, promptPath)
+	assertDiagnostic(t, report, DiagnosticCodeMemorySharedOutside, DiagnosticLevelWarning, memoryPath)
+	assertDiagnostic(t, report, DiagnosticCodeMCPConfigOutside, DiagnosticLevelWarning, mcpPath)
 	assertDiagnostic(t, report, DiagnosticCodeAgentProfileOutside, DiagnosticLevelWarning, profilePath)
+}
+
+func TestRegistryDiagnoseAllowsSymlinkResourcesInsideWorkspace(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+	projectRoot := createProject(t)
+
+	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
+	if err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+
+	workspaceDir := layout.WorkspaceDir("game-a")
+	internalPrompt := filepath.Join(workspaceDir, "prompts", "internal.md")
+	internalMemory := filepath.Join(workspaceDir, "memory", "internal.md")
+	internalMCP := filepath.Join(workspaceDir, "mcp", "internal.yaml")
+	internalProfile := filepath.Join(workspaceDir, "profiles", "senior-internal.yaml")
+	writeFile(t, internalPrompt, "# internal prompt\n")
+	writeFile(t, internalMemory, "# internal memory\n")
+	writeFile(t, internalMCP, "enabled: true\nservers: []\n")
+	writeFile(t, internalProfile, "profile: internal\n")
+
+	promptPath := filepath.Join(workspaceDir, "prompts", "base.md")
+	memoryPath := filepath.Join(workspaceDir, "memory", "shared.md")
+	mcpPath := filepath.Join(workspaceDir, "mcp", "config.yaml")
+	profilePath := filepath.Join(workspaceDir, "profiles", "senior.yaml")
+	removeFile(t, promptPath)
+	removeFile(t, memoryPath)
+	removeFile(t, mcpPath)
+	symlinkOrSkip(t, internalPrompt, promptPath)
+	symlinkOrSkip(t, internalMemory, memoryPath)
+	symlinkOrSkip(t, internalMCP, mcpPath)
+	symlinkOrSkip(t, internalProfile, profilePath)
+
+	codex := cfg.Agents["codex"]
+	codex.Profile = "senior"
+	cfg.Agents["codex"] = codex
+	saveWorkspaceConfig(t, layout.WorkspaceConfig("game-a"), cfg)
+
+	report, err := registry.Diagnose(context.Background(), "game-a")
+	if err != nil {
+		t.Fatalf("Diagnose() error = %v", err)
+	}
+	if len(report.Diagnostics) != 0 {
+		t.Fatalf("Diagnostics = %+v, want none", report.Diagnostics)
+	}
+}
+
+func TestRegistryDiagnoseReportsProfileDirectoryAsMissing(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+	projectRoot := createProject(t)
+
+	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
+	if err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+
+	workspaceDir := layout.WorkspaceDir("game-a")
+	profileDir := filepath.Join(workspaceDir, "profiles", "senior.yaml")
+	if err := os.Mkdir(profileDir, 0o755); err != nil {
+		t.Fatalf("create profile directory: %v", err)
+	}
+	codex := cfg.Agents["codex"]
+	codex.Profile = "senior"
+	cfg.Agents["codex"] = codex
+	saveWorkspaceConfig(t, layout.WorkspaceConfig("game-a"), cfg)
+
+	report, err := registry.Diagnose(context.Background(), "game-a")
+	if err != nil {
+		t.Fatalf("Diagnose() error = %v", err)
+	}
+
+	assertDiagnostic(t, report, DiagnosticCodeAgentProfileMissing, DiagnosticLevelWarning, filepath.Join(workspaceDir, "profiles", "senior.{md,yaml,yml,json}"))
+}
+
+func TestRegistryDiagnoseReportsWorkspaceDirectorySymlink(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+
+	if err := registry.Init(context.Background()); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	targetDir := filepath.Join(t.TempDir(), "game-a-target")
+	if err := os.Mkdir(targetDir, 0o755); err != nil {
+		t.Fatalf("create target workspace dir: %v", err)
+	}
+	workspaceDir := layout.WorkspaceDir("game-a")
+	symlinkOrSkip(t, targetDir, workspaceDir)
+
+	report, err := registry.Diagnose(context.Background(), "game-a")
+	if err != nil {
+		t.Fatalf("Diagnose() error = %v", err)
+	}
+
+	assertDiagnostic(t, report, DiagnosticCodeWorkspaceDirSymlink, DiagnosticLevelError, workspaceDir)
+	if !report.HasErrors() {
+		t.Fatal("HasErrors() = false, want true")
+	}
 }
 
 func TestRegistryDiagnoseAllContinuesAcrossInvalidWorkspaceConfig(t *testing.T) {
@@ -169,6 +271,23 @@ func TestRegistryDiagnoseAllReportsInvalidWorkspaceDirectoryNames(t *testing.T) 
 	report := reportByWorkspace(t, reports, "bad name")
 	assertDiagnostic(t, report, DiagnosticCodeWorkspaceNameInvalid, DiagnosticLevelError, invalidDir)
 	assertDiagnostic(t, report, DiagnosticCodeConfigMissing, DiagnosticLevelError, filepath.Join(invalidDir, "workspace.yaml"))
+}
+
+func TestRegistryDiagnoseAllReportsFileEntries(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+
+	if err := registry.Init(context.Background()); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	filePath := filepath.Join(layout.WorkspacesDir, "not-a-workspace")
+	writeFile(t, filePath, "plain file\n")
+
+	reports, err := registry.DiagnoseAll(context.Background())
+	if err != nil {
+		t.Fatalf("DiagnoseAll() error = %v", err)
+	}
+	report := reportByWorkspace(t, reports, "not-a-workspace")
+	assertDiagnostic(t, report, DiagnosticCodeWorkspaceDirNotDirectory, DiagnosticLevelError, filePath)
 }
 
 func TestRegistryDiagnoseRespectsContextCancellation(t *testing.T) {
@@ -241,5 +360,21 @@ func writeFile(t *testing.T, path string, content string) {
 
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write file %s: %v", path, err)
+	}
+}
+
+func symlinkOrSkip(t *testing.T, oldname string, newname string) {
+	t.Helper()
+
+	if err := os.Symlink(oldname, newname); err != nil {
+		t.Skipf("symlink not available: %v", err)
+	}
+}
+
+func saveWorkspaceConfig(t *testing.T, path string, cfg *schema.Config) {
+	t.Helper()
+
+	if err := schema.SaveConfig(path, cfg); err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
 	}
 }
