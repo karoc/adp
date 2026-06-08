@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/karoc/adp/internal/sessions"
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
@@ -41,14 +42,29 @@ func (a *App) progressReport(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	runtimeSessions, err := a.progressReportSessions(ctx, workspaceName)
+	if err != nil {
+		return err
+	}
 	writeProgressReport(a.stdout, progressReportData{
-		Workspace: workspaceName,
-		Tasks:     tasks,
-		Progress:  progress,
-		Phases:    phases,
-		Language:  opts.language,
+		Workspace:       workspaceName,
+		Tasks:           tasks,
+		Progress:        progress,
+		Phases:          phases,
+		RuntimeSessions: runtimeSessions,
+		Language:        opts.language,
 	})
 	return nil
+}
+
+func (a *App) progressReportSessions(ctx context.Context, workspaceName string) ([]sessions.Summary, error) {
+	if a.deps.ListSessions == nil {
+		return nil, nil
+	}
+	return a.deps.ListSessions(ctx, a.deps.Layout, sessions.Query{
+		Workspace: workspaceName,
+		Limit:     5,
+	})
 }
 
 func parseProgressReportArgs(args []string) (progressReportOptions, error) {
@@ -91,11 +107,12 @@ func parseProgressReportLanguage(value string) (string, error) {
 }
 
 type progressReportData struct {
-	Workspace string
-	Tasks     []taskstore.Task
-	Progress  taskstore.Progress
-	Phases    []taskstore.Phase
-	Language  string
+	Workspace       string
+	Tasks           []taskstore.Task
+	Progress        taskstore.Progress
+	Phases          []taskstore.Phase
+	RuntimeSessions []sessions.Summary
+	Language        string
 }
 
 func writeProgressReport(w io.Writer, data progressReportData) {
@@ -117,6 +134,7 @@ func writeProgressReportEnglish(w io.Writer, data progressReportData) {
 	writeTaskReportEnglish(w, data.Tasks)
 	writeNextWorkReportEnglish(w, data.Tasks)
 	writeEvidenceReportEnglish(w, data.Phases)
+	writeRuntimeSessionReportEnglish(w, data.RuntimeSessions)
 }
 
 func writeProgressReportChinese(w io.Writer, data progressReportData) {
@@ -130,6 +148,7 @@ func writeProgressReportChinese(w io.Writer, data progressReportData) {
 	writeTaskReportChinese(w, data.Tasks)
 	writeNextWorkReportChinese(w, data.Tasks)
 	writeEvidenceReportChinese(w, data.Phases)
+	writeRuntimeSessionReportChinese(w, data.RuntimeSessions)
 }
 
 func writePhaseReportEnglish(w io.Writer, phases []taskstore.Phase) {
@@ -318,6 +337,56 @@ func writeEvidenceReportChinese(w io.Writer, phases []taskstore.Phase) {
 			markdownCell(acceptanceSummary(phase.Acceptance)),
 			markdownCell(commitSummary(phase.Commit)),
 			markdownCell(pushSummary(phase.Push)),
+		)
+	}
+}
+
+func writeRuntimeSessionReportEnglish(w io.Writer, summaries []sessions.Summary) {
+	fmt.Fprintln(w, "## Runtime Sessions")
+	if len(summaries) == 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "No runtime sessions recorded.")
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "| Session | Agent | Task | Started | Finished | Exit | Duration | Events | Runtime |")
+	fmt.Fprintln(w, "| --- | --- | --- | --- | --- | --- | --- | ---: | --- |")
+	for _, summary := range summaries {
+		fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s | %s | %d | %s |\n",
+			markdownCell(summary.SessionID),
+			markdownCell(valueOrDash(summary.Agent)),
+			markdownCell(valueOrDash(summary.TaskID)),
+			formatEventTime(summary.StartedAt),
+			formatEventTime(summary.FinishedAt),
+			formatExitCode(summary.ExitCode),
+			formatDurationMillis(summary.DurationMillis),
+			summary.EventCount,
+			markdownCell(valueOrDash(summary.RuntimePath)),
+		)
+	}
+}
+
+func writeRuntimeSessionReportChinese(w io.Writer, summaries []sessions.Summary) {
+	fmt.Fprintln(w, "## Runtime 会话")
+	if len(summaries) == 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "暂无 runtime 会话记录。")
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "| Session | Agent | Task | Started | Finished | Exit | Duration | Events | Runtime |")
+	fmt.Fprintln(w, "| --- | --- | --- | --- | --- | --- | --- | ---: | --- |")
+	for _, summary := range summaries {
+		fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s | %s | %d | %s |\n",
+			markdownCell(summary.SessionID),
+			markdownCell(valueOrDash(summary.Agent)),
+			markdownCell(valueOrDash(summary.TaskID)),
+			formatEventTime(summary.StartedAt),
+			formatEventTime(summary.FinishedAt),
+			formatExitCode(summary.ExitCode),
+			formatDurationMillis(summary.DurationMillis),
+			summary.EventCount,
+			markdownCell(valueOrDash(summary.RuntimePath)),
 		)
 	}
 }

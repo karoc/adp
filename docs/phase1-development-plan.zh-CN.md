@@ -541,12 +541,13 @@ MVP adapter 输出：
 - 向 stdout 打印本地 Markdown 规划/执行报告。
 - 只读取 `$ADP_HOME` 下的本地 planning ledger。
 - 默认输出英文；只有显式传入 `--language zh-CN` 时才输出简体中文。
-- 保持只读，不能修改 task 状态、phase 状态、Git 状态、runtime 状态或 project-root 文件。
+- 当本地 JSONL runtime events 和 session 数据存在时，报告会包含从 `$ADP_HOME/logs/events.jsonl` 派生的最近 runtime session evidence。
+- 保持只读，不能追加 events、修改 task 状态、修改 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、恢复 provider 原生会话或写入 project-root 文件。
 
 验收：
 
 - 报告输出到 stdout，不自动创建或更新 Markdown 文件。
-- 命令不能推断验收、关闭任务、运行 Git、push、启动 Agent、创建 runtime 目录或追加 runtime events。
+- 命令不能推断验收、关闭任务、运行 Git、push、启动 Agent、创建 runtime 目录、追加 runtime events 或恢复 provider 原生会话。
 - 执行前后 task state、phase state、event log、runtime directories 和真实项目根目录保持不变。
 
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
@@ -736,7 +737,7 @@ adp workspace remove game-renamed
 - `adp version` 能输出 CLI build identity。
 - `adp events list` 能查询 run start/finish 历史。
 - `adp sessions list` / `show` / `restore-plan` 能从 event log 查询 session history 和只读 restore planning。
-- `adp progress report [--workspace <name>] [--language <en|zh-CN>]` 能向 stdout 打印 Markdown 规划/执行报告，并保持 planning state、Git state、runtime state、event log 和真实项目根目录不变。
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>]` 能向 stdout 打印 Markdown 规划/执行报告，在 JSONL event/session 数据存在时包含最近本地 runtime session evidence，并保持 planning state、Git state、runtime state、event log 和真实项目根目录不变。
 - `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
 - `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
@@ -791,7 +792,8 @@ symlink overlay 与真实项目已有配置冲突：
 - P4 session restore foundation 已完成：`run_started` event 会记录非敏感 invocation snapshot，`adp sessions restore-plan <session-id>` 会输出只读建议命令，runtime 和 example smoke 会验收 session events、session history、restore-plan 不追加 events，以及 examples/docs polish。
 - P5 planning JSON output 已完成：task、phase 和 progress 只读视图支持 `--format json`，方便本地工具和子 Agent 获取机器可读 planning snapshot，而不需要抓取终端文本或改变状态。
 - P6 progress report output 已完成：`adp progress report [--workspace <name>] [--language <en|zh-CN>]` 会向 stdout 打印只读的本地 Markdown 规划/执行报告。默认语言是英文；简体中文必须显式传入 `--language zh-CN`。task-manager smoke 会证明 report 不会修改 task、phase、Git、runtime、event log 或 project-root 状态。
-- P6 之后的优先级是 report-driven handoff polish：让报告持续对齐 JSON planning snapshot、phase gate evidence 和 runtime session evidence，同时不增加 hosted project-management 能力。
-- P3/P4/P5/P6 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git execution、automatic task closure 或远程 issue-service 集成。
+- P7 progress report runtime session evidence 已完成：当本地 JSONL runtime events 和 session 数据存在时，`adp progress report [--workspace <name>] [--language <en|zh-CN>]` 会包含最近 runtime session evidence，供 inspection-only handoff 使用。它不会追加 events、修改 tasks 或 phases、创建 runtime 目录、启动 Agent、运行 Git、把报告文件写入项目根目录，或恢复 provider 原生会话。
+- P7 之后的优先级是 report-driven handoff polish：让 Markdown 报告持续对齐 JSON planning snapshot、phase gate evidence 和本地 runtime session evidence，同时不增加 hosted project-management 能力。
+- P3/P4/P5/P6/P7 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git execution、automatic task closure、provider-native conversation resume 或远程 issue-service 集成。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

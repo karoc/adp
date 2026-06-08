@@ -44,9 +44,9 @@ P6 增加一个只读报告命令：
 
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
 
-该命令会向 stdout 打印本地 Markdown 规划/执行报告。它从 `$ADP_HOME` 读取 workspace planning 数据，默认输出英文；只有显式传入 `--language zh-CN` 时才输出简体中文。
+该命令会向 stdout 打印本地 Markdown 规划/执行报告。它从 `$ADP_HOME` 读取 workspace planning 数据，默认输出英文；只有显式传入 `--language zh-CN` 时才输出简体中文。当本地 JSONL runtime events 和 session 数据存在时，它也会包含从 `$ADP_HOME/logs/events.jsonl` 派生的最近 runtime session evidence。
 
-该报告是 inspection view，不是状态流转命令。它不会修改 task 状态、phase 状态、Git 状态、runtime 状态、event log 或 project-root 文件。
+该报告是 inspection view，不是状态流转命令。它不会追加 events、修改 task 状态、修改 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、恢复 provider 原生会话，或把报告文件写入项目根目录。
 
 ## 存储
 
@@ -177,6 +177,7 @@ JSON 输出是 inspection format，不是单独的状态存储。权威 planning
 - 来自本地 task ledger 的优先级排序 next work。
 - 可用时展示 active owners、leases、blocked tasks 和 acceptance evidence。
 - 已记录在 phase ledger 中的 commit 和 push evidence。
+- 当 JSONL event/session 数据存在时，展示最近的本地 runtime session evidence，包括可用的 session ID、Agent、task ID、状态、exit code、duration 和 runtime path。
 
 语言行为：
 
@@ -188,8 +189,10 @@ JSON 输出是 inspection format，不是单独的状态存储。权威 planning
 
 - 不更新 task status、owner、lease 或 blocker records。
 - 不更新 phase status、acceptance records、commit records 或 push records。
+- 不追加 planning 或 runtime events。
 - 不运行 Git 命令、不创建 commit、不 push，也不推断 Git state transitions。
-- 不构建 runtime、不启动 Agent、不追加 runtime events，也不 prune runtime directories。
+- 不构建 runtime、不创建 runtime directories、不启动 Agent，也不 prune runtime directories。
+- 不恢复 provider 原生会话，也不根据本地 JSONL event evidence 之外的信息推断 provider session state。
 - 不在真实项目根目录创建或更新 Markdown 文件。
 
 ## Phase Gate Ledger

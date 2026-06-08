@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/karoc/adp/internal/paths"
+	"github.com/karoc/adp/internal/sessions"
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
@@ -238,9 +240,27 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	var english bytes.Buffer
 	var chinese bytes.Buffer
 	var invalidErr bytes.Buffer
+	exitCode := 0
 	deps := Dependencies{
 		WorkspaceStore:   &fakeStore{cfg: testConfig()},
 		TaskStoreFactory: func(string) TaskStore { return store },
+		ListSessions: func(_ context.Context, _ paths.Layout, query sessions.Query) ([]sessions.Summary, error) {
+			if query.Workspace != "game-a" || query.Limit != 5 {
+				t.Fatalf("session query = %+v", query)
+			}
+			return []sessions.Summary{{
+				SessionID:      "session-1",
+				Workspace:      "game-a",
+				Agent:          "codex",
+				TaskID:         "task-1",
+				RuntimePath:    "/tmp/adp-runtime/session-1",
+				StartedAt:      task.CreatedAt,
+				FinishedAt:     task.UpdatedAt,
+				ExitCode:       &exitCode,
+				DurationMillis: ptrInt64(1234),
+				EventCount:     2,
+			}}, nil
+		},
 	}
 
 	englishCode := NewApp(deps, &english, &bytes.Buffer{}).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a"})
@@ -250,12 +270,12 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	if englishCode != 0 || chineseCode != 0 {
 		t.Fatalf("report codes = (%d, %d), want both 0", englishCode, chineseCode)
 	}
-	for _, want := range []string{"# ADP Progress Report", "Workspace: game-a", "Total Tasks: 1", "p6-progress-report", "task-1", "codex-main", "passed: scripts/check-all.sh", "abc123: Add progress report", "pushed: origin/main"} {
+	for _, want := range []string{"# ADP Progress Report", "Workspace: game-a", "Total Tasks: 1", "p6-progress-report", "task-1", "codex-main", "passed: scripts/check-all.sh", "abc123: Add progress report", "pushed: origin/main", "## Runtime Sessions", "session-1", "codex", "/tmp/adp-runtime/session-1"} {
 		if !strings.Contains(english.String(), want) {
 			t.Fatalf("English report missing %q: %q", want, english.String())
 		}
 	}
-	for _, want := range []string{"# ADP 执行进度报告", "工作区：game-a", "任务总数：1", "p6-progress-report", "task-1"} {
+	for _, want := range []string{"# ADP 执行进度报告", "工作区：game-a", "任务总数：1", "p6-progress-report", "task-1", "## Runtime 会话", "session-1", "/tmp/adp-runtime/session-1"} {
 		if !strings.Contains(chinese.String(), want) {
 			t.Fatalf("Chinese report missing %q: %q", want, chinese.String())
 		}
@@ -266,6 +286,10 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	if !strings.Contains(invalidErr.String(), `unknown progress report language "fr"`) {
 		t.Fatalf("invalid language stderr = %q", invalidErr.String())
 	}
+}
+
+func ptrInt64(value int64) *int64 {
+	return &value
 }
 
 func TestPhaseCommandsRecordGateLifecycle(t *testing.T) {

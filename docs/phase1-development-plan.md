@@ -344,7 +344,9 @@ Prints a read-only suggested `adp run ...` command for a previous session when e
 
 Prints a local Markdown planning/execution report to stdout. It reads the local planning ledger under `$ADP_HOME`, uses English by default, and emits Simplified Chinese only when `--language zh-CN` is provided.
 
-The command is read-only. It must not mutate task state, phase state, Git state, runtime state, or project-root files. It must not infer acceptance, close tasks, run Git, push, start agents, create runtime directories, append runtime events, or write report files into the real project root.
+When local JSONL runtime events and session data exist, the report includes recent runtime session evidence derived from `$ADP_HOME/logs/events.jsonl`. This evidence is for inspection and handoff only.
+
+The command is read-only. It must not append events, mutate task state, mutate phase state, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, or write report files into the real project root.
 
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
@@ -435,7 +437,7 @@ End-to-end expectations:
 - `adp version` reports the CLI build identity.
 - `adp events list` prints filtered run history from JSONL events.
 - `adp sessions list`, `adp sessions show`, and `adp sessions restore-plan` expose local session history and read-only restore planning derived from JSONL events.
-- `adp progress report [--workspace <name>] [--language <en|zh-CN>]` prints a Markdown planning/execution report to stdout and leaves planning state, Git state, runtime state, event logs, and the real project root unchanged.
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>]` prints a Markdown planning/execution report to stdout, includes recent local runtime session evidence when JSONL event/session data exists, and leaves planning state, Git state, runtime state, event logs, and the real project root unchanged.
 - `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
@@ -457,7 +459,8 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P4 session restore foundation completed: `run_started` events now record non-sensitive invocation snapshots, `adp sessions restore-plan <session-id>` prints read-only suggested commands, and runtime plus example smoke cover session events, session history, restore-plan event-log immutability, and examples/docs polish.
 - P5 planning JSON output completed: read-only `--format json` output for task, phase, and progress views gives local tools and sub-agents machine-readable planning snapshots without scraping terminal text or changing state.
 - P6 progress report output completed: `adp progress report [--workspace <name>] [--language <en|zh-CN>]` prints a read-only local Markdown planning/execution report to stdout. English is the default; Simplified Chinese requires `--language zh-CN`. Task-manager smoke proves the report leaves task, phase, Git, runtime, event log, and project-root state unchanged.
-- After P6, the next priority is report-driven handoff polish: keep the report aligned with JSON planning snapshots, phase gate evidence, and runtime session evidence without adding hosted project-management features.
-- P3/P4/P5/P6 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git execution, automatic task closure, or remote issue-service integration.
+- P7 progress report runtime session evidence completed: when local JSONL runtime events and session data exist, `adp progress report [--workspace <name>] [--language <en|zh-CN>]` includes recent runtime session evidence for inspection-only handoff. It does not append events, mutate tasks or phases, create runtime directories, run agents, run Git, write report files into project roots, or resume provider-native conversations.
+- After P7, the next priority is report-driven handoff polish that keeps Markdown reports aligned with JSON planning snapshots, phase gate evidence, and local runtime session evidence without adding hosted project-management features.
+- P3/P4/P5/P6/P7 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git execution, automatic task closure, provider-native conversation resume, or remote issue-service integration.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

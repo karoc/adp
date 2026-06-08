@@ -127,7 +127,9 @@ fake Codex 和 Claude 命令会断言：
 - `adp phase commit`
 - `adp phase push`
 - `adp progress`
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
 - `$ADP_HOME/workspaces/<workspace>/planning` 下的 planning 文件。
+- 当本地 JSONL event/session 数据存在时，progress report 会只读展示最近 runtime session evidence。
 - 防止项目根目录出现 `planning/`、`tasks.yaml`、`phases.yaml` 和 `progress.jsonl` 污染。
 
 对于 Phase Gate MVP 行为，该 smoke 只能验证实际存在的 CLI。它应覆盖：
@@ -137,8 +139,10 @@ fake Codex 和 Claude 命令会断言：
 - acceptance 或 gate records 能记录命令、结果、时间戳和失败证据。
 - commit records 能记录已验收阶段的 commit hash 和 branch。
 - push records 能记录 remote、branch 和 push 结果；commit 证据保存在同一个 phase record 中。
+- progress report 会在本地 JSONL events 中存在相应数据时包含 runtime session evidence，同时保持为只向 stdout 输出的 inspection view。
 - happy path 会在阶段被视为 pushed 前记录 acceptance、commit 和 push 证据。
 - lifecycle guard 检查会拒绝未通过验收前记录 commit、拒绝未记录 commit evidence 前记录 push，并在 phase ledger 存在时拒绝把任务分配到未知 phase。
+- report 生成不会追加 events、修改 task 或 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、恢复 provider 原生会话，或把报告文件写入项目根目录。
 - 所有状态都留在临时 `$ADP_HOME` 下，不污染项目根目录。
 
 不要向 smoke 脚本添加 placeholder commands、TODO assertions、Web UI 检查、SaaS 检查、cloud sync 检查或 hosted orchestration 检查。
@@ -186,6 +190,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 通过 `adp version` 输出本地 build identity。
 - 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
 - 验收 Phase Gate ledger evidence、claim lease、release owner check 和 lifecycle ordering。
+- 当 event/session 数据存在时，验收从本地 JSONL events 派生的 progress report runtime session evidence，并确认不会追加 event log 或创建 runtime。
 - 清理 ADP-owned runtime。
 - 针对当前版本 ADP manifest 的 runtime prune compatibility checks。
 - 防止项目根目录污染。

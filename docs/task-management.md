@@ -44,9 +44,9 @@ P6 adds one read-only reporting command:
 
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
 
-The command prints a local Markdown planning/execution report to stdout. It reads workspace planning data from `$ADP_HOME`, uses English by default, and emits Simplified Chinese only when `--language zh-CN` is provided.
+The command prints a local Markdown planning/execution report to stdout. It reads workspace planning data from `$ADP_HOME`, uses English by default, and emits Simplified Chinese only when `--language zh-CN` is provided. When local JSONL runtime events and session data exist, it also includes recent runtime session evidence derived from `$ADP_HOME/logs/events.jsonl`.
 
-The report is an inspection view, not a state transition. It does not mutate task state, phase state, Git state, runtime state, event logs, or project-root files.
+The report is an inspection view, not a state transition. It does not append events, mutate task state, mutate phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into project roots.
 
 ## Storage
 
@@ -177,6 +177,7 @@ Recommended report content:
 - Prioritized next work from the local task ledger.
 - Active owners, leases, blocked tasks, and acceptance evidence when available.
 - Commit and push evidence already recorded in the phase ledger.
+- Recent local runtime session evidence when JSONL event/session data exists, including available session IDs, agents, task IDs, statuses, exit codes, durations, and runtime paths.
 
 Language behavior:
 
@@ -188,8 +189,10 @@ Read-only boundary:
 
 - Do not update task status, owner, lease, or blocker records.
 - Do not update phase status, acceptance records, commit records, or push records.
+- Do not append planning or runtime events.
 - Do not run Git commands, create commits, push, or infer Git state transitions.
-- Do not build runtimes, start agents, append runtime events, or prune runtime directories.
+- Do not build runtimes, create runtime directories, start agents, or prune runtime directories.
+- Do not resume provider-native conversations or infer provider session state beyond local JSONL event evidence.
 - Do not create or update Markdown files in the real project root.
 
 ## Phase Gate Ledger

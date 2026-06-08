@@ -126,7 +126,7 @@ Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 sym
 
 `adp tasks` 和 `adp progress` 管理 `$ADP_HOME/workspaces/<workspace>/planning` 下的 workspace-scoped 规划和执行进度。只读 task、phase 和 progress 视图支持 `--format json`，方便本地工具和子 Agent 获取机器可读 planning snapshot；权威状态仍保存在 `$ADP_HOME` 下，task 或 phase 变更仍然必须通过显式命令完成。`adp run --task <task-id>` 会把这份本地任务状态绑定到 runtime 环境变量、生成的 adapter instructions、events 和 sessions，同时不会把 planning 文件写入真实项目根目录。详见 [docs/task-management.zh-CN.md](docs/task-management.zh-CN.md)。
 
-`adp progress report [--workspace <name>] [--language <en|zh-CN>]` 会向 stdout 打印本地 Markdown 规划/执行报告。报告默认语言是英文；简体中文必须显式传入 `--language zh-CN`。该 report 命令是只读的，不会修改 task 状态、phase 状态、Git 状态、runtime 状态、event log 或 project-root 文件。
+`adp progress report [--workspace <name>] [--language <en|zh-CN>]` 会向 stdout 打印本地 Markdown 规划/执行报告。报告默认语言是英文；简体中文必须显式传入 `--language zh-CN`。当本地 JSONL runtime events 和 session 数据存在时，报告会包含最近的 runtime session evidence，供 inspection 使用。该 report 命令是只读的，不会追加 events、修改 task 或 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、恢复 provider 原生会话，或把报告文件写入项目根目录。
 
 P3 提供项目规划和执行进度管理的本地 phase ledger。它会在 `$ADP_HOME` 下记录任务归属、可选 claim lease、验收记录、commit 记录、push 记录和明确的阶段门禁纪律。该能力仍然保持 terminal-first、local-first；它不是 Web dashboard、SaaS tracker、cloud sync layer 或 hosted orchestration service。
 

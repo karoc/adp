@@ -24,6 +24,22 @@ assert_contains() {
   esac
 }
 
+assert_contains_any() {
+  local output="$1"
+  local label="$2"
+  shift 2
+  local needle
+
+  for needle in "$@"; do
+    case "$output" in
+      *"$needle"*) return 0 ;;
+    esac
+  done
+
+  printf '%s\n' "$output" >&2
+  fail "$label missing any expected text: $*"
+}
+
 assert_starts_with() {
   local output="$1"
   local prefix="$2"
@@ -61,9 +77,13 @@ assert_file() {
 }
 
 assert_project_root_clean() {
-  if [ -e "$PROJECT_ROOT/planning" ] || [ -e "$PROJECT_ROOT/tasks.yaml" ] || [ -e "$PROJECT_ROOT/phases.yaml" ] || [ -e "$PROJECT_ROOT/progress.jsonl" ]; then
-    fail "project root was polluted with planning files"
-  fi
+  local rel
+
+  for rel in AGENTS.md CLAUDE.md .codex .claude .adp-runtime.yaml planning tasks.yaml phases.yaml progress.jsonl; do
+    if [ -e "$PROJECT_ROOT/$rel" ] || [ -L "$PROJECT_ROOT/$rel" ]; then
+      fail "project root was polluted with $rel"
+    fi
+  done
 }
 
 assert_planning_state_unchanged() {
@@ -90,6 +110,42 @@ assert_planning_state_unchanged() {
   fi
 }
 
+line_count() {
+  local path="$1"
+
+  assert_file "$path"
+  wc -l < "$path" | tr -d '[:space:]'
+}
+
+assert_event_log_line_count_unchanged() {
+  local before="$1"
+  local label="$2"
+  local after
+
+  after=$(line_count "$EVENTS_FILE")
+  if [ "$after" != "$before" ]; then
+    printf '%s\n' "event log:" >&2
+    cat "$EVENTS_FILE" >&2
+    fail "$label changed event log line count: before=$before after=$after"
+  fi
+}
+
+session_id_by_agent() {
+  local events_file="$1"
+  local agent="$2"
+  local id
+
+  id=$(
+    {
+      grep '"type":"run_started"' "$events_file" |
+        grep "\"agent\":\"$agent\"" |
+        sed -n 's/.*"session_id":"\([^"]*\)".*/\1/p' |
+        tail -n 1
+    } || true
+  )
+  printf '%s\n' "$id"
+}
+
 run_adp() {
   local dir="$1"
   shift
@@ -114,6 +170,35 @@ run_adp_expect_fail() {
   printf '%s\n' "$output"
 }
 
+write_fake_codex() {
+  local path="$1"
+
+  cat > "$path" <<'EOF'
+#!/usr/bin/env sh
+set -eu
+
+printf 'fake-codex cwd=%s args=%s\n' "$(pwd)" "$*"
+
+test "${ADP_WORKSPACE:-}" = "game-a"
+test -n "${ADP_SESSION_ID:-}"
+test -n "${ADP_RUNTIME_ROOT:-}"
+test "$(pwd)" = "$ADP_RUNTIME_ROOT"
+test -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
+test -f "$ADP_RUNTIME_ROOT/.codex/config.toml"
+test -L "$ADP_RUNTIME_ROOT/go.mod"
+test -f "$ADP_RUNTIME_ROOT/go.mod"
+test "${ADP_TASK_ID:-}" = "$ADP_EXPECT_TASK_ID"
+test "${ADP_TASK_TITLE:-}" = "Add task manager"
+grep -F -q "$ADP_EXPECT_TASK_ID" "$ADP_RUNTIME_ROOT/AGENTS.md"
+grep -F -q "Add task manager" "$ADP_RUNTIME_ROOT/AGENTS.md"
+grep -F -q "$ADP_EXPECT_TASK_ID" "$ADP_RUNTIME_ROOT/.codex/config.toml"
+test "$#" -eq 1
+test "$1" = "--report-smoke"
+EOF
+  chmod 755 "$path"
+}
+
 if ! command -v go >/dev/null 2>&1; then
   fail "Go is required to build cmd/adp"
 fi
@@ -131,15 +216,19 @@ trap cleanup EXIT INT TERM
 PROJECT_ROOT="$TMP_ROOT/project"
 ADP_HOME="$TMP_ROOT/adp-home"
 ADP_RUNTIME_DIR="$TMP_ROOT/runtime"
+FAKE_BIN="$TMP_ROOT/bin"
+EVENTS_FILE="$ADP_HOME/logs/events.jsonl"
 TASKS_FILE="$ADP_HOME/workspaces/game-a/planning/tasks.yaml"
 PHASES_FILE="$ADP_HOME/workspaces/game-a/planning/phases.yaml"
 PROGRESS_FILE="$ADP_HOME/workspaces/game-a/planning/progress.jsonl"
 
-mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR"
+mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-task-smoke\n' > "$PROJECT_ROOT/go.mod"
+write_fake_codex "$FAKE_BIN/codex"
 
 export ADP_HOME
 export ADP_RUNTIME_DIR
+export PATH="$FAKE_BIN:$PATH"
 
 info "building temporary adp binary"
 (cd "$REPO_ROOT" && go build -o "$ADP_BIN" ./cmd/adp)
@@ -258,6 +347,33 @@ assert_contains "$output" "blocked" "tasks block output"
 output=$(run_adp "$REPO_ROOT" tasks done --workspace game-a "$task_id")
 assert_contains "$output" "done" "tasks done output"
 
+info "creating runtime session evidence for progress report"
+export ADP_EXPECT_TASK_ID="$task_id"
+output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --report-smoke)
+assert_contains "$output" "fake-codex" "codex run output"
+assert_contains "$output" "--report-smoke" "codex run output"
+assert_file "$EVENTS_FILE"
+
+codex_session=$(session_id_by_agent "$EVENTS_FILE" codex)
+if [ -z "$codex_session" ]; then
+  cat "$EVENTS_FILE" >&2
+  fail "codex session id missing in event log"
+fi
+
+output=$(run_adp "$REPO_ROOT" events list --workspace game-a --session "$codex_session" --task "$task_id" --limit 2)
+assert_contains "$output" "$codex_session" "events list session output"
+assert_contains "$output" "$task_id" "events list session output"
+assert_contains "$output" "codex" "events list session output"
+assert_contains "$output" "run_started" "events list session output"
+assert_contains "$output" "run_finished" "events list session output"
+
+output=$(run_adp "$REPO_ROOT" sessions show "$codex_session")
+assert_contains "$output" "session_id: $codex_session" "sessions show output"
+assert_contains "$output" "agent: codex" "sessions show output"
+assert_contains "$output" "task_id: $task_id" "sessions show output"
+assert_contains "$output" "run_finished" "sessions show output"
+assert_project_root_clean
+
 info "checking progress summary"
 output=$(run_adp "$REPO_ROOT" progress --workspace game-a)
 assert_contains "$output" "workspace: game-a" "progress output"
@@ -277,6 +393,7 @@ info "checking progress report output"
 tasks_before=$(cat "$TASKS_FILE")
 phases_before=$(cat "$PHASES_FILE")
 progress_before=$(cat "$PROGRESS_FILE")
+events_before=$(line_count "$EVENTS_FILE")
 
 output=$(run_adp "$REPO_ROOT" progress report --workspace game-a)
 assert_starts_with "$output" "# ADP Progress Report" "progress report output"
@@ -284,12 +401,23 @@ assert_contains "$output" "Workspace: game-a" "progress report output"
 assert_contains "$output" "p3" "progress report output"
 assert_contains "$output" "$task_id" "progress report output"
 assert_contains "$output" "done" "progress report output"
+assert_contains "$output" "## Runtime Sessions" "progress report output"
+assert_contains "$output" "$codex_session" "progress report output"
+assert_contains "$output" "codex" "progress report output"
+assert_contains "$output" "$ADP_RUNTIME_DIR" "progress report output"
+assert_contains_any "$output" "progress report output" "run_finished" "exit_code" "Exit Code" "Exit code" "| Exit |"
 
 output=$(run_adp "$REPO_ROOT" progress report --workspace game-a --language zh-CN)
 assert_starts_with "$output" "# ADP 执行进度报告" "progress report zh-CN output"
 assert_contains "$output" "工作区：game-a" "progress report zh-CN output"
+assert_contains "$output" "## Runtime 会话" "progress report zh-CN output"
+assert_contains "$output" "$codex_session" "progress report zh-CN output"
+assert_contains "$output" "codex" "progress report zh-CN output"
+assert_contains "$output" "$task_id" "progress report zh-CN output"
+assert_contains "$output" "$ADP_RUNTIME_DIR" "progress report zh-CN output"
 
 assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "progress report"
+assert_event_log_line_count_unchanged "$events_before" "progress report"
 assert_project_root_clean
 
 assert_contains "$(cat "$TASKS_FILE")" "$task_id" "tasks file"
@@ -327,10 +455,17 @@ info "checking progress report phase evidence"
 tasks_before=$(cat "$TASKS_FILE")
 phases_before=$(cat "$PHASES_FILE")
 progress_before=$(cat "$PROGRESS_FILE")
+events_before=$(line_count "$EVENTS_FILE")
 
 output=$(run_adp "$REPO_ROOT" progress report --workspace game-a)
 assert_starts_with "$output" "# ADP Progress Report" "progress report evidence output"
 assert_contains "$output" "p3" "progress report evidence output"
+assert_contains "$output" "## Runtime Sessions" "progress report evidence output"
+assert_contains "$output" "$codex_session" "progress report evidence output"
+assert_contains "$output" "codex" "progress report evidence output"
+assert_contains "$output" "$task_id" "progress report evidence output"
+assert_contains "$output" "$ADP_RUNTIME_DIR" "progress report evidence output"
+assert_contains_any "$output" "progress report evidence output" "run_finished" "exit_code" "Exit Code" "Exit code" "| Exit |"
 assert_contains "$output" "abc123" "progress report evidence output"
 assert_contains "$output" "origin" "progress report evidence output"
 assert_contains "$output" "main" "progress report evidence output"
@@ -338,6 +473,7 @@ assert_contains "$output" "pushed" "progress report evidence output"
 assert_contains "$output" "scripts/task-manager-smoke.sh" "progress report evidence output"
 
 assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "progress report evidence"
+assert_event_log_line_count_unchanged "$events_before" "progress report evidence"
 assert_project_root_clean
 
 info "task manager smoke passed"
