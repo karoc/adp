@@ -87,6 +87,7 @@ func (a *App) eventsList(ctx context.Context, args []string) error {
 	read, err := a.deps.ReadEvents(ctx, a.deps.Layout, events.Query{
 		Workspace: opts.workspace,
 		SessionID: opts.sessionID,
+		TaskID:    opts.taskID,
 		Type:      opts.eventType,
 		Limit:     opts.limit,
 	})
@@ -95,14 +96,15 @@ func (a *App) eventsList(ctx context.Context, args []string) error {
 	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(writer, "TIME\tTYPE\tWORKSPACE\tAGENT\tSESSION\tEXIT\tRUNTIME")
+	fmt.Fprintln(writer, "TIME\tTYPE\tWORKSPACE\tAGENT\tSESSION\tTASK\tEXIT\tRUNTIME")
 	for _, event := range read {
-		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			formatEventTime(event.Timestamp),
 			valueOrDash(event.Type),
 			valueOrDash(event.Workspace),
 			valueOrDash(event.Agent),
 			valueOrDash(event.SessionID),
+			valueOrDash(event.TaskID),
 			formatExitCode(event.ExitCode),
 			valueOrDash(event.RuntimePath),
 		)
@@ -137,6 +139,7 @@ func (a *App) sessionsList(ctx context.Context, args []string) error {
 	summaries, err := a.deps.ListSessions(ctx, a.deps.Layout, sessions.Query{
 		Workspace: opts.workspace,
 		Agent:     opts.agent,
+		TaskID:    opts.taskID,
 		Limit:     opts.limit,
 	})
 	if err != nil {
@@ -144,13 +147,14 @@ func (a *App) sessionsList(ctx context.Context, args []string) error {
 	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(writer, "SESSION\tWORKSPACE\tAGENT\tPROFILE\tSTARTED\tFINISHED\tEXIT\tDURATION\tEVENTS\tRUNTIME")
+	fmt.Fprintln(writer, "SESSION\tWORKSPACE\tAGENT\tPROFILE\tTASK\tSTARTED\tFINISHED\tEXIT\tDURATION\tEVENTS\tRUNTIME")
 	for _, summary := range summaries {
-		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
 			valueOrDash(summary.SessionID),
 			valueOrDash(summary.Workspace),
 			valueOrDash(summary.Agent),
 			valueOrDash(summary.Profile),
+			valueOrDash(summary.TaskID),
 			formatEventTime(summary.StartedAt),
 			formatEventTime(summary.FinishedAt),
 			formatExitCode(summary.ExitCode),
@@ -181,6 +185,7 @@ func (a *App) sessionsShow(ctx context.Context, args []string) error {
 	fmt.Fprintf(a.stdout, "workspace: %s\n", valueOrDash(summary.Workspace))
 	fmt.Fprintf(a.stdout, "agent: %s\n", valueOrDash(summary.Agent))
 	fmt.Fprintf(a.stdout, "profile: %s\n", valueOrDash(summary.Profile))
+	fmt.Fprintf(a.stdout, "task_id: %s\n", valueOrDash(summary.TaskID))
 	fmt.Fprintf(a.stdout, "project_root: %s\n", valueOrDash(summary.ProjectRoot))
 	fmt.Fprintf(a.stdout, "runtime_path: %s\n", valueOrDash(summary.RuntimePath))
 	fmt.Fprintf(a.stdout, "started_at: %s\n", formatEventTime(summary.StartedAt))
@@ -190,13 +195,14 @@ func (a *App) sessionsShow(ctx context.Context, args []string) error {
 	fmt.Fprintf(a.stdout, "event_count: %d\n", summary.EventCount)
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(writer, "TIME\tTYPE\tWORKSPACE\tAGENT\tEXIT\tRUNTIME")
+	fmt.Fprintln(writer, "TIME\tTYPE\tWORKSPACE\tAGENT\tTASK\tEXIT\tRUNTIME")
 	for _, event := range detail.Events {
-		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			formatEventTime(event.Timestamp),
 			valueOrDash(event.Type),
 			valueOrDash(event.Workspace),
 			valueOrDash(event.Agent),
+			valueOrDash(event.TaskID),
 			formatExitCode(event.ExitCode),
 			valueOrDash(event.RuntimePath),
 		)

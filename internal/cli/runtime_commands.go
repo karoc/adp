@@ -14,6 +14,7 @@ import (
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/schema"
 	"github.com/karoc/adp/internal/shell"
+	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
 type processExitError struct {
@@ -107,6 +108,10 @@ func (a *App) run(ctx context.Context, args []string) error {
 	if !ok {
 		return fmt.Errorf("unknown adapter %q; available: %s", opts.agent, strings.Join(a.deps.Adapters.Names(), ", "))
 	}
+	taskCtx, err := a.loadRunTaskContext(ctx, workspaceDir, opts.taskID)
+	if err != nil {
+		return err
+	}
 
 	agentCfg := cfg.Agents[opts.agent]
 	profile := opts.profile
@@ -119,6 +124,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		Config:       *cfg,
 		Agent:        agentCfg,
 		Profile:      profile,
+		Task:         taskCtx,
 	}
 	if err := adapter.Validate(ctx, adapterCtx); err != nil {
 		return err
@@ -138,6 +144,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		WorkspaceDir: workspaceDir,
 		Files:        rendered.Files,
 		Env:          rendered.Env,
+		Task:         taskCtx,
 		Keep:         opts.keep,
 	})
 	if err != nil {
@@ -154,6 +161,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		RuntimePath: handle.Root,
 		ProjectRoot: cfg.Project.Root,
 		SessionID:   handle.SessionID,
+		TaskID:      taskCtx.ID,
 	})
 
 	spec, err := adapter.Launch(ctx, adapterCtx, *handle, opts.agentArgs)
@@ -186,6 +194,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		RuntimePath:    handle.Root,
 		ProjectRoot:    cfg.Project.Root,
 		SessionID:      handle.SessionID,
+		TaskID:         taskCtx.ID,
 		ExitCode:       &exitCode,
 		DurationMillis: time.Since(started).Milliseconds(),
 	})
@@ -196,6 +205,33 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return processExitError{code: exitCode}
 	}
 	return nil
+}
+
+func (a *App) loadRunTaskContext(ctx context.Context, workspaceDir string, taskID string) (adapters.TaskContext, error) {
+	taskID = strings.TrimSpace(taskID)
+	if taskID == "" {
+		return adapters.TaskContext{}, nil
+	}
+	if a.deps.TaskStoreFactory == nil {
+		return adapters.TaskContext{}, errors.New("task store is not configured")
+	}
+	task, err := a.deps.TaskStoreFactory(workspaceDir).Get(ctx, taskID)
+	if err != nil {
+		return adapters.TaskContext{}, fmt.Errorf("load task %q: %w", taskID, err)
+	}
+	return taskContext(task), nil
+}
+
+func taskContext(task taskstore.Task) adapters.TaskContext {
+	return adapters.TaskContext{
+		ID:            task.ID,
+		Title:         task.Title,
+		Status:        string(task.Status),
+		Priority:      task.Priority,
+		Phase:         task.Phase,
+		Description:   task.Description,
+		BlockedReason: task.BlockedReason,
+	}
 }
 
 func (a *App) loadWorkspace(ctx context.Context, name string) (*schema.Config, string, error) {

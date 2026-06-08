@@ -14,4 +14,6 @@ type GeneratedFile = api.GeneratedFile
 
 type RuntimeHandle = api.RuntimeHandle
 
+type TaskContext = api.TaskContext
+
 type LaunchSpec = api.LaunchSpec

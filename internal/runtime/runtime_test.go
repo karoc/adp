@@ -30,6 +30,13 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 			"CUSTOM":      "1",
 			paths.EnvHome: "adapter-should-not-win",
 		},
+		Task: adapters.TaskContext{
+			ID:       "task-20260608-0001",
+			Title:    "Bind runtime session to task",
+			Status:   "ready",
+			Priority: "high",
+			Phase:    "p1",
+		},
 		SessionID: "session-1",
 	})
 	if err != nil {
@@ -42,6 +49,9 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 	}
 	if handle.SessionID != "session-1" {
 		t.Fatalf("session id mismatch: %s", handle.SessionID)
+	}
+	if handle.TaskID != "task-20260608-0001" {
+		t.Fatalf("task id mismatch: %s", handle.TaskID)
 	}
 	if handle.Env[paths.EnvHome] != layout.Home {
 		t.Fatalf("ADP_HOME mismatch: %s", handle.Env[paths.EnvHome])
@@ -57,6 +67,9 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 	}
 	if handle.Env["ADP_SESSION_ID"] != "session-1" {
 		t.Fatalf("ADP_SESSION_ID mismatch: %s", handle.Env["ADP_SESSION_ID"])
+	}
+	if handle.Env["ADP_TASK_ID"] != "task-20260608-0001" || handle.Env["ADP_TASK_PHASE"] != "p1" {
+		t.Fatalf("task env mismatch: %#v", handle.Env)
 	}
 	if handle.Env["CUSTOM"] != "1" {
 		t.Fatalf("adapter env was not preserved: %#v", handle.Env)
@@ -78,6 +91,7 @@ func TestBuildWritesRuntimeManifestWithoutPollutingProject(t *testing.T) {
 		Layout:    layout,
 		Config:    testConfig(projectRoot),
 		Keep:      true,
+		Task:      adapters.TaskContext{ID: "task-20260608-0002", Title: "Write task manifest"},
 		SessionID: "manifest-session",
 	})
 	if err != nil {
@@ -102,6 +116,9 @@ func TestBuildWritesRuntimeManifestWithoutPollutingProject(t *testing.T) {
 	}
 	if manifest.Workspace != "game-a" {
 		t.Fatalf("manifest workspace mismatch: %s", manifest.Workspace)
+	}
+	if manifest.TaskID != "task-20260608-0002" || manifest.TaskTitle != "Write task manifest" {
+		t.Fatalf("manifest task mismatch: %+v", manifest)
 	}
 	if manifest.ProjectRoot != projectRoot {
 		t.Fatalf("manifest project root mismatch: %s", manifest.ProjectRoot)

@@ -34,6 +34,8 @@ type Manifest struct {
 	Version     int       `yaml:"version"`
 	SessionID   string    `yaml:"session_id"`
 	Workspace   string    `yaml:"workspace"`
+	TaskID      string    `yaml:"task_id,omitempty"`
+	TaskTitle   string    `yaml:"task_title,omitempty"`
 	ProjectRoot string    `yaml:"project_root"`
 	RuntimeRoot string    `yaml:"runtime_root"`
 	CreatedAt   time.Time `yaml:"created_at"`
@@ -47,6 +49,7 @@ type BuildRequest struct {
 	WorkspaceDir string
 	Files        []adapters.GeneratedFile
 	Env          map[string]string
+	Task         adapters.TaskContext
 	Backend      overlay.Backend
 	Keep         bool
 	SessionID    string
@@ -90,6 +93,8 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		Version:     schema.CurrentVersion,
 		SessionID:   sessionID,
 		Workspace:   req.Config.Workspace.Name,
+		TaskID:      req.Task.ID,
+		TaskTitle:   req.Task.Title,
 		ProjectRoot: req.Config.Project.Root,
 		RuntimeRoot: runtimeRoot,
 		CreatedAt:   time.Now().UTC(),
@@ -115,10 +120,11 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		return nil, err
 	}
 
-	env := runtimeEnv(req.Env, req.Layout, req.Config, runtimeRoot, sessionID)
+	env := runtimeEnv(req.Env, req.Layout, req.Config, runtimeRoot, sessionID, req.Task)
 	return &Handle{
 		SessionID:     sessionID,
 		WorkspaceName: req.Config.Workspace.Name,
+		TaskID:        req.Task.ID,
 		ProjectRoot:   req.Config.Project.Root,
 		Root:          runtimeRoot,
 		Env:           env,
@@ -134,8 +140,8 @@ func Cleanup(ctx context.Context, handle Handle) error {
 	})
 }
 
-func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Config, runtimeRoot, sessionID string) map[string]string {
-	env := make(map[string]string, len(base)+5)
+func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Config, runtimeRoot, sessionID string, task adapters.TaskContext) map[string]string {
+	env := make(map[string]string, len(base)+10)
 	for key, value := range base {
 		env[key] = value
 	}
@@ -144,6 +150,13 @@ func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Confi
 	env["ADP_PROJECT_ROOT"] = config.Project.Root
 	env["ADP_RUNTIME_ROOT"] = runtimeRoot
 	env["ADP_SESSION_ID"] = sessionID
+	if !task.IsZero() {
+		env["ADP_TASK_ID"] = task.ID
+		env["ADP_TASK_TITLE"] = task.Title
+		env["ADP_TASK_STATUS"] = task.Status
+		env["ADP_TASK_PRIORITY"] = task.Priority
+		env["ADP_TASK_PHASE"] = task.Phase
+	}
 	return env
 }
 

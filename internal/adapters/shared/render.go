@@ -21,6 +21,7 @@ func Instructions(adapterName string, ctx api.Context) []byte {
 	b.WriteString("Project source files remain separate from ADP workspace configuration.\n\n")
 
 	writeWorkspace(&b, adapterName, ctx)
+	writeTask(&b, ctx)
 	writeSection(&b, "Base Prompt", readWorkspaceFile(ctx.WorkspaceDir, ctx.Config.Prompts.Base, "No base prompt is configured."))
 	writeSection(&b, "Shared Memory", memoryText(ctx))
 	writeSection(&b, "Rules", rulesText(ctx))
@@ -40,19 +41,36 @@ func MetadataTOML(adapterName string, ctx api.Context) []byte {
 	fmt.Fprintf(&b, "profile = %s\n", quote(EffectiveProfile(ctx)))
 	fmt.Fprintf(&b, "memory_enabled = %t\n", ctx.Config.Memory.Enabled)
 	fmt.Fprintf(&b, "mcp_enabled = %t\n", ctx.Config.MCP.Enabled)
+	if !ctx.Task.IsZero() {
+		fmt.Fprintf(&b, "task_id = %s\n", quote(ctx.Task.ID))
+		fmt.Fprintf(&b, "task_title = %s\n", quote(ctx.Task.Title))
+		fmt.Fprintf(&b, "task_status = %s\n", quote(ctx.Task.Status))
+		fmt.Fprintf(&b, "task_priority = %s\n", quote(ctx.Task.Priority))
+		fmt.Fprintf(&b, "task_phase = %s\n", quote(ctx.Task.Phase))
+	}
 	return []byte(b.String())
 }
 
 func MetadataJSON(adapterName string, ctx api.Context) ([]byte, error) {
+	adp := map[string]any{
+		"adapter":       adapterName,
+		"workspace":     ctx.Config.Workspace.Name,
+		"projectRoot":   ctx.Config.Project.Root,
+		"profile":       EffectiveProfile(ctx),
+		"memoryEnabled": ctx.Config.Memory.Enabled,
+		"mcpEnabled":    ctx.Config.MCP.Enabled,
+	}
+	if !ctx.Task.IsZero() {
+		adp["task"] = map[string]any{
+			"id":       ctx.Task.ID,
+			"title":    ctx.Task.Title,
+			"status":   ctx.Task.Status,
+			"priority": ctx.Task.Priority,
+			"phase":    ctx.Task.Phase,
+		}
+	}
 	data := map[string]any{
-		"adp": map[string]any{
-			"adapter":       adapterName,
-			"workspace":     ctx.Config.Workspace.Name,
-			"projectRoot":   ctx.Config.Project.Root,
-			"profile":       EffectiveProfile(ctx),
-			"memoryEnabled": ctx.Config.Memory.Enabled,
-			"mcpEnabled":    ctx.Config.MCP.Enabled,
-		},
+		"adp": adp,
 	}
 	return json.MarshalIndent(data, "", "  ")
 }
@@ -70,6 +88,13 @@ func RenderEnv(adapterName string, ctx api.Context) map[string]string {
 	if profile := EffectiveProfile(ctx); profile != "" {
 		env["ADP_PROFILE"] = profile
 	}
+	if !ctx.Task.IsZero() {
+		env["ADP_TASK_ID"] = ctx.Task.ID
+		env["ADP_TASK_TITLE"] = ctx.Task.Title
+		env["ADP_TASK_STATUS"] = ctx.Task.Status
+		env["ADP_TASK_PRIORITY"] = ctx.Task.Priority
+		env["ADP_TASK_PHASE"] = ctx.Task.Phase
+	}
 	return env
 }
 
@@ -86,6 +111,9 @@ func Launch(adapterName string, ctx api.Context, runtime api.RuntimeHandle, defa
 	}
 	if runtime.SessionID != "" {
 		env["ADP_SESSION_ID"] = runtime.SessionID
+	}
+	if runtime.TaskID != "" {
+		env["ADP_TASK_ID"] = runtime.TaskID
 	}
 
 	command := strings.TrimSpace(ctx.Agent.Command)
@@ -118,6 +146,26 @@ func writeWorkspace(b *strings.Builder, adapterName string, ctx api.Context) {
 	fmt.Fprintf(b, "- Project root: %s\n", defaultText(ctx.Config.Project.Root, "not configured"))
 	fmt.Fprintf(b, "- Agent: %s\n", adapterName)
 	fmt.Fprintf(b, "- Profile: %s\n\n", EffectiveProfile(ctx))
+}
+
+func writeTask(b *strings.Builder, ctx api.Context) {
+	if ctx.Task.IsZero() {
+		return
+	}
+
+	b.WriteString("## Current Task\n\n")
+	fmt.Fprintf(b, "- ID: %s\n", ctx.Task.ID)
+	fmt.Fprintf(b, "- Title: %s\n", defaultText(ctx.Task.Title, "untitled"))
+	fmt.Fprintf(b, "- Status: %s\n", defaultText(ctx.Task.Status, "unknown"))
+	fmt.Fprintf(b, "- Priority: %s\n", defaultText(ctx.Task.Priority, "normal"))
+	fmt.Fprintf(b, "- Phase: %s\n", defaultText(ctx.Task.Phase, "unassigned"))
+	if strings.TrimSpace(ctx.Task.Description) != "" {
+		fmt.Fprintf(b, "- Description: %s\n", strings.TrimSpace(ctx.Task.Description))
+	}
+	if strings.TrimSpace(ctx.Task.BlockedReason) != "" {
+		fmt.Fprintf(b, "- Blocked reason: %s\n", strings.TrimSpace(ctx.Task.BlockedReason))
+	}
+	b.WriteByte('\n')
 }
 
 func writeSection(b *strings.Builder, title, body string) {

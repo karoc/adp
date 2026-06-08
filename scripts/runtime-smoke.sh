@@ -63,7 +63,7 @@ assert_absent_project_artifacts() {
   local project_root="$1"
   local rel
 
-  for rel in AGENTS.md CLAUDE.md .codex .claude; do
+  for rel in AGENTS.md CLAUDE.md .codex .claude planning tasks.yaml progress.jsonl; do
     if [ -e "$project_root/$rel" ] || [ -L "$project_root/$rel" ]; then
       fail "project root was polluted with $rel"
     fi
@@ -136,6 +136,18 @@ run_adp() {
   printf '%s\n' "$output"
 }
 
+run_adp_expect_fail() {
+  local dir="$1"
+  shift
+  local output
+
+  if output=$(cd "$dir" && "$ADP_BIN" "$@" 2>&1); then
+    printf '%s\n' "$output" >&2
+    fail "adp $* succeeded, expected failure"
+  fi
+  printf '%s\n' "$output"
+}
+
 write_fake_agent() {
   local path="$1"
   local agent="$2"
@@ -158,6 +170,13 @@ test -f "$instructions"
 test -f "$config"
 test -L "$linked"
 test -f "$linked"
+if [ -n "\${ADP_EXPECT_TASK_ID:-}" ]; then
+  test "\${ADP_TASK_ID:-}" = "\$ADP_EXPECT_TASK_ID"
+  test "\${ADP_TASK_TITLE:-}" = "Bind runtime session to task"
+  grep -q "\$ADP_EXPECT_TASK_ID" "$instructions"
+  grep -q "Bind runtime session to task" "$instructions"
+  grep -q "task_id: \$ADP_EXPECT_TASK_ID" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+fi
 test "\$#" -eq 2
 test "\$1" = "--probe"
 test "\$2" = "$agent-payload"
@@ -202,9 +221,9 @@ run_fake_smoke() (
   local adp_home="$smoke_root/adp-home"
   local runtime_dir="$smoke_root/runtime"
   local events_file="$adp_home/logs/events.jsonl"
-  local output env_output runtime_root codex_output claude_output
+  local output env_output runtime_root task_output task_id codex_output claude_output
   local completion_output zsh_completion_output events_output
-  local codex_session sessions_output session_output prune_output
+  local codex_session sessions_output session_output prune_output invalid_output task_event_count
 
   mkdir -p "$project_root" "$fake_bin" "$adp_home" "$runtime_dir"
   printf 'module example.com/adp-smoke\n' > "$project_root/go.mod"
@@ -240,6 +259,15 @@ run_fake_smoke() (
   assert_contains "$output" "game-a" "workspace doctor all output"
   assert_contains "$output" "ok" "workspace doctor all output"
 
+  info "fake smoke: create task for runtime binding"
+  task_output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority high --phase p1 --description "runtime binding smoke" "Bind runtime session to task")
+  assert_contains "$task_output" "task task-" "tasks add output"
+  task_id=$(printf '%s\n' "$task_output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+  if [ -z "$task_id" ]; then
+    fail "could not parse task id from: $task_output"
+  fi
+  export ADP_EXPECT_TASK_ID="$task_id"
+
   info "fake smoke: build kept runtime with env --cd"
   env_output=$(run_adp "$REPO_ROOT" env game-a --cd)
   runtime_root=$(parse_export "$env_output" ADP_RUNTIME_ROOT)
@@ -257,22 +285,31 @@ run_fake_smoke() (
   assert_contains "$zsh_completion_output" "workspace" "zsh completion output"
 
   info "fake smoke: run codex and claude through runtime overlays"
-  codex_output=$(run_adp "$REPO_ROOT" run codex --workspace game-a -- --probe codex-payload)
+  codex_output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)
   assert_contains "$codex_output" "fake-codex" "codex run output"
   assert_contains "$codex_output" "--probe codex-payload" "codex run output"
 
-  claude_output=$(run_adp "$project_root" run claude -- --probe claude-payload)
+  claude_output=$(run_adp "$project_root" run claude --task "$task_id" -- --probe claude-payload)
   assert_contains "$claude_output" "fake-claude" "claude run output"
   assert_contains "$claude_output" "--probe claude-payload" "claude run output"
 
   assert_absent_project_artifacts "$project_root"
   assert_line_count "$events_file" 4
+  task_event_count=$({ grep "\"task_id\":\"$task_id\"" "$events_file" || true; } | wc -l | tr -d '[:space:]')
+  if [ "$task_event_count" != "4" ]; then
+    cat "$events_file" >&2
+    fail "task-bound event count is $task_event_count, expected 4"
+  fi
+
+  invalid_output=$(run_adp_expect_fail "$REPO_ROOT" run codex --workspace game-a --task missing-task -- --probe codex-payload)
+  assert_contains "$invalid_output" 'load task "missing-task"' "missing task run output"
 
   info "fake smoke: inspect events and sessions"
-  events_output=$(run_adp "$REPO_ROOT" events list --workspace game-a --type run_finished --limit 2)
+  events_output=$(run_adp "$REPO_ROOT" events list --workspace game-a --task "$task_id" --type run_finished --limit 2)
   assert_contains "$events_output" "run_finished" "events list output"
   assert_contains "$events_output" "codex" "events list output"
   assert_contains "$events_output" "claude" "events list output"
+  assert_contains "$events_output" "$task_id" "events list output"
 
   codex_session=$(session_id_by_agent "$events_file" codex)
   if [ -z "$codex_session" ]; then
@@ -280,12 +317,14 @@ run_fake_smoke() (
     fail "codex session id missing in event log"
   fi
 
-  sessions_output=$(run_adp "$REPO_ROOT" sessions list --workspace game-a --agent codex)
+  sessions_output=$(run_adp "$REPO_ROOT" sessions list --workspace game-a --agent codex --task "$task_id")
   assert_contains "$sessions_output" "$codex_session" "sessions list output"
   assert_contains "$sessions_output" "codex" "sessions list output"
+  assert_contains "$sessions_output" "$task_id" "sessions list output"
 
   session_output=$(run_adp "$REPO_ROOT" sessions show "$codex_session")
   assert_contains "$session_output" "session_id: $codex_session" "sessions show output"
+  assert_contains "$session_output" "task_id: $task_id" "sessions show output"
   assert_contains "$session_output" "run_started" "sessions show output"
   assert_contains "$session_output" "run_finished" "sessions show output"
 

@@ -37,6 +37,7 @@ The fake runtime smoke verifies:
 
 - Runtime overlay creation.
 - Runtime environment variables.
+- Task-bound runtime context through `adp run --task <task-id>`.
 - Codex and Claude adapter launch paths through fake binaries.
 - Event log writes.
 - Session history queries.
@@ -44,7 +45,7 @@ The fake runtime smoke verifies:
 - Shell export rendering.
 - Bash and zsh completion rendering.
 - ADP-owned runtime pruning.
-- Protection against polluting the real project root with runtime artifacts.
+- Protection against polluting the real project root with runtime artifacts or planning files.
 
 `scripts/example-workspace-smoke.sh` builds the current `cmd/adp` binary, copies `examples/basic-workspace` into a temporary `ADP_HOME`, rewrites the copied `project.root` to a temporary project, and verifies `adp init`, `workspace doctor`, `workspace show`, and `env --cd` against that copied example.
 
@@ -96,6 +97,8 @@ When real CLI evidence is collected, record:
 ## Failure Triage
 
 If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The fake smoke is the highest-signal check for runtime overlay behavior, adapter launch paths, local event history, session aggregation, and project-root pollution.
+
+If a task-bound runtime smoke step fails, inspect workspace resolution, task lookup under `$ADP_HOME/workspaces/<workspace>/planning`, generated task context in `AGENTS.md` or `CLAUDE.md`, `ADP_TASK_ID` in the runtime environment, and task IDs in events and sessions.
 
 If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examples/basic-workspace/workspace.yaml` still matches the current schema and whether `adp env <workspace> --cd` still produces a kept runtime with project-file symlinks.
 

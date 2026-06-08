@@ -32,8 +32,8 @@ Usage:
   adp env <workspace> [--cd]
   adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]
   adp completion [--shell <bash|zsh>] [--command <name>]
-  adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]
-	  adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]
+  adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]
+	  adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]
 	  adp sessions show <session-id>
 	  adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]
 	  adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>
@@ -43,7 +43,7 @@ Usage:
 	  adp tasks done [--workspace <name>] <task-id>
 	  adp tasks block [--workspace <name>] <task-id> --reason <reason>
 	  adp progress [--workspace <name>]
-	  adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]
+	  adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]
 	`
 
 type WorkspaceStore interface {

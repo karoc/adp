@@ -23,6 +23,7 @@ type Event struct {
 	RuntimePath    string         `json:"runtime_path,omitempty"`
 	ProjectRoot    string         `json:"project_root,omitempty"`
 	SessionID      string         `json:"session_id,omitempty"`
+	TaskID         string         `json:"task_id,omitempty"`
 	PID            int            `json:"pid,omitempty"`
 	ExitCode       *int           `json:"exit_code,omitempty"`
 	DurationMillis int64          `json:"duration_ms,omitempty"`

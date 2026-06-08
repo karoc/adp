@@ -27,6 +27,7 @@ func TestLoggerAppendsJSONLinesAndSanitizesEnvFields(t *testing.T) {
 		RuntimePath: "/tmp/adp-runtime/game-a-session",
 		ProjectRoot: "/srv/game-a",
 		SessionID:   "session-1",
+		TaskID:      "task-20260608-0001",
 		ExitCode:    &exitCode,
 		Fields: map[string]any{
 			"phase": "done",
@@ -79,6 +80,9 @@ func TestLoggerAppendsJSONLinesAndSanitizesEnvFields(t *testing.T) {
 	}
 	if first["exit_code"] != float64(exitCode) {
 		t.Fatalf("exit_code = %v, want %d", first["exit_code"], exitCode)
+	}
+	if first["task_id"] != "task-20260608-0001" {
+		t.Fatalf("task_id = %v, want task-20260608-0001", first["task_id"])
 	}
 
 	fields, ok := first["fields"].(map[string]any)

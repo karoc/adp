@@ -651,10 +651,11 @@ adp workspace doctor game-a
 adp env game-a --cd
 adp shell-hook --shell bash
 adp completion --shell bash
-adp run codex --workspace game-a -- --version
+adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task"
+adp run codex --workspace game-a --task <task-id> -- --version
 cd /srv/game-a && adp run claude -- --version
-adp events list --workspace game-a
-adp sessions list --workspace game-a --agent codex
+adp events list --workspace game-a --task <task-id>
+adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
 adp runtime prune --older-than 24h --dry-run
 adp enter game-a
@@ -672,11 +673,12 @@ adp workspace remove game-renamed
 - `adp completion` 能输出 `bash` 和 `zsh` 的稳定 completion。
 - `adp events list` 能查询 run start/finish 历史。
 - `adp sessions list` / `show` 能从 event log 查询 session history。
+- `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
 - `adp runtime prune` 只报告或删除 ADP-owned runtime 目录。
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
 - `examples/basic-workspace` 保持为有效本地 workspace 示例，其中 Markdown prompt 和 memory 文件保持英文默认与简体中文 counterpart 配对。
 - runtime root 中存在 ADP 生成的 Agent 配置文件。
-- 真实 `/srv/game-a` 不新增 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/`。
+- 真实 `/srv/game-a` 不新增 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/`、`planning/`、`tasks.yaml` 或 `progress.jsonl`。
 - event log 记录 run start/finish。
 - fake agent e2e 能断言 cwd、env、参数透传、exit code。
 
@@ -714,9 +716,9 @@ symlink overlay 与真实项目已有配置冲突：
 
 后续工作按“是否能增强 ADP 的 terminal-first runtime 和 workspace 管理闭环”排序，同时避免偏向 hosted project management 或 dashboard。
 
-- P0：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
-- P1：Runtime task binding。增加 `adp run --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
-- P2：Early preview hardening。补动态 workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明。
+- P0 已完成：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
+- P1 已完成：Runtime task binding。增加 `adp run --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
+- P2 下一步：Early preview hardening。补动态 workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明。
 - P3：Extended runtime standards。在本地 task/runtime 闭环稳定后，再扩展 adapter 覆盖、MCP 管理、session restore/replay 和可选 runtime backend。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

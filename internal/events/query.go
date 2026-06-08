@@ -23,6 +23,7 @@ var ErrInvalidLimit = errors.New("event query limit must be non-negative")
 type Query struct {
 	Workspace string
 	SessionID string
+	TaskID    string
 	Type      string
 	Limit     int
 }
@@ -121,6 +122,9 @@ func matchesQuery(event Event, query Query) bool {
 		return false
 	}
 	if query.SessionID != "" && event.SessionID != query.SessionID {
+		return false
+	}
+	if query.TaskID != "" && event.TaskID != query.TaskID {
 		return false
 	}
 	if query.Type != "" && event.Type != query.Type {

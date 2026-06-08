@@ -20,14 +20,14 @@ Implemented Phase 1 foundations:
 - `adp env <workspace> [--cd]`
 - `adp shell-hook [--shell <sh|bash|zsh>]`
 - `adp completion [--shell <bash|zsh>] [--command <name>]`
-- `adp events list [--workspace <name>]`
-- `adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]`
+- `adp events list [--workspace <name>] [--task <task-id>]`
+- `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 - `adp sessions show <session-id>`
 - `adp runtime prune [--older-than <duration>] [--dry-run]`
 - `adp tasks add/list/show/update/done/block`
 - `adp progress [--workspace <name>]`
-- `adp run codex --workspace <name>`
-- `adp run claude --workspace <name>`
+- `adp run codex --workspace <name> [--task <task-id>]`
+- `adp run claude --workspace <name> [--task <task-id>]`
 - `adp enter <workspace>`
 - local workspace registry under `$ADP_HOME`
 - symlink-based runtime overlay under `$ADP_RUNTIME_DIR`
@@ -51,11 +51,12 @@ go run ./cmd/adp workspace doctor game-a
 go run ./cmd/adp env game-a --cd
 go run ./cmd/adp shell-hook --shell bash
 go run ./cmd/adp completion --shell bash
-go run ./cmd/adp run codex --workspace game-a
+TASK_ID=$(go run ./cmd/adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+go run ./cmd/adp run codex --workspace game-a --task "$TASK_ID"
 cd /srv/game-a && go run /path/to/adp/cmd/adp run claude
 go run ./cmd/adp run claude --workspace game-a
-go run ./cmd/adp events list --workspace game-a
-go run ./cmd/adp sessions list --workspace game-a --agent codex
+go run ./cmd/adp events list --workspace game-a --task "$TASK_ID"
+go run ./cmd/adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
 go run ./cmd/adp sessions show <session-id>
 go run ./cmd/adp runtime prune --older-than 24h --dry-run
 go run ./cmd/adp enter game-a
@@ -66,6 +67,7 @@ Useful environment variables:
 - `ADP_HOME`: ADP home directory. Defaults to `~/.adp`.
 - `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`.
 - `ADP_WORKSPACE`: default workspace for commands that accept a workspace.
+- `ADP_TASK_ID`, `ADP_TASK_TITLE`, `ADP_TASK_STATUS`, `ADP_TASK_PRIORITY`, and `ADP_TASK_PHASE`: available inside runtimes launched with `adp run --task <task-id>`.
 
 When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the current directory to a registered project root.
 
@@ -92,17 +94,17 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp completion [--shell <bash|zsh>] [--command <name>]` prints deterministic shell completion for the current CLI surface. It defaults to bash when `--shell` is omitted. The optional command name lets packaged binaries or aliases render completion for a command name other than `adp`.
 
-`adp events list` reads `$ADP_HOME/logs/events.jsonl` and prints recent runtime events with optional workspace, session, type, and limit filters.
+`adp events list` reads `$ADP_HOME/logs/events.jsonl` and prints recent runtime events with optional workspace, session, task, type, and limit filters.
 
-`adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]` groups local event log entries by session so terminal users can inspect recent agent runs without leaving the CLI.
+`adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]` groups local event log entries by session so terminal users can inspect recent agent runs without leaving the CLI.
 
-`adp sessions show <session-id>` prints the ordered events for one recorded session, including start, finish, workspace, agent, runtime path, exit code, and duration data when those fields are available.
+`adp sessions show <session-id>` prints the ordered events for one recorded session, including start, finish, workspace, agent, task ID, runtime path, exit code, and duration data when those fields are available.
 
 `adp workspace doctor [name]` validates workspace configuration, project root reachability, referenced prompt, memory, MCP, and profile files, and agent command settings. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
 
 `adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered ADP-owned only when it contains `.adp-runtime.yaml` with `generated_by: adp`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
-`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. ADP keeps this task state outside the real project root. See [docs/task-management.md](docs/task-management.md).
+`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. `adp run --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
 
 The repository includes `examples/basic-workspace` as a copyable local workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings. Replace its `project.root` before running it against a local project. It is intended as a terminal-first reference for how ADP keeps agent configuration outside the real project tree.
 

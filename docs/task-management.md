@@ -17,10 +17,10 @@ The first task-management slice provides:
 - `adp tasks done`
 - `adp tasks block`
 - `adp progress`
+- `adp run --task <task-id>` runtime binding.
 - Workspace-local planning files under `$ADP_HOME/workspaces/<workspace>/planning/`.
 - JSONL progress events for task creation and status changes.
-
-The next integration slice will attach tasks to runtime sessions with `adp run --task <task-id>`, runtime environment variables, generated instruction context, event log task IDs, and session evidence.
+- Runtime event and session evidence linked by task ID.
 
 ## Storage
 
@@ -79,6 +79,35 @@ adp progress --workspace adp
 
 When `--workspace` is omitted, ADP uses the same workspace resolution model as other workspace-aware commands: `ADP_WORKSPACE` first, then the current directory if it is inside a registered project root.
 
+## Runtime Binding
+
+Attach a task to an agent runtime session:
+
+```bash
+adp run codex --workspace adp --task <task-id> -- --version
+```
+
+The task ID is resolved inside the selected workspace. If the task does not exist in that workspace, ADP fails before building a runtime or launching the agent process.
+
+When a task is bound, ADP injects task context into:
+
+- Runtime environment variables such as `ADP_TASK_ID`, `ADP_TASK_TITLE`, `ADP_TASK_STATUS`, `ADP_TASK_PRIORITY`, and `ADP_TASK_PHASE`.
+- The runtime manifest `.adp-runtime.yaml`.
+- Generated adapter instructions such as `AGENTS.md` and `CLAUDE.md`.
+- Generated adapter metadata such as `.codex/config.toml` and `.claude/settings.json`.
+- `run_started` and `run_finished` events.
+- Session summaries and session detail output.
+
+Task-bound history can be inspected with:
+
+```bash
+adp events list --workspace adp --task <task-id>
+adp sessions list --workspace adp --task <task-id>
+adp sessions show <session-id>
+```
+
+`adp run --task` does not automatically move task status. Status changes remain explicit through `adp tasks update`, `adp tasks done`, and `adp tasks block`.
+
 ## Phase Discipline
 
 Task management is intended to support phase-by-phase delivery:
@@ -97,8 +126,6 @@ The current task manager does not yet:
 
 - Automatically split user intent into tasks.
 - Claim tasks for external agents.
-- Attach tasks to `adp run` sessions.
-- Inject task context into generated `AGENTS.md` or `CLAUDE.md`.
 - Export progress reports into project documentation.
 - Sync with GitHub Issues, Linear, Jira, Notion, or any hosted service.
 

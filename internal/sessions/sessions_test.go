@@ -32,6 +32,7 @@ func TestListGroupsFiltersLimitsAndOrdersSessions(t *testing.T) {
 			ProjectRoot: "/srv/game-a",
 			RuntimePath: "/tmp/adp-runtime/s1",
 			SessionID:   "s1",
+			TaskID:      "task-1",
 		},
 		{
 			Timestamp:      time.Date(2026, 6, 8, 10, 2, 0, 0, time.UTC),
@@ -42,6 +43,7 @@ func TestListGroupsFiltersLimitsAndOrdersSessions(t *testing.T) {
 			ProjectRoot:    "/srv/game-a",
 			RuntimePath:    "/tmp/adp-runtime/s1",
 			SessionID:      "s1",
+			TaskID:         "task-1",
 			ExitCode:       &exitCode,
 			DurationMillis: 120000,
 		},
@@ -58,6 +60,7 @@ func TestListGroupsFiltersLimitsAndOrdersSessions(t *testing.T) {
 			Workspace: "game-a",
 			Agent:     "codex",
 			SessionID: "s3",
+			TaskID:    "task-3",
 		},
 		{
 			Timestamp: time.Date(2026, 6, 8, 13, 0, 0, 0, time.UTC),
@@ -86,6 +89,9 @@ func TestListGroupsFiltersLimitsAndOrdersSessions(t *testing.T) {
 	if first.ProjectRoot != "/srv/game-a" || first.RuntimePath != "/tmp/adp-runtime/s1" {
 		t.Fatalf("first summary paths are wrong: %#v", first)
 	}
+	if first.TaskID != "task-1" {
+		t.Fatalf("first summary task id = %q, want task-1", first.TaskID)
+	}
 	if !first.StartedAt.Equal(time.Date(2026, 6, 8, 10, 0, 0, 0, time.UTC)) {
 		t.Fatalf("started_at = %s, want 2026-06-08T10:00:00Z", first.StartedAt)
 	}
@@ -109,6 +115,14 @@ func TestListGroupsFiltersLimitsAndOrdersSessions(t *testing.T) {
 	if got, want := summaryIDs(limited), []string{"s3", "s4"}; !equalStrings(got, want) {
 		t.Fatalf("limited session ids = %v, want %v", got, want)
 	}
+
+	taskFiltered, err := List(context.Background(), layout, Query{TaskID: "task-3"})
+	if err != nil {
+		t.Fatalf("task-filtered List returned error: %v", err)
+	}
+	if got, want := summaryIDs(taskFiltered), []string{"s3"}; !equalStrings(got, want) {
+		t.Fatalf("task-filtered session ids = %v, want %v", got, want)
+	}
 }
 
 func TestGetReturnsSessionDetailWithOrderedEvents(t *testing.T) {
@@ -127,6 +141,7 @@ func TestGetReturnsSessionDetailWithOrderedEvents(t *testing.T) {
 			ProjectRoot: "/srv/game-a",
 			RuntimePath: "/tmp/adp-runtime/s1",
 			SessionID:   "s1",
+			TaskID:      "task-1",
 		},
 		{
 			Timestamp: time.Date(2026, 6, 8, 9, 1, 0, 0, time.UTC),
@@ -139,6 +154,7 @@ func TestGetReturnsSessionDetailWithOrderedEvents(t *testing.T) {
 			Workspace:      "game-a",
 			Agent:          "codex",
 			SessionID:      "s1",
+			TaskID:         "task-1",
 			ExitCode:       &exitCode,
 			DurationMillis: 0,
 		},
@@ -155,6 +171,9 @@ func TestGetReturnsSessionDetailWithOrderedEvents(t *testing.T) {
 	}
 	if detail.Summary.SessionID != "s1" || detail.Summary.EventCount != 3 {
 		t.Fatalf("summary = %#v, want s1 with 3 events", detail.Summary)
+	}
+	if detail.Summary.TaskID != "task-1" {
+		t.Fatalf("summary task id = %q, want task-1", detail.Summary.TaskID)
 	}
 	if detail.Summary.DurationMillis == nil || *detail.Summary.DurationMillis != 0 {
 		t.Fatalf("duration_ms = %v, want present zero", detail.Summary.DurationMillis)

@@ -78,6 +78,46 @@ func TestLaunchUsesCommandOverrideAndExtraArgs(t *testing.T) {
 	}
 }
 
+func TestRenderIncludesTaskContext(t *testing.T) {
+	adapter := New()
+	ctx := claudeContext(t.TempDir())
+	ctx.Task = api.TaskContext{
+		ID:          "task-20260608-0002",
+		Title:       "Bind Claude runtime to task",
+		Status:      "in_progress",
+		Priority:    "normal",
+		Phase:       "p1",
+		Description: "Task-bound Claude context.",
+	}
+
+	result, err := adapter.Render(context.Background(), ctx)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	claude := generatedText(t, result, "CLAUDE.md")
+	for _, want := range []string{"## Current Task", "task-20260608-0002", "Bind Claude runtime to task", "Task-bound Claude context."} {
+		if !strings.Contains(claude, want) {
+			t.Fatalf("CLAUDE.md missing task text %q:\n%s", want, claude)
+		}
+	}
+
+	var settings map[string]map[string]any
+	if err := json.Unmarshal([]byte(generatedText(t, result, ".claude/settings.json")), &settings); err != nil {
+		t.Fatalf("settings.json is not valid JSON: %v", err)
+	}
+	task, ok := settings["adp"]["task"].(map[string]any)
+	if !ok {
+		t.Fatalf("settings task metadata missing: %#v", settings["adp"])
+	}
+	if task["id"] != "task-20260608-0002" || task["phase"] != "p1" {
+		t.Fatalf("settings task metadata = %#v", task)
+	}
+	if result.Env["ADP_TASK_ID"] != "task-20260608-0002" || result.Env["ADP_TASK_STATUS"] != "in_progress" {
+		t.Fatalf("render env missing task values: %#v", result.Env)
+	}
+}
+
 func TestLaunchUsesDefaultCommand(t *testing.T) {
 	adapter := New()
 	ctx := claudeContext(t.TempDir())

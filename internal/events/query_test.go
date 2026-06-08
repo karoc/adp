@@ -29,17 +29,18 @@ func TestReadFiltersLimitsAndNormalizesTimestamps(t *testing.T) {
 
 	layout := paths.New(t.TempDir(), t.TempDir())
 	writeEventLog(t, layout, strings.Join([]string{
-		`{"ts":"2026-06-08T10:00:00+08:00","type":"run_finished","workspace":"game-a","session_id":"s1","runtime_path":"first"}`,
+		`{"ts":"2026-06-08T10:00:00+08:00","type":"run_finished","workspace":"game-a","session_id":"s1","task_id":"task-other","runtime_path":"first"}`,
 		`{"ts":"2026-06-08T10:30:00+08:00","type":"run_finished","workspace":"game-b","session_id":"s1","runtime_path":"other-workspace"}`,
-		`{"ts":"2026-06-08T11:00:00+08:00","type":"run_finished","workspace":"game-a","session_id":"s1","runtime_path":"second"}`,
+		`{"ts":"2026-06-08T11:00:00+08:00","type":"run_finished","workspace":"game-a","session_id":"s1","task_id":"task-1","runtime_path":"second"}`,
 		`{"ts":"2026-06-08T11:30:00+08:00","type":"run_started","workspace":"game-a","session_id":"s1","runtime_path":"other-type"}`,
-		`{"ts":"2026-06-08T12:00:00+08:00","type":"run_finished","workspace":"game-a","session_id":"s1","runtime_path":"third"}`,
-		`{"ts":"2026-06-08T13:00:00+08:00","type":"run_finished","workspace":"game-a","session_id":"s1","runtime_path":"fourth"}`,
+		`{"ts":"2026-06-08T12:00:00+08:00","type":"run_finished","workspace":"game-a","session_id":"s1","task_id":"task-1","runtime_path":"third"}`,
+		`{"ts":"2026-06-08T13:00:00+08:00","type":"run_finished","workspace":"game-a","session_id":"s1","task_id":"task-1","runtime_path":"fourth"}`,
 	}, "\n"))
 
 	events, err := Read(context.Background(), layout, Query{
 		Workspace: "game-a",
 		SessionID: "s1",
+		TaskID:    "task-1",
 		Type:      "run_finished",
 		Limit:     2,
 	})

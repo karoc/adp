@@ -416,18 +416,18 @@ End-to-end expectations:
 - `adp events list` prints filtered run history from JSONL events.
 - `adp sessions list` and `adp sessions show` expose local session history derived from JSONL events.
 - `adp runtime prune` reports and removes only ADP-owned runtime directories.
-- `adp run codex` and `adp run claude` build runtime overlays.
+- `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
 - Fake agent tests can assert cwd, env, generated files, symlinks, args, exit code, logs, and cleanup.
-- The real project directory must not gain `AGENTS.md`, `CLAUDE.md`, `.codex/`, or `.claude/`.
+- The real project directory must not gain `AGENTS.md`, `CLAUDE.md`, `.codex/`, `.claude/`, `planning/`, `tasks.yaml`, or `progress.jsonl`.
 
 ## 12. Next Work
 
 Next work is prioritized by how much it improves ADP's terminal-first runtime and workspace management loop without drifting into hosted project management or a dashboard.
 
-- P0: Task and Progress Manager MVP. Store workspace-scoped task state under `$ADP_HOME/workspaces/<workspace>/planning`, expose `adp tasks` and `adp progress`, and validate it with a task-manager smoke.
-- P1: Runtime task binding. Add `adp run --task <task-id>`, inject task context into runtime env and generated adapter instructions, and connect task IDs to events and sessions.
-- P2: Early preview hardening. Add dynamic workspace/profile completion, a global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes.
+- P0 completed: Task and Progress Manager MVP. Store workspace-scoped task state under `$ADP_HOME/workspaces/<workspace>/planning`, expose `adp tasks` and `adp progress`, and validate it with a task-manager smoke.
+- P1 completed: Runtime task binding. Add `adp run --task <task-id>`, inject task context into runtime env and generated adapter instructions, and connect task IDs to events and sessions.
+- P2 next: Early preview hardening. Add dynamic workspace/profile completion, a global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes.
 - P3: Extended runtime standards. Expand adapter coverage, MCP management, session restore/replay, and optional runtime backends only after the local task/runtime loop is stable.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

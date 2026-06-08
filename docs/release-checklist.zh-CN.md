@@ -37,6 +37,7 @@ fake runtime smoke 验证：
 
 - runtime overlay 创建。
 - runtime 环境变量。
+- 通过 `adp run --task <task-id>` 注入 task-bound runtime context。
 - 通过 fake binary 覆盖 Codex 和 Claude adapter 启动路径。
 - event log 写入。
 - session history 查询。
@@ -44,7 +45,7 @@ fake runtime smoke 验证：
 - shell export 渲染。
 - bash 和 zsh completion 渲染。
 - ADP-owned runtime 清理。
-- 防止 runtime artifact 污染真实项目根目录。
+- 防止 runtime artifact 或 planning 文件污染真实项目根目录。
 
 `scripts/example-workspace-smoke.sh` 会构建当前 `cmd/adp` 二进制，把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，把复制后的 `project.root` 改写为临时项目，并用该示例验证 `adp init`、`workspace doctor`、`workspace show` 和 `env --cd`。
 
@@ -96,6 +97,8 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ## 失败定位
 
 如果 `scripts/runtime-smoke.sh --fake` 失败，优先查看报告的失败步骤。fake smoke 是 runtime overlay 行为、adapter 启动路径、本地 event history、session 聚合和项目根目录污染防护的最高信号检查。
+
+如果 task-bound runtime smoke 步骤失败，优先检查 workspace 解析、`$ADP_HOME/workspaces/<workspace>/planning` 下的 task lookup、`AGENTS.md` 或 `CLAUDE.md` 中生成的 task context、runtime 环境变量中的 `ADP_TASK_ID`，以及 events 和 sessions 中的 task ID。
 
 如果 `scripts/example-workspace-smoke.sh` 失败，优先检查复制后的 `examples/basic-workspace/workspace.yaml` 是否仍匹配当前 schema，以及 `adp env <workspace> --cd` 是否仍能生成带项目文件 symlink 的 kept runtime。
 

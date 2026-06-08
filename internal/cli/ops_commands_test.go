@@ -110,6 +110,7 @@ func TestEventsListCommandReadsAndPrintsEvents(t *testing.T) {
 				Workspace:   "game-a",
 				Agent:       "codex",
 				SessionID:   "session-1",
+				TaskID:      "task-1",
 				RuntimePath: "/tmp/runtime",
 				ExitCode:    &exitCode,
 			}}, nil
@@ -118,7 +119,7 @@ func TestEventsListCommandReadsAndPrintsEvents(t *testing.T) {
 
 	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(
 		context.Background(),
-		[]string{"events", "list", "--workspace", "game-a", "--session", "session-1", "--type", "run_finished", "--limit", "2"},
+		[]string{"events", "list", "--workspace", "game-a", "--session", "session-1", "--task", "task-1", "--type", "run_finished", "--limit", "2"},
 	)
 
 	if code != 0 {
@@ -127,11 +128,11 @@ func TestEventsListCommandReadsAndPrintsEvents(t *testing.T) {
 	if gotLayout != layout {
 		t.Fatalf("layout = %+v, want %+v", gotLayout, layout)
 	}
-	if gotQuery.Workspace != "game-a" || gotQuery.SessionID != "session-1" || gotQuery.Type != "run_finished" || gotQuery.Limit != 2 {
+	if gotQuery.Workspace != "game-a" || gotQuery.SessionID != "session-1" || gotQuery.TaskID != "task-1" || gotQuery.Type != "run_finished" || gotQuery.Limit != 2 {
 		t.Fatalf("query = %+v", gotQuery)
 	}
 	output := stdout.String()
-	for _, want := range []string{"run_finished", "game-a", "codex", "session-1", "0", "/tmp/runtime"} {
+	for _, want := range []string{"run_finished", "game-a", "codex", "session-1", "task-1", "0", "/tmp/runtime"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("events output missing %q: %q", want, output)
 		}
@@ -205,6 +206,7 @@ func TestSessionsListCommandReadsAndPrintsSummaries(t *testing.T) {
 				Workspace:      "game-a",
 				Agent:          "codex",
 				Profile:        "senior",
+				TaskID:         "task-1",
 				RuntimePath:    "/tmp/runtime",
 				StartedAt:      time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
 				FinishedAt:     time.Date(2026, 6, 8, 12, 2, 0, 0, time.UTC),
@@ -217,7 +219,7 @@ func TestSessionsListCommandReadsAndPrintsSummaries(t *testing.T) {
 
 	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(
 		context.Background(),
-		[]string{"sessions", "list", "--workspace", "game-a", "--agent", "codex", "--limit", "3"},
+		[]string{"sessions", "list", "--workspace", "game-a", "--agent", "codex", "--task", "task-1", "--limit", "3"},
 	)
 
 	if code != 0 {
@@ -226,11 +228,11 @@ func TestSessionsListCommandReadsAndPrintsSummaries(t *testing.T) {
 	if gotLayout != layout {
 		t.Fatalf("layout = %+v, want %+v", gotLayout, layout)
 	}
-	if gotQuery.Workspace != "game-a" || gotQuery.Agent != "codex" || gotQuery.Limit != 3 {
+	if gotQuery.Workspace != "game-a" || gotQuery.Agent != "codex" || gotQuery.TaskID != "task-1" || gotQuery.Limit != 3 {
 		t.Fatalf("query = %+v", gotQuery)
 	}
 	output := stdout.String()
-	for _, want := range []string{"session-1", "game-a", "codex", "senior", "0", "120000", "2", "/tmp/runtime"} {
+	for _, want := range []string{"session-1", "game-a", "codex", "senior", "task-1", "0", "120000", "2", "/tmp/runtime"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("sessions list output missing %q: %q", want, output)
 		}
@@ -301,6 +303,7 @@ func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
 					Workspace:      "game-a",
 					Agent:          "codex",
 					Profile:        "senior",
+					TaskID:         "task-1",
 					ProjectRoot:    "/srv/game-a",
 					RuntimePath:    "/tmp/runtime",
 					StartedAt:      time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
@@ -315,6 +318,7 @@ func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
 					Workspace: "game-a",
 					Agent:     "codex",
 					SessionID: "session-1",
+					TaskID:    "task-1",
 				}},
 			}, nil
 		},
@@ -329,7 +333,7 @@ func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
 		t.Fatalf("session id = %q", gotSessionID)
 	}
 	output := stdout.String()
-	for _, want := range []string{"session_id: session-1", "workspace: game-a", "project_root: /srv/game-a", "exit_code: 7", "duration_ms: 10", "run_started"} {
+	for _, want := range []string{"session_id: session-1", "workspace: game-a", "task_id: task-1", "project_root: /srv/game-a", "exit_code: 7", "duration_ms: 10", "run_started"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("sessions show output missing %q: %q", want, output)
 		}

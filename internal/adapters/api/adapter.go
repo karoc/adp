@@ -21,6 +21,21 @@ type Context struct {
 	Config       schema.Config
 	Agent        schema.AgentConfig
 	Profile      string
+	Task         TaskContext
+}
+
+type TaskContext struct {
+	ID            string
+	Title         string
+	Status        string
+	Priority      string
+	Phase         string
+	Description   string
+	BlockedReason string
+}
+
+func (t TaskContext) IsZero() bool {
+	return t.ID == ""
 }
 
 type RenderResult struct {
@@ -37,6 +52,7 @@ type GeneratedFile struct {
 type RuntimeHandle struct {
 	SessionID     string
 	WorkspaceName string
+	TaskID        string
 	ProjectRoot   string
 	Root          string
 	Env           map[string]string

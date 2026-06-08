@@ -40,13 +40,15 @@ adp workspace list
 adp workspace show game-a
 adp workspace doctor game-a
 adp workspace doctor
+adp tasks add --workspace game-a --priority high --phase p1 "Bind runtime session to task"
 adp env game-a --cd
 adp completion --shell bash
 adp completion --shell zsh
-adp run codex --workspace game-a -- --probe codex-payload
-adp run claude -- --probe claude-payload
-adp events list --workspace game-a --type run_finished --limit 2
-adp sessions list --workspace game-a --agent codex
+adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
+adp run claude --task <task-id> -- --probe claude-payload
+adp run codex --workspace game-a --task missing-task -- --probe codex-payload
+adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
+adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
 adp runtime prune --older-than 0s --include-kept --dry-run
 adp runtime prune --older-than 0s --include-kept
@@ -58,12 +60,17 @@ fake Codex 和 Claude 命令会断言：
 - `ADP_WORKSPACE` 设置为已注册 workspace。
 - `ADP_SESSION_ID` 存在。
 - `ADP_RUNTIME_ROOT` 存在，并且与进程工作目录一致。
+- 对于 task-bound run，`ADP_TASK_ID` 和任务 metadata 存在。
 - `.adp-runtime.yaml` 存在于 runtime root。
+- `.adp-runtime.yaml` 会记录绑定的 task ID。
 - agent-specific 生成文件存在：
   - Codex：`AGENTS.md` 和 `.codex/config.toml`。
   - Claude：`CLAUDE.md` 和 `.claude/settings.json`。
+- 生成的 instructions 包含当前 task context。
 - 真实项目文件可以通过 runtime root 中的 symlink 看到。
 - `--` 之后的参数可以传递给 agent 进程。
+
+脚本还会检查缺失的 task ID 会在 fake agent 命令启动前失败。
 
 脚本还会断言真实项目根目录没有被 ADP runtime artifact 污染：
 
@@ -71,6 +78,9 @@ fake Codex 和 Claude 命令会断言：
 - `CLAUDE.md`。
 - `.codex/`。
 - `.claude/`。
+- `planning/`。
+- `tasks.yaml`。
+- `progress.jsonl`。
 
 ## 真实 CLI Smoke
 
@@ -101,6 +111,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 
 - 创建隔离 runtime overlay。
 - 注入 runtime 环境变量。
+- 通过 `adp run --task <task-id>` 进行 runtime task binding。
 - 从 runtime root 启动 agent 命令。
 - 写入本地 JSONL event log。
 - 从本地 events 聚合 session history。

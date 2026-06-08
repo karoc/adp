@@ -23,6 +23,7 @@ var (
 type Query struct {
 	Workspace string
 	Agent     string
+	TaskID    string
 	Limit     int
 }
 
@@ -33,6 +34,7 @@ type Summary struct {
 	Profile        string    `json:"profile,omitempty"`
 	ProjectRoot    string    `json:"project_root,omitempty"`
 	RuntimePath    string    `json:"runtime_path,omitempty"`
+	TaskID         string    `json:"task_id,omitempty"`
 	StartedAt      time.Time `json:"started_at,omitempty"`
 	FinishedAt     time.Time `json:"finished_at,omitempty"`
 	ExitCode       *int      `json:"exit_code,omitempty"`
@@ -174,6 +176,7 @@ func (s *sessionState) add(event events.Event) {
 	fillString(&s.summary.Profile, event.Profile)
 	fillString(&s.summary.ProjectRoot, event.ProjectRoot)
 	fillString(&s.summary.RuntimePath, event.RuntimePath)
+	fillString(&s.summary.TaskID, event.TaskID)
 	s.addStartedAt(event)
 	s.addFinishedFields(event)
 }
@@ -245,6 +248,9 @@ func matchesQuery(summary Summary, query Query) bool {
 		return false
 	}
 	if query.Agent != "" && summary.Agent != query.Agent {
+		return false
+	}
+	if query.TaskID != "" && summary.TaskID != query.TaskID {
 		return false
 	}
 	return true

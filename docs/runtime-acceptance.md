@@ -40,13 +40,15 @@ adp workspace list
 adp workspace show game-a
 adp workspace doctor game-a
 adp workspace doctor
+adp tasks add --workspace game-a --priority high --phase p1 "Bind runtime session to task"
 adp env game-a --cd
 adp completion --shell bash
 adp completion --shell zsh
-adp run codex --workspace game-a -- --probe codex-payload
-adp run claude -- --probe claude-payload
-adp events list --workspace game-a --type run_finished --limit 2
-adp sessions list --workspace game-a --agent codex
+adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
+adp run claude --task <task-id> -- --probe claude-payload
+adp run codex --workspace game-a --task missing-task -- --probe codex-payload
+adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
+adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
 adp runtime prune --older-than 0s --include-kept --dry-run
 adp runtime prune --older-than 0s --include-kept
@@ -58,12 +60,17 @@ The fake Codex and Claude commands assert that:
 - `ADP_WORKSPACE` is set to the registered workspace.
 - `ADP_SESSION_ID` is present.
 - `ADP_RUNTIME_ROOT` is present and matches the process working directory.
+- `ADP_TASK_ID` and task metadata are present for task-bound runs.
 - `.adp-runtime.yaml` exists in the runtime root.
+- `.adp-runtime.yaml` records the bound task ID.
 - Agent-specific generated files exist:
   - Codex: `AGENTS.md` and `.codex/config.toml`.
   - Claude: `CLAUDE.md` and `.claude/settings.json`.
+- Generated instructions contain the current task context.
 - Real project files are visible through symlinks from the runtime root.
 - Arguments after `--` reach the agent process.
+
+The script also checks that a missing task ID fails before the fake agent command is launched.
 
 The script also asserts that the real project root is not polluted with ADP runtime artifacts:
 
@@ -71,6 +78,9 @@ The script also asserts that the real project root is not polluted with ADP runt
 - `CLAUDE.md`.
 - `.codex/`.
 - `.claude/`.
+- `planning/`.
+- `tasks.yaml`.
+- `progress.jsonl`.
 
 ## Real CLI Smoke
 
@@ -101,6 +111,7 @@ This smoke validates ADP's runtime responsibilities:
 
 - Isolated runtime overlay creation.
 - Runtime environment variable injection.
+- Runtime task binding through `adp run --task <task-id>`.
 - Agent command launch from the runtime root.
 - Local JSONL event logging.
 - Session history aggregation from local events.

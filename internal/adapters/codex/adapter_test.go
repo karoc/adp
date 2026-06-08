@@ -81,6 +81,41 @@ func TestLaunchUsesCommandOverrideAndExtraArgs(t *testing.T) {
 	}
 }
 
+func TestRenderIncludesTaskContext(t *testing.T) {
+	adapter := New()
+	ctx := codexContext(t.TempDir())
+	ctx.Task = api.TaskContext{
+		ID:          "task-20260608-0001",
+		Title:       "Bind runtime session to task",
+		Status:      "ready",
+		Priority:    "high",
+		Phase:       "p1",
+		Description: "Runtime binding smoke.",
+	}
+
+	result, err := adapter.Render(context.Background(), ctx)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	agents := generatedText(t, result, "AGENTS.md")
+	for _, want := range []string{"## Current Task", "task-20260608-0001", "Bind runtime session to task", "Runtime binding smoke."} {
+		if !strings.Contains(agents, want) {
+			t.Fatalf("AGENTS.md missing task text %q:\n%s", want, agents)
+		}
+	}
+
+	config := generatedText(t, result, ".codex/config.toml")
+	for _, want := range []string{`task_id = "task-20260608-0001"`, `task_title = "Bind runtime session to task"`} {
+		if !strings.Contains(config, want) {
+			t.Fatalf(".codex/config.toml missing task text %q:\n%s", want, config)
+		}
+	}
+	if result.Env["ADP_TASK_ID"] != "task-20260608-0001" || result.Env["ADP_TASK_PHASE"] != "p1" {
+		t.Fatalf("render env missing task values: %#v", result.Env)
+	}
+}
+
 func TestLaunchUsesDefaultCommand(t *testing.T) {
 	adapter := New()
 	ctx := codexContext(t.TempDir())

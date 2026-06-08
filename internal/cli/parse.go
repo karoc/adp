@@ -17,6 +17,7 @@ type runOptions struct {
 	agent     string
 	workspace string
 	profile   string
+	taskID    string
 	keep      bool
 	agentArgs []string
 }
@@ -24,6 +25,7 @@ type runOptions struct {
 type eventsListOptions struct {
 	workspace string
 	sessionID string
+	taskID    string
 	eventType string
 	limit     int
 }
@@ -31,6 +33,7 @@ type eventsListOptions struct {
 type sessionsListOptions struct {
 	workspace string
 	agent     string
+	taskID    string
 	limit     int
 }
 
@@ -62,7 +65,7 @@ type tasksBlockOptions struct {
 
 func parseRunArgs(args []string) (runOptions, error) {
 	if len(args) == 0 {
-		return runOptions{}, errors.New("usage: adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]")
+		return runOptions{}, errors.New("usage: adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]")
 	}
 	opts := runOptions{agent: args[0]}
 	for i := 1; i < len(args); i++ {
@@ -83,6 +86,12 @@ func parseRunArgs(args []string) (runOptions, error) {
 			}
 			i++
 			opts.profile = args[i]
+		case "--task":
+			if i+1 >= len(args) {
+				return runOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.taskID = args[i]
 		case "--keep-runtime":
 			opts.keep = true
 		default:
@@ -203,6 +212,12 @@ func parseEventsListArgs(args []string) (eventsListOptions, error) {
 			}
 			i++
 			opts.sessionID = args[i]
+		case "--task":
+			if i+1 >= len(args) {
+				return eventsListOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.taskID = args[i]
 		case "--type":
 			if i+1 >= len(args) {
 				return eventsListOptions{}, fmt.Errorf("%s requires a value", arg)
@@ -243,6 +258,12 @@ func parseSessionsListArgs(args []string) (sessionsListOptions, error) {
 			}
 			i++
 			opts.agent = args[i]
+		case "--task":
+			if i+1 >= len(args) {
+				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.taskID = args[i]
 		case "--limit":
 			if i+1 >= len(args) {
 				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
