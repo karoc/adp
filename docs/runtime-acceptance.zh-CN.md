@@ -68,7 +68,7 @@ fake Codex 和 Claude 命令会断言：
 - `ADP_RUNTIME_ROOT` 存在，并且与进程工作目录一致。
 - 对于 task-bound run，`ADP_TASK_ID` 和任务 metadata 存在。
 - `.adp-runtime.yaml` 存在于 runtime root。
-- `.adp-runtime.yaml` 会记录绑定的 task ID。
+- `.adp-runtime.yaml` 会记录 manifest version `1`、`generated_by: adp`、runtime root path，以及绑定的 task ID。
 - agent-specific 生成文件存在：
   - Codex：`AGENTS.md` 和 `.codex/config.toml`。
   - Claude：`CLAUDE.md` 和 `.claude/settings.json`。
@@ -176,6 +176,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
 - 验收 Phase Gate ledger evidence、claim lease、release owner check 和 lifecycle ordering。
 - 清理 ADP-owned runtime。
+- 针对当前版本 ADP manifest 的 runtime prune compatibility checks。
 - 防止项目根目录污染。
 
 它不验证 provider 账号、远程模型可用性、外部网络访问或交互式 agent 行为。这些属于 ADP 本地 runtime 边界之外，需要 operator-specific 手工验收。

@@ -166,6 +166,9 @@ test -n "\${ADP_SESSION_ID:-}"
 test -n "\${ADP_RUNTIME_ROOT:-}"
 test "\$(pwd)" = "\$ADP_RUNTIME_ROOT"
 test -f "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "version: 1" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "runtime_root: \$ADP_RUNTIME_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "generated_by: adp" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 test -f "$instructions"
 test -f "$config"
 test -L "$linked"
@@ -295,6 +298,9 @@ run_fake_smoke() (
   runtime_root=$(parse_export "$env_output" ADP_RUNTIME_ROOT)
   assert_contains "$env_output" "cd '$runtime_root'" "env --cd output"
   assert_file "$runtime_root/.adp-runtime.yaml"
+  assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "version: 1" "runtime manifest"
+  assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "runtime_root: $runtime_root" "runtime manifest"
+  assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "generated_by: adp" "runtime manifest"
   assert_symlink "$runtime_root/go.mod"
   assert_absent_project_artifacts "$project_root"
 
@@ -355,17 +361,35 @@ run_fake_smoke() (
   assert_contains "$session_output" "run_finished" "sessions show output"
 
   info "fake smoke: prune kept runtime"
-  assert_runtime_entries "$runtime_dir" 1
+  incompatible_root="$runtime_dir/incompatible-runtime"
+  mkdir -p "$incompatible_root"
+  cat > "$incompatible_root/.adp-runtime.yaml" <<EOF
+version: 999
+session_id: incompatible-session
+workspace: game-a
+project_root: $project_root
+runtime_root: $incompatible_root
+created_at: "2026-06-08T12:00:00Z"
+generated_by: adp
+EOF
+  assert_runtime_entries "$runtime_dir" 2
 
   prune_output=$(run_adp "$REPO_ROOT" runtime prune --older-than 0s --include-kept --dry-run)
   assert_contains "$prune_output" "would-remove" "runtime prune dry-run output"
   assert_contains "$prune_output" "$runtime_root" "runtime prune dry-run output"
-  assert_runtime_entries "$runtime_dir" 1
+  case "$prune_output" in
+    *"$incompatible_root"*) fail "runtime prune reported incompatible manifest: $prune_output" ;;
+  esac
+  assert_runtime_entries "$runtime_dir" 2
 
   prune_output=$(run_adp "$REPO_ROOT" runtime prune --older-than 0s --include-kept)
   assert_contains "$prune_output" "removed" "runtime prune output"
   assert_contains "$prune_output" "$runtime_root" "runtime prune output"
-  assert_runtime_entries "$runtime_dir" 0
+  case "$prune_output" in
+    *"$incompatible_root"*) fail "runtime prune removed incompatible manifest: $prune_output" ;;
+  esac
+  assert_runtime_entries "$runtime_dir" 1
+  assert_file "$incompatible_root/.adp-runtime.yaml"
 
   assert_absent_project_artifacts "$project_root"
   info "fake smoke passed"

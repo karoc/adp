@@ -440,7 +440,8 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P2 completed: Early preview hardening. Dynamic workspace/profile completion, global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes are covered by the aggregate gate and runtime smoke.
 - P3 Phase Gate MVP completed: Project planning and execution progress management now has phase records, task claim and owner records, acceptance or gate records, commit records, push records, and task-manager smoke coverage.
 - P3 planning coordination hardening completed: Mutating planning operations use a local lock, task claims enforce owner conflicts and optional leases, owner-checked release is available, tasks validate phase IDs once a phase ledger exists, and phase lifecycle guards enforce accept-before-commit, commit-before-push, and push-before-next-phase discipline.
-- P4 next priority: tighten runtime standards and workspace hardening while preserving the current terminal-first, local-first boundary. Candidate slices include session restore design, runtime manifest compatibility checks, stronger workspace diagnostics, and focused examples/docs polish.
+- P4 runtime manifest compatibility completed: runtime manifests now use an explicit manifest version, runtime smoke checks core manifest fields, and pruning skips incompatible or self-inconsistent manifests instead of treating every `generated_by: adp` file as safe deletion evidence.
+- P4 next priority: strengthen workspace diagnostics while preserving the current terminal-first, local-first boundary. Candidate slices include reserved-path diagnostics, agent command readiness detail, profile consistency checks, session restore design, and focused examples/docs polish.
 - P3/P4 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, or remote issue-service integration.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

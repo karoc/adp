@@ -23,6 +23,7 @@ type Handle = adapters.RuntimeHandle
 
 const (
 	ManifestPath        = ".adp-runtime.yaml"
+	ManifestVersion     = 1
 	ManifestGeneratedBy = "adp"
 )
 
@@ -90,7 +91,7 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 	}
 	runtimeRoot := filepath.Join(runtimeParent, req.Config.Workspace.Name+"-"+sessionID)
 	files, err := appendRuntimeManifest(req.Files, Manifest{
-		Version:     schema.CurrentVersion,
+		Version:     ManifestVersion,
 		SessionID:   sessionID,
 		Workspace:   req.Config.Workspace.Name,
 		TaskID:      req.Task.ID,

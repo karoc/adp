@@ -143,7 +143,7 @@ adp runtime prune --older-than 24h --dry-run
 adp runtime prune --older-than 24h
 ```
 
-`runtime prune` only removes directories that contain an ADP runtime manifest. Use `--dry-run` before deleting.
+`runtime prune` only removes directories that contain a current-version ADP runtime manifest whose `runtime_root` matches the directory being removed. Incompatible, malformed, foreign, or self-inconsistent manifests are skipped. Use `--dry-run` before deleting.
 
 ## Deterministic Bootstrap Smoke
 

@@ -247,6 +247,65 @@ func TestPruneSkipsRuntimeWhenManifestProjectRootMatchesRuntimeRoot(t *testing.T
 	assertDirExists(t, root)
 }
 
+func TestPruneSkipsIncompatibleRuntimeManifests(t *testing.T) {
+	layout := paths.New(filepath.Join(t.TempDir(), "home"), filepath.Join(t.TempDir(), "runtime-parent"))
+	now := time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC)
+	projectRoot := t.TempDir()
+	base := Manifest{
+		Version:     ManifestVersion,
+		SessionID:   "session-1",
+		Workspace:   "game-a",
+		ProjectRoot: projectRoot,
+		CreatedAt:   now.Add(-2 * time.Hour),
+		GeneratedBy: ManifestGeneratedBy,
+	}
+	validRoot := writePruneRuntime(t, layout.RuntimeParent, "valid", base)
+
+	missingVersionRoot := filepath.Join(layout.RuntimeParent, "missing-version")
+	data, err := yaml.Marshal(map[string]any{
+		"session_id":   "missing-version-session",
+		"workspace":    "game-a",
+		"project_root": projectRoot,
+		"runtime_root": missingVersionRoot,
+		"created_at":   now.Add(-2 * time.Hour),
+		"generated_by": ManifestGeneratedBy,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(missingVersionRoot, ManifestPath), data)
+
+	incompatible := map[string]Manifest{
+		"future-version":        withManifestVersion(base, ManifestVersion+1),
+		"missing-session":       withManifestSession(base, ""),
+		"missing-workspace":     withManifestWorkspace(base, ""),
+		"relative-project":      withManifestProjectRoot(base, "relative-project"),
+		"runtime-root-mismatch": withManifestRuntimeRoot(base, filepath.Join(layout.RuntimeParent, "other")),
+	}
+	for name, manifest := range incompatible {
+		writePruneRuntime(t, layout.RuntimeParent, name, manifest)
+	}
+
+	results, err := Prune(context.Background(), PruneRequest{
+		Layout:    layout,
+		OlderThan: time.Hour,
+		Now:       now,
+	})
+	if err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	if len(results) != 1 || results[0].Root != validRoot {
+		t.Fatalf("results = %+v, want only %s", results, validRoot)
+	}
+	if _, err := os.Stat(validRoot); !os.IsNotExist(err) {
+		t.Fatalf("expected valid root removal, stat err: %v", err)
+	}
+	assertDirExists(t, missingVersionRoot)
+	for name := range incompatible {
+		assertDirExists(t, filepath.Join(layout.RuntimeParent, name))
+	}
+}
+
 func TestPruneReturnsContextCancellation(t *testing.T) {
 	layout := paths.New(filepath.Join(t.TempDir(), "home"), filepath.Join(t.TempDir(), "runtime-parent"))
 	ctx, cancel := context.WithCancel(context.Background())
@@ -285,13 +344,43 @@ func TestPruneRejectsNegativeOlderThan(t *testing.T) {
 func writePruneRuntime(t *testing.T, parent, name string, manifest Manifest) string {
 	t.Helper()
 	root := filepath.Join(parent, name)
-	manifest.RuntimeRoot = root
+	if manifest.Version == 0 {
+		manifest.Version = ManifestVersion
+	}
+	if manifest.RuntimeRoot == "" {
+		manifest.RuntimeRoot = root
+	}
 	data, err := yaml.Marshal(manifest)
 	if err != nil {
 		t.Fatalf("marshal manifest: %v", err)
 	}
 	writeFile(t, filepath.Join(root, ManifestPath), data)
 	return root
+}
+
+func withManifestVersion(manifest Manifest, version int) Manifest {
+	manifest.Version = version
+	return manifest
+}
+
+func withManifestSession(manifest Manifest, session string) Manifest {
+	manifest.SessionID = session
+	return manifest
+}
+
+func withManifestWorkspace(manifest Manifest, workspace string) Manifest {
+	manifest.Workspace = workspace
+	return manifest
+}
+
+func withManifestProjectRoot(manifest Manifest, projectRoot string) Manifest {
+	manifest.ProjectRoot = projectRoot
+	return manifest
+}
+
+func withManifestRuntimeRoot(manifest Manifest, runtimeRoot string) Manifest {
+	manifest.RuntimeRoot = runtimeRoot
+	return manifest
 }
 
 func assertDirExists(t *testing.T, path string) {

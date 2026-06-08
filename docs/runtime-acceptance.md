@@ -68,7 +68,7 @@ The fake Codex and Claude commands assert that:
 - `ADP_RUNTIME_ROOT` is present and matches the process working directory.
 - `ADP_TASK_ID` and task metadata are present for task-bound runs.
 - `.adp-runtime.yaml` exists in the runtime root.
-- `.adp-runtime.yaml` records the bound task ID.
+- `.adp-runtime.yaml` records manifest version `1`, `generated_by: adp`, the runtime root path, and the bound task ID.
 - Agent-specific generated files exist:
   - Codex: `AGENTS.md` and `.codex/config.toml`.
   - Claude: `CLAUDE.md` and `.claude/settings.json`.
@@ -176,6 +176,7 @@ This smoke validates ADP's runtime responsibilities:
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
 - Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.
 - ADP-owned runtime pruning.
+- Runtime prune compatibility checks for current-version ADP manifests.
 - Protection against project-root pollution.
 
 It does not validate provider accounts, remote model availability, external network access, or interactive agent behavior. Those are outside ADP's local runtime boundary and require operator-specific manual acceptance.

@@ -108,8 +108,8 @@ func TestBuildWritesRuntimeManifestWithoutPollutingProject(t *testing.T) {
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
 		t.Fatalf("parse runtime manifest: %v", err)
 	}
-	if manifest.Version != schema.CurrentVersion {
-		t.Fatalf("manifest version mismatch: got %d want %d", manifest.Version, schema.CurrentVersion)
+	if manifest.Version != ManifestVersion {
+		t.Fatalf("manifest version mismatch: got %d want %d", manifest.Version, ManifestVersion)
 	}
 	if manifest.SessionID != "manifest-session" {
 		t.Fatalf("manifest session id mismatch: %s", manifest.SessionID)

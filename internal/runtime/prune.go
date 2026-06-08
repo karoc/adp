@@ -127,13 +127,10 @@ func readOwnedManifest(root string) (Manifest, bool, error) {
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
 		return Manifest{}, false, nil
 	}
-	if manifest.GeneratedBy != ManifestGeneratedBy {
+	manifest, ok := normalizeOwnedManifest(root, manifest)
+	if !ok {
 		return Manifest{}, false, nil
 	}
-	if manifest.CreatedAt.IsZero() {
-		return Manifest{}, false, nil
-	}
-	manifest.CreatedAt = manifest.CreatedAt.UTC()
 	return manifest, true, nil
 }
 

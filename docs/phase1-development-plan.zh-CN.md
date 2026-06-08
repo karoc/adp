@@ -753,7 +753,8 @@ symlink overlay 与真实项目已有配置冲突：
 - P2 已完成：Early preview hardening。动态 workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明已纳入聚合门禁和 runtime smoke。
 - P3 Phase Gate MVP 已完成：项目规划与执行进度管理现在具备 phase records、task claim 和 owner records、acceptance 或 gate records、commit records、push records，并已纳入 task-manager smoke。
 - P3 planning coordination hardening 已完成：会用本地 lock 保护 planning 修改操作，task claim 会强制 owner conflict 和可选 lease，release 支持 owner 校验；phase ledger 存在后 task 会校验 phase ID；phase lifecycle guards 会强制 accept-before-commit、commit-before-push，以及 push-before-next-phase 纪律。
-- P4 下一优先级：继续加强 runtime standards 和 workspace hardening，同时保持当前 terminal-first、local-first 边界。候选切片包括 session restore 设计、runtime manifest compatibility checks、更强的 workspace diagnostics，以及聚焦的 examples/docs polish。
+- P4 runtime manifest compatibility 已完成：runtime manifest 现在使用显式 manifest version，runtime smoke 会检查核心 manifest 字段，pruning 会跳过不兼容或自相矛盾的 manifest，而不是把每个 `generated_by: adp` 文件都当作可安全删除的证据。
+- P4 下一优先级：继续加强 workspace diagnostics，同时保持当前 terminal-first、local-first 边界。候选切片包括 reserved-path diagnostics、agent command readiness detail、profile consistency checks、session restore 设计，以及聚焦的 examples/docs polish。
 - P3/P4 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration 或远程 issue-service 集成。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。
