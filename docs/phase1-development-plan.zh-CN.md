@@ -853,9 +853,9 @@ symlink overlay 与真实项目已有配置冲突：
 - P18 CLI command test split 已完成：剩余的大型混合 CLI tests 已拆分为聚焦的 task CRUD/progress/report/phase/helper 文件，以及 shell/completion/events/sessions/runtime-prune 文件。该阶段只属于维护：不改变 runtime behavior，不改变 product command，不偏向 Web/SaaS/hosted orchestration，也不做 Git automation。
 - P19 workspace lifecycle and enter acceptance 已完成：runtime smoke 现在会覆盖 workspace rename/remove，并验证 project-root sentinel 保持存在、completion 不保留 stale workspace names，以及通过 fake `SHELL` 执行受控的非交互式 `adp enter`。enter smoke 会在不启动真实交互 shell 的前提下验证 runtime env/cwd、project symlink、默认 cleanup 与 `--keep-runtime`，以及不会修改 event log。
 - P20 plan stdin coverage 已完成：focused CLI tests 和 plan-intake smoke 现在覆盖通过 pipe 输入的 `adp plan preview --file -` 和 `adp plan apply --file -` YAML/JSON，保持 preview 只读、apply 必须显式执行、只写本地 planning ledger、JSON 仅用于 inspection，并且不产生 runtime/Git/event-log/project-root 副作用。
-- P21 planned：按 model、persistence、events、ranking 和 lifecycle responsibilities 拆分 taskstore core 文件。
+- P21 taskstore maintainability split 已完成：`internal/tasks` core responsibilities 现在已拆分为同 package 下的 store、task model、task lifecycle、task persistence、progress events、task ranking、phase model、phase lifecycle、phase persistence 和 phase helper 文件。该拆分是机械维护，不改变 public APIs、本地 ledger 语义、plan-import atomic staging、phase-gate lifecycle 行为或 runtime acceptance 覆盖，并让所有 touched code files 都明显低于 700 行上限。
 - P22 planned：从内容层面对齐 Phase 1 英文默认 roadmap 与简体中文 counterpart。
 - P23 planned：增加非阻断 line pressure audit tooling，在文件接近 700 行硬限制前规划拆分。
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18/P19/P20 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
+- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18/P19/P20/P21 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

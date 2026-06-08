@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -67,51 +66,6 @@ func encodePlanImportTasks(file taskFile) ([]byte, error) {
 		return nil, fmt.Errorf("encode task file: %w", err)
 	}
 	return data, nil
-}
-
-func planImportEvents(result PlanImportResult) []progressEvent {
-	events := make([]progressEvent, 0, len(result.Phases)+len(result.Tasks))
-	for _, phase := range result.Phases {
-		events = append(events, progressEvent{
-			Timestamp: phase.CreatedAt,
-			Type:      "phase_created",
-			PhaseID:   phase.ID,
-			Status:    string(phase.Status),
-			Title:     phase.Title,
-		})
-	}
-	for _, task := range result.Tasks {
-		events = append(events, progressEvent{
-			Timestamp: task.CreatedAt,
-			Type:      "task_created",
-			TaskID:    task.ID,
-			Status:    string(task.Status),
-			Title:     task.Title,
-		})
-	}
-	return events
-}
-
-func (s *Store) planImportProgressData(ctx context.Context, events []progressEvent) ([]byte, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	base, err := os.ReadFile(s.progressPath())
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("read progress file: %w", err)
-	}
-	if len(base) > 0 && base[len(base)-1] != '\n' {
-		base = append(base, '\n')
-	}
-	for _, event := range events {
-		data, err := json.Marshal(event)
-		if err != nil {
-			return nil, fmt.Errorf("encode progress event: %w", err)
-		}
-		base = append(base, data...)
-		base = append(base, '\n')
-	}
-	return base, nil
 }
 
 func replacePlanningFiles(ctx context.Context, files []stagedPlanningFile) error {
