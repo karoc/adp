@@ -118,6 +118,8 @@ ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
+Real CLI flags are additive to the default fake smoke. They do not replace `scripts/check-all.sh`, and they should not be treated as CI requirements unless a release explicitly claims real-agent evidence.
+
 Override command paths when needed:
 
 ```bash
@@ -127,49 +129,73 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 
 These checks only confirm that the external command exists and that a lightweight `--version` or `--help` invocation completes. Default doctor diagnostics remain static and local: they can flag command shape, wrapper path, profile, and reserved-path risks, but they do not run provider CLIs. Neither path proves that a real interactive session can authenticate, select a model, reach a provider, or use external tools correctly.
 
+Manual real-agent acceptance is operator-owned. It may require local credentials, network access, provider account quota, model access, and external tool permissions that ADP cannot create or validate deterministically.
+
 ## Manual Acceptance Steps
 
-Use a temporary ADP home and runtime directory when validating real agents:
+Start by selecting the exact ADP binary being accepted. For a source checkout, build a temporary binary from the current commit and record its version output:
 
 ```bash
 tmp="$(mktemp -d)"
-export ADP_HOME="$tmp/adp-home"
-export ADP_RUNTIME_DIR="$tmp/runtime"
-mkdir -p "$tmp/project"
-printf 'real-agent-smoke\n' > "$tmp/project/README.md"
-
-adp init
-adp workspace add real-agent-smoke "$tmp/project"
-adp workspace doctor real-agent-smoke
+ADP_BIN="$tmp/adp"
+go build -o "$ADP_BIN" ./cmd/adp
+"$ADP_BIN" version
 ```
 
-Run the deterministic fake smoke first from the repository root:
+For a packaged release candidate, use the packaged binary instead and record its version output:
 
 ```bash
-scripts/runtime-smoke.sh --fake
+tmp="$(mktemp -d)"
+ADP_BIN=/path/to/adp
+"$ADP_BIN" version
 ```
 
-Then run the opt-in command availability checks:
+Run the deterministic repository gate first from the repository root:
+
+```bash
+scripts/check-all.sh
+```
+
+`scripts/runtime-smoke.sh` creates its own temporary ADP home and runtime directory. Treat its evidence as repository gate evidence, not as the manual real-launch sandbox.
+
+Then run the opt-in command availability checks only when those checks are intentionally part of the release evidence:
 
 ```bash
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
+For manual real-launch acceptance, create a separate temporary ADP home and runtime directory with the same `ADP_BIN`:
+
+```bash
+export ADP_HOME="$tmp/adp-home"
+export ADP_RUNTIME_DIR="$tmp/runtime"
+mkdir -p "$tmp/project"
+printf 'real-agent-smoke\n' > "$tmp/project/README.md"
+
+"$ADP_BIN" init
+"$ADP_BIN" workspace add real-agent-smoke "$tmp/project"
+"$ADP_BIN" workspace doctor real-agent-smoke
+```
+
 For real launch acceptance, choose operator-safe arguments supported by the installed external CLI:
 
 ```bash
-adp run codex --workspace real-agent-smoke -- <operator-safe-codex-args>
-adp run claude --workspace real-agent-smoke -- <operator-safe-claude-args>
+"$ADP_BIN" run codex --workspace real-agent-smoke -- <operator-safe-codex-args>
+"$ADP_BIN" run claude --workspace real-agent-smoke -- <operator-safe-claude-args>
 ```
+
+Common safe candidates are `--version` or `--help` when the installed external CLI supports them, but ADP does not define external CLI arguments.
+
+These commands may contact external providers. Do not run them as default CI or release gates, and do not record secrets, tokens, private prompts, account identifiers, or sensitive model output as evidence.
 
 After each run, inspect local ADP evidence:
 
 ```bash
-adp events list --workspace real-agent-smoke
-adp sessions list --workspace real-agent-smoke
-adp sessions show <session-id>
-adp sessions restore-plan <session-id>
+"$ADP_BIN" events list --workspace real-agent-smoke
+"$ADP_BIN" sessions list --workspace real-agent-smoke
+"$ADP_BIN" sessions show <session-id>
+"$ADP_BIN" sessions restore-plan <session-id>
 ```
 
 `sessions restore-plan` remains read-only for real agents too. It can suggest a similar new `adp run ...` command from local invocation metadata, but it does not resume the provider-native conversation or execute the suggested command.
@@ -181,9 +207,15 @@ test ! -e "$tmp/project/AGENTS.md"
 test ! -e "$tmp/project/CLAUDE.md"
 test ! -e "$tmp/project/.codex"
 test ! -e "$tmp/project/.claude"
+test ! -e "$tmp/project/planning"
+test ! -e "$tmp/project/tasks.yaml"
+test ! -e "$tmp/project/phases.yaml"
+test ! -e "$tmp/project/progress.jsonl"
 ```
 
-Record the ADP commit, external command paths, external command versions or help output, workspace name, and any operator-specific flags used.
+Record the ADP commit or packaged version, `"$ADP_BIN" version` output, external command paths, external command versions or help output, workspace name, and any operator-specific flags used.
+
+Also record whether the evidence only proves command availability or whether a manual interactive `adp run ...` acceptance was completed.
 
 ## Boundary And Failure Handling
 

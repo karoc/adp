@@ -197,6 +197,8 @@ ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
+Real CLI flags are additive. `scripts/runtime-smoke.sh` still runs the deterministic fake smoke first, then runs any requested real CLI checks. `scripts/check-all.sh` remains the default aggregate gate and does not pass real CLI flags, so the standard release path stays local, deterministic, and network-free.
+
 The real checks are conservative. They confirm that the external command exists and that a lightweight invocation completes:
 
 - `codex --version`, falling back to `codex --help`.
@@ -210,6 +212,8 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 ```
 
 These checks do not prove that a real interactive agent session is complete. Before a release that claims real-agent compatibility, an operator should also manually confirm that `adp run codex` and `adp run claude` can start the expected local CLI on that machine and that credentials, model selection, and external tool settings match the operator's environment.
+
+If the only claim is command availability, the opt-in real CLI smoke is enough evidence for that narrow claim. Any claim about real-agent compatibility needs separate manual acceptance notes from the operator environment.
 
 ## Acceptance Boundary
 
@@ -246,6 +250,8 @@ Run the runtime smoke with the standard repository checks:
 ```bash
 scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
+scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
 go test -count=1 ./...
 go vet ./...
@@ -262,3 +268,5 @@ Real CLI checks are optional release evidence and should be recorded separately 
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
+
+Record the default gate evidence separately from optional real CLI evidence. Optional real CLI failures do not fail the default release gate unless that release explicitly claims real-agent evidence.

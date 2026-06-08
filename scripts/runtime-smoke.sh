@@ -10,12 +10,15 @@ Runs ADP runtime smoke acceptance from a temporary ADP home, runtime
 directory, project root, and agent bin directory.
 
 The fake smoke is the default path and is deterministic. Real external
-CLI checks are opt-in and require both a flag and an environment gate:
+CLI flags run after the fake smoke; there is no real-only mode. Real
+external CLI checks are opt-in and require both a flag and an environment
+gate:
 
   ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
   ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
-Optional real CLI binary overrides:
+Optional real CLI binary overrides. Set these to a command name or path,
+not a shell command string with arguments:
 
   ADP_SMOKE_CODEX_BIN=/path/to/codex
   ADP_SMOKE_CLAUDE_BIN=/path/to/claude

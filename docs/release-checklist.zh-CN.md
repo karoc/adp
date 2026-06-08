@@ -112,6 +112,8 @@ phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership
 
 真实 Codex 和 Claude CLI 检查不属于默认门禁。它们是 opt-in release evidence，因为本地安装、凭据、模型可用性、网络访问和交互行为都会随 operator 环境变化。
 
+这类证据必须与默认门禁证据分开记录。除非该 release 明确声明 real-agent evidence，否则可选真实 CLI 检查失败不应导致默认 release gate 失败。
+
 只有在本地 Codex CLI 被明确纳入 release evidence 时，才运行轻量真实 Codex 检查：
 
 ```bash
@@ -129,14 +131,21 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 收集真实 CLI evidence 时，应记录：
 
 - 执行过的命令。
-- 可用时记录 Codex 或 Claude CLI 版本。
+- `command -v` 解析到的命令路径，或显式 override 路径。
+- 已启用的 gate 变量，例如 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1`。
+- 可用时记录 Codex 或 Claude CLI 版本；当 `--version` 不支持时，记录第一行 `--help` 输出。
+- smoke 是通过 `--version` 通过，还是回退到 `--help` 通过。
 - 操作系统和 shell。
 - `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 等环境覆盖。
 - 是否完成了单独的手工交互式 session。
 
+任何超出命令可用性的 real-agent compatibility release note，都必须有手工交互式 evidence。不要把凭据、token、账号标识、私有 prompt 或敏感模型输出粘贴到 release notes；只记录非敏感 operator evidence。
+
 ## 失败定位
 
 如果 `scripts/runtime-smoke.sh --fake` 失败，优先查看报告的失败步骤。fake smoke 是 runtime overlay 行为、runtime manifest 字段、adapter 启动路径、本地 event history、session 聚合和项目根目录污染防护的最高信号检查。
+
+如果可选真实 CLI 检查因为缺少 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1` 而失败，应把它视为 operator 尚未显式启用该检查。如果命令不可用，应在该机器上安装外部 CLI，或通过 `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 指向预期命令路径。如果 `--version` 和 `--help` 都失败，应归类为外部 CLI、wrapper 或 operator 环境的 evidence gap，除非确定性 fake gate 或 ADP launch contract 也同时失败。
 
 如果 task-bound runtime smoke 步骤失败，优先检查 workspace 解析、`$ADP_HOME/workspaces/<workspace>/planning` 下的 task lookup、`AGENTS.md` 或 `CLAUDE.md` 中生成的 task context、runtime 环境变量中的 `ADP_TASK_ID`，以及 events 和 sessions 中的 task ID。
 

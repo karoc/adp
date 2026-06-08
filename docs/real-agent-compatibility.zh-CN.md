@@ -118,6 +118,8 @@ ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
+真实 CLI flag 会叠加在默认 fake smoke 之后运行。它们不会替代 `scripts/check-all.sh`，除非某个 release 明确声明 real-agent evidence，否则也不应被当作 CI 要求。
+
 需要时可以覆盖命令路径：
 
 ```bash
@@ -127,49 +129,73 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 
 这些检查只确认外部命令存在，并且轻量的 `--version` 或 `--help` invocation 能完成。默认 doctor diagnostics 仍然是静态且本地的：它们可以提示 command 形态、wrapper 路径、profile 和 reserved path 风险，但不会运行 provider CLI。两类路径都不能证明真实交互 session 可以完成认证、选择模型、访问 provider 或正确使用外部工具。
 
+手工 real-agent acceptance 由 operator 负责。它可能需要本地凭据、网络访问、provider 账号额度、模型访问权限和外部工具权限，这些不是 ADP 能确定性创建或验证的内容。
+
 ## 手工验收步骤
 
-验证真实 Agent 时，使用临时 ADP home 和 runtime 目录：
+先选择正在被验收的同一个 ADP binary。对于源码 checkout，从当前 commit 构建一个临时 binary，并记录 version 输出：
 
 ```bash
 tmp="$(mktemp -d)"
-export ADP_HOME="$tmp/adp-home"
-export ADP_RUNTIME_DIR="$tmp/runtime"
-mkdir -p "$tmp/project"
-printf 'real-agent-smoke\n' > "$tmp/project/README.md"
-
-adp init
-adp workspace add real-agent-smoke "$tmp/project"
-adp workspace doctor real-agent-smoke
+ADP_BIN="$tmp/adp"
+go build -o "$ADP_BIN" ./cmd/adp
+"$ADP_BIN" version
 ```
 
-先在仓库根目录运行确定性的 fake smoke：
+对于 packaged release candidate，改用 packaged binary，并记录 version 输出：
 
 ```bash
-scripts/runtime-smoke.sh --fake
+tmp="$(mktemp -d)"
+ADP_BIN=/path/to/adp
+"$ADP_BIN" version
 ```
 
-然后运行 opt-in 的命令可用性检查：
+先在仓库根目录运行确定性的 repository gate：
+
+```bash
+scripts/check-all.sh
+```
+
+`scripts/runtime-smoke.sh` 会创建自己的临时 ADP home 和 runtime 目录。它的 evidence 应视为 repository gate evidence，不应和手工真实启动 sandbox 混用。
+
+只有在这些检查被明确纳入 release evidence 时，才运行 opt-in 的命令可用性检查：
 
 ```bash
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
+手工真实启动验收时，使用同一个 `ADP_BIN` 创建单独的临时 ADP home 和 runtime 目录：
+
+```bash
+export ADP_HOME="$tmp/adp-home"
+export ADP_RUNTIME_DIR="$tmp/runtime"
+mkdir -p "$tmp/project"
+printf 'real-agent-smoke\n' > "$tmp/project/README.md"
+
+"$ADP_BIN" init
+"$ADP_BIN" workspace add real-agent-smoke "$tmp/project"
+"$ADP_BIN" workspace doctor real-agent-smoke
+```
+
 真实启动验收时，选择已安装外部 CLI 支持的 operator-safe 参数：
 
 ```bash
-adp run codex --workspace real-agent-smoke -- <operator-safe-codex-args>
-adp run claude --workspace real-agent-smoke -- <operator-safe-claude-args>
+"$ADP_BIN" run codex --workspace real-agent-smoke -- <operator-safe-codex-args>
+"$ADP_BIN" run claude --workspace real-agent-smoke -- <operator-safe-claude-args>
 ```
+
+常见安全候选是已安装外部 CLI 支持的 `--version` 或 `--help`，但 ADP 不定义外部 CLI 参数。
+
+这些命令可能访问外部 provider。不要把它们作为默认 CI 或 release gate，也不要把 secret、token、私有 prompt、账号标识或敏感模型输出记录为 evidence。
 
 每次运行后，检查本地 ADP evidence：
 
 ```bash
-adp events list --workspace real-agent-smoke
-adp sessions list --workspace real-agent-smoke
-adp sessions show <session-id>
-adp sessions restore-plan <session-id>
+"$ADP_BIN" events list --workspace real-agent-smoke
+"$ADP_BIN" sessions list --workspace real-agent-smoke
+"$ADP_BIN" sessions show <session-id>
+"$ADP_BIN" sessions restore-plan <session-id>
 ```
 
 即使对真实 Agent，`sessions restore-plan` 也保持只读。它可以基于本地 invocation metadata 建议一条相似的新 `adp run ...` 命令，但不会恢复 provider 原生 conversation，也不会执行建议命令。
@@ -181,9 +207,15 @@ test ! -e "$tmp/project/AGENTS.md"
 test ! -e "$tmp/project/CLAUDE.md"
 test ! -e "$tmp/project/.codex"
 test ! -e "$tmp/project/.claude"
+test ! -e "$tmp/project/planning"
+test ! -e "$tmp/project/tasks.yaml"
+test ! -e "$tmp/project/phases.yaml"
+test ! -e "$tmp/project/progress.jsonl"
 ```
 
-记录 ADP commit、外部命令路径、外部命令版本或 help 输出、workspace 名称，以及使用过的 operator-specific 参数。
+记录 ADP commit 或 packaged version、`"$ADP_BIN" version` 输出、外部命令路径、外部命令版本或 help 输出、workspace 名称，以及使用过的 operator-specific 参数。
+
+同时记录该 evidence 只证明命令可用性，还是已经完成了手工交互式 `adp run ...` 验收。
 
 ## 边界与失败处理
 

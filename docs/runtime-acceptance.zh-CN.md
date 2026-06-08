@@ -197,6 +197,8 @@ ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
+真实 CLI flag 是叠加项。`scripts/runtime-smoke.sh` 仍会先运行确定性的 fake smoke，然后再运行请求的真实 CLI 检查。`scripts/check-all.sh` 仍然是默认聚合门禁，并且不会传入真实 CLI flag，因此标准 release path 保持本地、确定性且不依赖网络。
+
 真实检查是保守的。它会确认外部命令存在，并执行一个轻量 invocation：
 
 - `codex --version`，失败时回退到 `codex --help`。
@@ -210,6 +212,8 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 ```
 
 这些检查不能证明真实交互式 agent session 已完整可用。在声明 real-agent compatibility 的 release 前，operator 还应手工确认 `adp run codex` 和 `adp run claude` 能在该机器上启动预期的本地 CLI，并确认凭据、模型选择和外部工具设置符合 operator 环境。
+
+如果声明的范围只是命令可用性，那么 opt-in 真实 CLI smoke 足以支撑该窄范围声明。任何关于 real-agent compatibility 的声明，都需要来自 operator 环境的单独手工验收记录。
 
 ## 验收边界
 
@@ -246,6 +250,8 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 ```bash
 scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
+scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
 go test -count=1 ./...
 go vet ./...
@@ -262,3 +268,5 @@ git diff --check
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
+
+默认门禁证据和可选真实 CLI 证据必须分开记录。除非该 release 明确声明 real-agent evidence，否则可选真实 CLI 检查失败不应导致默认 release gate 失败。

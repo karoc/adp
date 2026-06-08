@@ -112,6 +112,8 @@ The phase gate smoke path covers phase records, task claim ownership with leases
 
 Real Codex and Claude CLI checks are not part of the default gate. They are opt-in release evidence because local installations, credentials, model availability, network access, and interactive behavior vary by operator environment.
 
+Keep this evidence separate from default gate evidence. A failure in optional real CLI checks does not fail the default release gate unless the release explicitly claims real-agent evidence.
+
 Run the lightweight real Codex check only when the local Codex CLI is intentionally part of the release evidence:
 
 ```bash
@@ -129,14 +131,21 @@ The real CLI smoke confirms that the external command exists and that a lightwei
 When real CLI evidence is collected, record:
 
 - The command that was run.
-- The Codex or Claude CLI version when available.
+- The resolved command path from `command -v` or the explicit override path.
+- The enabled gate variable, such as `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1`.
+- The Codex or Claude CLI version when available, or the first `--help` line when `--version` is not supported.
+- Whether the smoke passed through `--version` or fell back to `--help`.
 - The operating system and shell.
 - Any environment overrides such as `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN`.
 - Whether a separate manual interactive session was completed.
 
+Manual interactive evidence is required for any release note that claims real-agent compatibility beyond command availability. Do not paste credentials, tokens, account identifiers, private prompts, or sensitive model output into release notes; record only non-sensitive operator evidence.
+
 ## Failure Triage
 
 If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The fake smoke is the highest-signal check for runtime overlay behavior, runtime manifest fields, adapter launch paths, local event history, session aggregation, and project-root pollution.
+
+If an optional real CLI check fails because `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1` is missing, treat it as an intentionally unenabled operator check. If the command is unavailable, install the external CLI on that machine or set `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN` to the intended command path. If both `--version` and `--help` fail, classify it as an external CLI, wrapper, or operator-environment evidence gap unless the deterministic fake gate or ADP launch contract also fails.
 
 If a task-bound runtime smoke step fails, inspect workspace resolution, task lookup under `$ADP_HOME/workspaces/<workspace>/planning`, generated task context in `AGENTS.md` or `CLAUDE.md`, `ADP_TASK_ID` in the runtime environment, and task IDs in events and sessions.
 
