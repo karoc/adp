@@ -107,7 +107,11 @@ The script also asserts that the real project root is not polluted with ADP runt
 
 ## Task Manager And Phase Gate Acceptance
 
-`scripts/task-manager-smoke.sh` is the focused acceptance path for task-management behavior. It uses a deterministic temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, and temporary project root. It must not depend on repository-local user state, global `adp` binaries, provider CLIs, network access, or files written into the real project root.
+`scripts/task-manager-smoke.sh` is the public entry point and focused acceptance path for workspace-local task, phase, and progress report runtime behavior. It uses a deterministic temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, and temporary project root. It must not depend on repository-local user state, global `adp` binaries, provider CLIs, network access, or files written into the real project root.
+
+P9 task-manager smoke modularization may move shared shell helpers and the JSON report validator into helper files under `scripts/`, but those helpers are implementation details. Users and release gates still run `scripts/task-manager-smoke.sh`, and `scripts/check-all.sh` remains the aggregate gate.
+
+The split is maintenance and hardening only. It must not weaken runtime acceptance: the smoke still proves that report generation is read-only and that no planning or report artifacts pollute the real project root.
 
 The current smoke covers the implemented task CLI:
 
@@ -129,8 +133,8 @@ The current smoke covers the implemented task CLI:
 - `adp progress`
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 - Planning files under `$ADP_HOME/workspaces/<workspace>/planning`.
-- Read-only Markdown and JSON progress report output, including recent runtime session evidence when local JSONL event/session data exists.
-- Protection against project-root `planning/`, `tasks.yaml`, `phases.yaml`, and `progress.jsonl` pollution.
+- Read-only Markdown and JSON progress report output, including dedicated JSON validation and recent runtime session evidence when local JSONL event/session data exists.
+- Protection against project-root `planning/`, `tasks.yaml`, `phases.yaml`, `progress.jsonl`, and report export pollution.
 
 For Phase Gate MVP behavior, this smoke should verify only CLI that actually exists. It should cover:
 
@@ -144,10 +148,10 @@ For Phase Gate MVP behavior, this smoke should verify only CLI that actually exi
 - JSON report output remains a cross-tool parsing snapshot and does not create a separate state store.
 - The happy path records acceptance, commit, and push evidence before a phase is treated as pushed.
 - Lifecycle guard checks reject commit before passed acceptance, reject push before commit evidence, and reject tasks assigned to unknown phases when a phase ledger exists.
-- Report generation does not append events, mutate task or phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write Markdown or JSON report files into project roots.
+- Report generation does not append events, mutate task or phase state, create runtime directories, run agents, run Git, infer acceptance, close tasks, resume provider-native conversations, or write Markdown or JSON report files into project roots.
 - All state remains under temporary `$ADP_HOME`, with no project-root pollution.
 
-Do not add placeholder commands, TODO assertions, Web UI checks, SaaS checks, cloud sync checks, or hosted orchestration checks to smoke scripts.
+Do not add placeholder commands, TODO assertions, Web UI checks, SaaS checks, cloud sync checks, hosted tracker checks, hosted orchestration checks, automatic Git execution, automatic task closure, provider-native resume, or project-root report export behavior to smoke scripts.
 
 ## Real CLI Smoke
 
@@ -192,7 +196,7 @@ This smoke validates ADP's runtime responsibilities:
 - Local build identity output through `adp version`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
 - Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.
-- Progress report Markdown and JSON output, including runtime session evidence derived from local JSONL events when event/session data exists, with no event-log append, runtime creation, project-root writes, or separate state store creation.
+- Progress report Markdown and JSON output, including runtime session evidence derived from local JSONL events when event/session data exists, with no event-log append, runtime creation, project-root writes, report exports, or separate state store creation.
 - ADP-owned runtime pruning.
 - Runtime prune compatibility checks for current-version ADP manifests.
 - Protection against project-root pollution.

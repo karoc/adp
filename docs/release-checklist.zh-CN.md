@@ -18,6 +18,8 @@ scripts/check-all.sh
 
 该脚本可以从任意当前目录调用。它会根据自身位置解析仓库根目录，然后再运行检查。CI 应调用同一个脚本，而不是维护一条独立的 release gate 路径。
 
+即使单个 smoke 为了可维护性在内部拆分，`scripts/check-all.sh` 仍然是聚合门禁。
+
 必跑门禁按以下顺序执行：
 
 ```bash
@@ -78,7 +80,9 @@ example workspace smoke 验证：
 - 通过复制后的示例执行 fake local agent 会记录 session history，并支持只读 restore planning。
 - 示例文档和发布声明有可执行路径支撑。
 
-`scripts/task-manager-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/show/update/claim/release/block/done`、`adp phase add/list/show/start/accept/commit/push` 和 `adp progress`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，而不是写入真实项目根目录。
+`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口。它会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/show/update/claim/release/block/done`、`adp phase add/list/show/start/accept/commit/push`、`adp progress` 和 `adp progress report`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，report 生成保持只读，且没有 planning 或 report artifacts 写入真实项目根目录。
+
+P9 可以把共享 smoke helpers 和 JSON report validator 移到 `scripts/` 下的 helper files 中。这种拆分只是维护和 hardening 的实现细节；调用者仍然运行 `scripts/task-manager-smoke.sh`，release gate 仍然通过 `scripts/check-all.sh` 运行它。
 
 phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership、带 owner 校验的 release、task phase validation、acceptance 或 gate records、commit records、push records、lifecycle ordering guards，以及项目根目录污染防护。Go 测试还会覆盖 planning lock 行为、claim conflicts、lease expiry、terminal-task claim rejection、failed acceptance 和 failed push 语义。不要为尚不存在的命令添加 placeholder assertions。
 
@@ -132,7 +136,7 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 `scripts/example-workspace-smoke.sh` 失败，优先检查复制后的 `examples/basic-workspace/workspace.yaml` 是否仍匹配当前 schema，以及 `adp env <workspace> --cd` 是否仍能生成带项目文件 symlink 的 kept runtime。
 
-如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储，以及项目根目录污染防护。
+如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储、helper wiring、JSON report validation、report read-only 检查，以及项目根目录污染防护。
 
 如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、claim lease parsing、owner-checked release、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录来修复失败。
 
@@ -161,7 +165,7 @@ go test -count=1 ./test/e2e
 - 仓库本地 Git identity 没有配置 `user.name` 或 `user.email`。
 - license 文件和 PolyForm Noncommercial 定位没有被意外修改。
 - packaged CLI artifact 使用 version、commit 和 build-date ldflags 构建，且 `adp version` 报告符合预期。
-- README 和 focused docs 描述当前 CLI surface，且没有 Web、UI、SaaS、cloud sync 或 hosted orchestration 偏移。
+- README 和 focused docs 描述当前 CLI surface，且没有 Web、UI、SaaS、cloud sync、hosted tracker、hosted orchestration、automatic Git execution、automatic task closure、provider-native resume 或 project-root report export 偏移。
 - 活跃开发阶段在下一阶段开始前，已有 acceptance、commit 和 push 的本地证据。
 - 任何声明的 real-agent compatibility 都有对应的 opt-in real CLI evidence，必要时还有手工交互式验收记录。
 
@@ -174,6 +178,6 @@ go test -count=1 ./test/e2e
 - 外部网络可靠性。
 - 真实交互式 Codex 或 Claude session 质量。
 - 用户特定的 shell startup files。
-- hosted deployment、SaaS operations、dashboard 或 Web UI 行为。
+- hosted deployment、SaaS operations、dashboard、Web UI behavior、hosted tracker、automatic Git execution、automatic task closure、provider-native resume 或 project-root report export 行为。
 
 这些检查属于 operator-specific acceptance notes，不属于默认本地发布门禁。

@@ -23,6 +23,7 @@ Phase 1 explicitly excludes:
 
 - Web UI or dashboard.
 - Cloud sync or SaaS features.
+- Hosted trackers or project-root report exports.
 - Graphical multi-agent orchestration.
 - Heavy permission sandboxing.
 - Full Windows support. Interfaces should leave room for it, but Linux/macOS are the first target.
@@ -444,7 +445,7 @@ End-to-end expectations:
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
 - Fake agent tests can assert cwd, env, generated files, symlinks, args, exit code, logs, and cleanup.
-- The real project directory must not gain `AGENTS.md`, `CLAUDE.md`, `.codex/`, `.claude/`, `planning/`, `tasks.yaml`, or `progress.jsonl`.
+- The real project directory must not gain `AGENTS.md`, `CLAUDE.md`, `.codex/`, `.claude/`, `planning/`, `tasks.yaml`, `phases.yaml`, `progress.jsonl`, or report export files.
 
 ## 12. Next Work
 
@@ -463,6 +464,8 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P6 progress report output completed: `adp progress report [--workspace <name>] [--language <en|zh-CN>]` prints a read-only local Markdown planning/execution report to stdout. English is the default; Simplified Chinese requires `--language zh-CN`. Task-manager smoke proves the report leaves task, phase, Git, runtime, event log, and project-root state unchanged.
 - P7 progress report runtime session evidence completed: when local JSONL runtime events and session data exist, `adp progress report [--workspace <name>] [--language <en|zh-CN>]` includes recent runtime session evidence for inspection-only handoff. It does not append events, mutate tasks or phases, create runtime directories, run agents, run Git, write report files into project roots, or resume provider-native conversations.
 - P8 progress report JSON handoff snapshot completed: `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` keeps default output as English Markdown, applies `--language zh-CN` to Markdown only, and emits a read-only machine-readable snapshot with `--format json`. The JSON snapshot includes workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists. It is for cross-tool parsing and must not become a separate state store.
-- P3/P4/P5/P6/P7/P8 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git execution, automatic task closure, provider-native conversation resume, remote issue-service integration, project-root report exports, or hosted tracker semantics.
+- P9 task-manager smoke modularization completed: the oversized task-manager runtime smoke is split into a smaller public entry point, shared shell helper library, and dedicated JSON report validator before breaching the 700-line code-file limit. `scripts/task-manager-smoke.sh` remains the public entry point for workspace-local task, phase, and progress report runtime acceptance, and `scripts/check-all.sh` remains the aggregate gate.
+- P9 is maintenance and hardening only. It preserves coverage for project-root pollution protection and read-only progress report behavior.
+- P3/P4/P5/P6/P7/P8/P9 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git execution, automatic task closure, provider-native conversation resume, remote issue-service integration, project-root report exports, or hosted tracker semantics.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

@@ -107,7 +107,11 @@ fake Codex 和 Claude 命令会断言：
 
 ## Task Manager 与 Phase Gate 验收
 
-`scripts/task-manager-smoke.sh` 是 task-management 行为的聚焦验收路径。它使用确定性的临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR` 和临时项目根目录。它不能依赖仓库本地用户状态、全局 `adp` 二进制、provider CLI、网络访问，或写入真实项目根目录的文件。
+`scripts/task-manager-smoke.sh` 是 workspace-local task、phase 和 progress report runtime 行为的公开入口和聚焦验收路径。它使用确定性的临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR` 和临时项目根目录。它不能依赖仓库本地用户状态、全局 `adp` 二进制、provider CLI、网络访问，或写入真实项目根目录的文件。
+
+P9 task-manager smoke modularization 可以把共享 shell helpers 和 JSON report validator 移到 `scripts/` 下的 helper files 中，但这些 helper 属于实现细节。用户和 release gates 仍然运行 `scripts/task-manager-smoke.sh`，`scripts/check-all.sh` 仍然是聚合门禁。
+
+这次拆分只属于维护和 hardening。它不能削弱 runtime acceptance：smoke 仍必须证明 report 生成保持只读，并且没有 planning 或 report artifacts 污染真实项目根目录。
 
 当前 smoke 覆盖已经实现的 task CLI：
 
@@ -129,8 +133,8 @@ fake Codex 和 Claude 命令会断言：
 - `adp progress`
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 - `$ADP_HOME/workspaces/<workspace>/planning` 下的 planning 文件。
-- 只读 Markdown 和 JSON progress report 输出，并在本地 JSONL event/session 数据存在时包含最近 runtime session evidence。
-- 防止项目根目录出现 `planning/`、`tasks.yaml`、`phases.yaml` 和 `progress.jsonl` 污染。
+- 只读 Markdown 和 JSON progress report 输出，包含专用 JSON validation，并在本地 JSONL event/session 数据存在时包含最近 runtime session evidence。
+- 防止项目根目录出现 `planning/`、`tasks.yaml`、`phases.yaml`、`progress.jsonl` 和 report export 污染。
 
 对于 Phase Gate MVP 行为，该 smoke 只能验证实际存在的 CLI。它应覆盖：
 
@@ -144,10 +148,10 @@ fake Codex 和 Claude 命令会断言：
 - JSON report 输出保持为跨工具解析 snapshot，不能创建单独的状态存储。
 - happy path 会在阶段被视为 pushed 前记录 acceptance、commit 和 push 证据。
 - lifecycle guard 检查会拒绝未通过验收前记录 commit、拒绝未记录 commit evidence 前记录 push，并在 phase ledger 存在时拒绝把任务分配到未知 phase。
-- report 生成不会追加 events、修改 task 或 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、恢复 provider 原生会话，或把 Markdown 或 JSON report 文件写入项目根目录。
+- report 生成不会追加 events、修改 task 或 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、推断 acceptance、关闭 task、恢复 provider 原生会话，或把 Markdown 或 JSON report 文件写入项目根目录。
 - 所有状态都留在临时 `$ADP_HOME` 下，不污染项目根目录。
 
-不要向 smoke 脚本添加 placeholder commands、TODO assertions、Web UI 检查、SaaS 检查、cloud sync 检查或 hosted orchestration 检查。
+不要向 smoke 脚本添加 placeholder commands、TODO assertions、Web UI 检查、SaaS 检查、cloud sync 检查、hosted tracker 检查、hosted orchestration 检查、automatic Git execution、automatic task closure、provider-native resume 或 project-root report export 行为。
 
 ## 真实 CLI Smoke
 
@@ -192,7 +196,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 通过 `adp version` 输出本地 build identity。
 - 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
 - 验收 Phase Gate ledger evidence、claim lease、release owner check 和 lifecycle ordering。
-- 验收 progress report 的 Markdown 和 JSON 输出；当 event/session 数据存在时，验收从本地 JSONL events 派生的 runtime session evidence，并确认不会追加 event log、创建 runtime、写入 project root 或创建单独状态存储。
+- 验收 progress report 的 Markdown 和 JSON 输出；当 event/session 数据存在时，验收从本地 JSONL events 派生的 runtime session evidence，并确认不会追加 event log、创建 runtime、写入 project root、导出 report 文件或创建单独状态存储。
 - 清理 ADP-owned runtime。
 - 针对当前版本 ADP manifest 的 runtime prune compatibility checks。
 - 防止项目根目录污染。

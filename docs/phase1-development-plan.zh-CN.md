@@ -23,6 +23,7 @@ Phase 1 明确不做：
 
 - Web UI / Dashboard。
 - 云同步 / SaaS。
+- hosted tracker 或 project-root report export。
 - 多 Agent 图形编排。
 - 复杂权限沙箱。
 - Windows 完整支持。保留接口，优先实现 Linux/macOS 可用路径。
@@ -746,7 +747,7 @@ adp workspace remove game-renamed
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
 - `examples/basic-workspace` 保持为有效本地 workspace 示例，其中 Markdown prompt 和 memory 文件保持英文默认与简体中文 counterpart 配对。
 - runtime root 中存在 ADP 生成的 Agent 配置文件。
-- 真实 `/srv/game-a` 不新增 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/`、`planning/`、`tasks.yaml` 或 `progress.jsonl`。
+- 真实 `/srv/game-a` 不新增 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/`、`planning/`、`tasks.yaml`、`phases.yaml`、`progress.jsonl` 或 report export 文件。
 - event log 记录 run start/finish。
 - fake agent e2e 能断言 cwd、env、参数透传、exit code。
 
@@ -797,6 +798,8 @@ symlink overlay 与真实项目已有配置冲突：
 - P6 progress report output 已完成：`adp progress report [--workspace <name>] [--language <en|zh-CN>]` 会向 stdout 打印只读的本地 Markdown 规划/执行报告。默认语言是英文；简体中文必须显式传入 `--language zh-CN`。task-manager smoke 会证明 report 不会修改 task、phase、Git、runtime、event log 或 project-root 状态。
 - P7 progress report runtime session evidence 已完成：当本地 JSONL runtime events 和 session 数据存在时，`adp progress report [--workspace <name>] [--language <en|zh-CN>]` 会包含最近 runtime session evidence，供 inspection-only handoff 使用。它不会追加 events、修改 tasks 或 phases、创建 runtime 目录、启动 Agent、运行 Git、把报告文件写入项目根目录，或恢复 provider 原生会话。
 - P8 progress report JSON handoff snapshot 已完成：`adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` 保持默认输出为英文 Markdown，`--language zh-CN` 只作用于 Markdown，并通过 `--format json` 输出机器可读的只读 snapshot。JSON snapshot 包含 workspace、task 总数、phases、task counts、tasks、按优先级排序的 next work、phase evidence，以及在本地 JSONL event/session 数据存在时的最近 runtime session evidence。它用于跨工具解析，不能成为单独的状态存储。
-- P3/P4/P5/P6/P7/P8 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git execution、automatic task closure、provider-native conversation resume、远程 issue-service 集成、project-root report export 或 hosted tracker semantics。
+- P9 task-manager smoke modularization 已完成：oversized task-manager runtime smoke 已在触及 700 行代码文件限制前拆分为更小的公开入口、共享 shell helper library 和专用 JSON report validator。`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口，`scripts/check-all.sh` 仍然是聚合门禁。
+- P9 只属于维护和 hardening。它保留了项目根目录污染防护和只读 progress report 行为的覆盖。
+- P3/P4/P5/P6/P7/P8/P9 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git execution、automatic task closure、provider-native conversation resume、远程 issue-service 集成、project-root report export 或 hosted tracker semantics。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

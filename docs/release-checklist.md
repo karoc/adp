@@ -18,6 +18,8 @@ scripts/check-all.sh
 
 The script can be called from any current directory. It resolves the repository root from its own location before running checks. CI should call this same script instead of maintaining a separate release gate path.
 
+`scripts/check-all.sh` remains the aggregate gate even when an individual smoke is internally split for maintainability.
+
 The required gate runs these checks in order:
 
 ```bash
@@ -78,7 +80,9 @@ The example workspace smoke verifies:
 - Fake local agent execution through the copied example records session history and supports read-only restore planning.
 - Example documentation and release claims stay connected to an executable path.
 
-`scripts/task-manager-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/show/update/claim/release/block/done`, `adp phase add/list/show/start/accept/commit/push`, and `adp progress`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning` instead of the real project root.
+`scripts/task-manager-smoke.sh` remains the public entry point for workspace-local task, phase, and progress report runtime acceptance. It builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/show/update/claim/release/block/done`, `adp phase add/list/show/start/accept/commit/push`, `adp progress`, and `adp progress report`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning`, report generation is read-only, and no planning or report artifacts are written into the real project root.
+
+P9 may move shared smoke helpers and the JSON report validator into helper files under `scripts/`. That split is an implementation detail for maintenance and hardening; callers still run `scripts/task-manager-smoke.sh`, and the release gate still runs it through `scripts/check-all.sh`.
 
 The phase gate smoke path covers phase records, task claim ownership with leases, owner-checked release, task phase validation, acceptance or gate records, commit records, push records, lifecycle ordering guards, and project-root pollution protection. Go tests additionally cover planning lock behavior, claim conflicts, lease expiry, terminal-task claim rejection, failed acceptance, and failed push semantics. Do not add placeholder assertions for commands that do not exist yet.
 
@@ -132,7 +136,7 @@ If a version step fails, inspect the CLI build variables in `internal/cli` and t
 
 If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examples/basic-workspace/workspace.yaml` still matches the current schema and whether `adp env <workspace> --cd` still produces a kept runtime with project-file symlinks.
 
-If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, and project-root pollution checks.
+If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, helper wiring, JSON report validation, report read-only checks, and project-root pollution checks.
 
 If a phase-gate smoke step fails, inspect phase record storage, task owner state, claim lease parsing, owner-checked release, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root.
 
@@ -161,7 +165,7 @@ Before a release candidate is announced, an operator should also confirm:
 - Repository-local Git identity is not configured with `user.name` or `user.email`.
 - The license files and PolyForm Noncommercial positioning were not changed unintentionally.
 - Packaged CLI artifacts were built with version, commit, and build-date ldflags and `adp version` reports the expected values.
-- README and focused docs describe the current CLI surface without Web, UI, SaaS, cloud sync, or hosted orchestration drift.
+- README and focused docs describe the current CLI surface without Web, UI, SaaS, cloud sync, hosted tracker, hosted orchestration, automatic Git execution, automatic task closure, provider-native resume, or project-root report export drift.
 - Active development phases have local evidence for acceptance, commit, and push before the next phase starts.
 - Any claimed real-agent compatibility has matching opt-in real CLI evidence and, when needed, manual interactive acceptance notes.
 
@@ -174,6 +178,6 @@ The release gate does not validate:
 - External network reliability.
 - Real interactive Codex or Claude session quality.
 - User-specific shell startup files.
-- Hosted deployment, SaaS operations, dashboards, or Web UI behavior.
+- Hosted deployment, SaaS operations, dashboards, Web UI behavior, hosted trackers, automatic Git execution, automatic task closure, provider-native resume, or project-root report export behavior.
 
 Those checks belong to operator-specific acceptance notes, not the default local release gate.
