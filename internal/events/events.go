@@ -63,13 +63,7 @@ func (l *Logger) Log(ctx context.Context, event Event) error {
 }
 
 func (l *Logger) eventsFile() string {
-	if l.Layout.EventsFile != "" {
-		return l.Layout.EventsFile
-	}
-	if l.Layout.LogsDir == "" {
-		return ""
-	}
-	return filepath.Join(l.Layout.LogsDir, "events.jsonl")
+	return resolveEventsFile(l.Layout)
 }
 
 func (l *Logger) logsDir(eventsFile string) string {

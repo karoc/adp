@@ -52,6 +52,11 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	assertFileExists(t, filepath.Join(runtimeRoot, ".adp-runtime.yaml"))
 	assertProjectClean(t, projectRoot)
 
+	hookOut := runADP(t, adpBin, repoRoot, env, "shell-hook", "--shell", "bash")
+	if !strings.Contains(hookOut, "adp-enter()") || !strings.Contains(hookOut, `adp env "$1" --cd`) {
+		t.Fatalf("shell-hook output missing bash hook: %q", hookOut)
+	}
+
 	codexOut := runADP(t, adpBin, repoRoot, env, "run", "codex", "--workspace", "game-a", "--", "--probe")
 	claudeOut := runADP(t, adpBin, projectRoot, env, "run", "claude", "--", "--probe")
 
@@ -59,8 +64,23 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 		t.Fatalf("fake agents did not run:\ncodex=%s\nclaude=%s", codexOut, claudeOut)
 	}
 	assertEventLines(t, filepath.Join(adpHome, "logs", "events.jsonl"), 4)
+	eventsOut := runADP(t, adpBin, repoRoot, env, "events", "list", "--workspace", "game-a", "--type", "run_finished", "--limit", "2")
+	if !strings.Contains(eventsOut, "run_finished") || !strings.Contains(eventsOut, "codex") || !strings.Contains(eventsOut, "claude") {
+		t.Fatalf("events list missing run history: %q", eventsOut)
+	}
 	assertProjectClean(t, projectRoot)
 	assertRuntimeEntries(t, runtimeDir, 1)
+	pruneDryRunOut := runADP(t, adpBin, repoRoot, env, "runtime", "prune", "--older-than", "0s", "--include-kept", "--dry-run")
+	if !strings.Contains(pruneDryRunOut, "would-remove") || !strings.Contains(pruneDryRunOut, runtimeRoot) {
+		t.Fatalf("runtime prune dry-run missing kept runtime: %q", pruneDryRunOut)
+	}
+	assertRuntimeEntries(t, runtimeDir, 1)
+	pruneOut := runADP(t, adpBin, repoRoot, env, "runtime", "prune", "--older-than", "0s", "--include-kept")
+	if !strings.Contains(pruneOut, "removed") || !strings.Contains(pruneOut, runtimeRoot) {
+		t.Fatalf("runtime prune missing removed runtime: %q", pruneOut)
+	}
+	assertRuntimeEntries(t, runtimeDir, 0)
+	assertProjectClean(t, projectRoot)
 
 	runADP(t, adpBin, repoRoot, env, "workspace", "rename", "game-a", "game-renamed")
 	renamedOut := runADP(t, adpBin, repoRoot, env, "workspace", "show", "game-renamed")

@@ -16,7 +16,7 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Register workspaces that map project roots to ADP runtime configuration.
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
-- Support `adp init`, `adp workspace add/list/show/remove/rename`, `adp env`, `adp enter`, and `adp run`.
+- Support `adp init`, `adp workspace add/list/show/remove/rename`, `adp env`, `adp shell-hook`, `adp events list`, `adp runtime prune`, `adp enter`, and `adp run`.
 - Write a local JSONL event log for future replay, session restore, and multi-agent orchestration.
 
 Phase 1 explicitly excludes:
@@ -110,11 +110,11 @@ Package responsibilities:
 - `internal/schema`: define and validate the unified workspace schema.
 - `internal/workspace`: create, load, and manage the workspace registry.
 - `internal/overlay`: materialize project files and generated files into a runtime root.
-- `internal/runtime`: orchestrate workspace config, adapter output, overlay lifecycle, and runtime env.
+- `internal/runtime`: orchestrate workspace config, adapter output, overlay lifecycle, runtime env, manifest handling, and runtime pruning.
 - `internal/adapters`: adapter contracts, registry, concrete Codex/Claude adapters, and shared rendering.
 - `internal/runner`: execute external commands with controlled cwd, env, and streams.
-- `internal/shell`: implement `adp enter` as a child shell.
-- `internal/events`: append JSONL runtime events.
+- `internal/shell`: implement `adp enter`, shell export rendering, and parent-shell hook rendering.
+- `internal/events`: append and query JSONL runtime events.
 - `test/e2e`: end-to-end CLI tests using fake agents.
 
 ## 4. Local Data Layout
@@ -220,6 +220,9 @@ Design choices:
 - ADP-generated or reserved paths win over real project paths in the runtime view.
 - The real project root is never modified.
 - Runtime directories are cleaned after `adp run` and `adp enter` unless `--keep-runtime` is set.
+- Kept or stale runtime directories can be inspected and removed with `adp runtime prune`.
+- Runtime pruning only deletes ADP-owned runtime directories that contain `.adp-runtime.yaml` with `generated_by: adp`.
+- Kept runtimes are preserved by default and are pruned only when `--include-kept` is passed.
 
 Reserved future backends:
 
@@ -295,6 +298,18 @@ Builds a runtime overlay and starts a child shell in the runtime root. A CLI pro
 
 Builds a kept runtime overlay and prints POSIX shell exports for the ADP runtime env. With `--cd`, it also prints a quoted `cd` command for the runtime root.
 
+### `adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]`
+
+Prints a shell function that calls `adp env <workspace> --cd` and evaluates the result in the parent shell. This provides a parent-shell workflow without changing the behavior of `adp enter`, which still starts a child shell.
+
+### `adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]`
+
+Reads `$ADP_HOME/logs/events.jsonl`, filters JSONL events, and prints recent matching events in a stable terminal table. Corrupted event log lines are reported with line numbers instead of being ignored.
+
+### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
+
+Scans `$ADP_RUNTIME_DIR` for direct child directories containing an ADP runtime manifest. It removes stale ADP-owned runtime directories, never the real project root. `--dry-run` reports candidates without deleting, and kept runtimes require `--include-kept`.
+
 ### `adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]`
 
 Resolves the workspace, renders adapter files, builds the runtime overlay, launches the agent, logs start/finish events, passes through streams, and returns the agent exit code.
@@ -327,6 +342,7 @@ Constraints:
 - Do not log API keys, tokens, or full env maps.
 - Event log write failures should warn on stderr but should not prevent agent startup.
 - One complete JSON object per line.
+- `adp events list` must return the most recent matching events while preserving chronological output order.
 
 ## 10. Parallel Development Boundaries
 
@@ -369,6 +385,9 @@ End-to-end expectations:
 - `adp workspace list` and `adp workspace show` expose registered workspace details.
 - `adp workspace remove` and `adp workspace rename` modify only ADP workspace registry data.
 - `adp env` prints shell-safe exports for a kept runtime overlay.
+- `adp shell-hook` prints a deterministic shell function for `sh`, `bash`, and `zsh`.
+- `adp events list` prints filtered run history from JSONL events.
+- `adp runtime prune` reports and removes only ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays.
 - Fake agent tests can assert cwd, env, generated files, symlinks, args, exit code, logs, and cleanup.
 - The real project directory must not gain `AGENTS.md`, `CLAUDE.md`, `.codex/`, or `.claude/`.
@@ -377,5 +396,5 @@ End-to-end expectations:
 
 Next polishing should stay close to the runtime-manager goal:
 
-- Add richer `adp shell-hook` integration later for parent-shell workflows.
+- Add richer shell completion and session-restore workflows.
 - Keep adapter formats isolated and update them only after checking current Codex/Claude CLI behavior.

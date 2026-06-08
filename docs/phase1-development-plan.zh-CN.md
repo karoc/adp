@@ -16,7 +16,7 @@ ADP Phase 1 的产品核心是一个 terminal-first 的 Agent Runtime Environmen
 - 注册 workspace，保存真实项目根目录与 ADP runtime 配置的映射。
 - 为 Agent 构建临时 runtime overlay，让 Agent 在不污染真实项目目录的前提下看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等配置文件。
 - 提供 Claude Code CLI 与 Codex CLI 两个 adapter。
-- 支持 `adp init`、`adp workspace add/list/show/remove/rename`、`adp env`、`adp enter`、`adp run`。
+- 支持 `adp init`、`adp workspace add/list/show/remove/rename`、`adp env`、`adp shell-hook`、`adp events list`、`adp runtime prune`、`adp enter`、`adp run`。
 - 记录本地 JSONL event log，为后续 replay、session restore、多 Agent 编排预留数据基础。
 
 Phase 1 明确不做：
@@ -34,7 +34,7 @@ Phase 1 明确不做：
 
 建议依赖：
 
-- CLI：`spf13/cobra`，降低命令扩展成本。
+- CLI：优先使用 Go 标准库手写命令解析；只有命令面复杂到明显需要时再引入 CLI 框架。
 - YAML：`gopkg.in/yaml.v3`。
 - 测试：Go 标准库 `testing`，CLI 集成测试使用临时 HOME、临时 PATH 和 fake agent binary。
 
@@ -106,13 +106,13 @@ adp/
 - `internal/schema`：统一 YAML schema，仅定义数据结构和校验。
 - `internal/workspace`：workspace registry 的创建、查询、列表、读写。
 - `internal/overlay`：把 project root 和 generated files materialize 到 runtime dir。
-- `internal/runtime`：编排 workspace config、adapter output、overlay lifecycle。
+- `internal/runtime`：编排 workspace config、adapter output、overlay lifecycle、runtime env、manifest 和 runtime pruning。
 - `internal/adapters`：adapter interface、registry、公共渲染 helper。
 - `internal/adapters/codex`：Codex runtime 文件、环境变量、启动命令。
 - `internal/adapters/claude`：Claude runtime 文件、环境变量、启动命令。
 - `internal/runner`：执行外部命令，处理 stdin/stdout/stderr、exit code、signal。
-- `internal/shell`：实现 `adp enter` 的交互式 shell。
-- `internal/events`：JSONL event log。
+- `internal/shell`：实现 `adp enter`、shell exports 渲染和 parent-shell hook 渲染。
+- `internal/events`：JSONL event log 的写入和查询。
 
 ## 4. 本地数据布局
 
@@ -218,6 +218,9 @@ ${ADP_RUNTIME_DIR:-/tmp}/adp-runtime/
 - 如果真实项目已有 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等保留路径，runtime 中以 ADP 生成内容为准，并把冲突写入 warning/event log。真实项目不被修改。
 - 默认在 `adp run` 结束后清理 runtime 目录。
 - 提供 `--keep-runtime` 便于调试。
+- 保留或过期的 runtime 目录可通过 `adp runtime prune` 检查和清理。
+- runtime prune 只删除包含 `.adp-runtime.yaml` 且 `generated_by: adp` 的 ADP runtime 目录。
+- 默认保留 `keep: true` 的 runtime，只有传入 `--include-kept` 才会纳入清理候选。
 
 后续 backend 预留：
 
@@ -371,7 +374,7 @@ MVP adapter 输出：
 限制：
 
 - CLI 进程不能改变父 shell 的 cwd，所以 MVP 行为是启动一个子 shell。
-- 后续可以增加更完整的 `adp shell-hook` 支持 parent shell integration。
+- 需要改变父 shell cwd 时，使用 `adp shell-hook` 生成的 shell 函数。
 
 验收：
 
@@ -392,6 +395,48 @@ MVP adapter 输出：
 - 输出顺序稳定。
 - shell quote 能处理空格、单引号和特殊字符。
 - runtime root 中存在 `.adp-runtime.yaml`。
+
+### `adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]`
+
+职责：
+
+- 输出一个 shell 函数。
+- 函数内部调用 `adp env <workspace> --cd`。
+- 在父 shell 中 `eval` 返回的 exports 和 `cd` 命令。
+
+验收：
+
+- 支持 `sh`、`bash`、`zsh`。
+- 函数名做保守校验，避免 shell injection。
+- 输出稳定，便于写入 shell 配置或被测试断言。
+
+### `adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]`
+
+职责：
+
+- 读取 `$ADP_HOME/logs/events.jsonl`。
+- 按 workspace、session、event type 和 limit 过滤。
+- 以稳定表格输出最近匹配事件。
+
+验收：
+
+- event log 不存在时输出空表。
+- 损坏 JSON 行返回带行号的明确错误。
+- `--limit` 返回最近 N 条匹配事件，并保持输出顺序为时间顺序。
+
+### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
+
+职责：
+
+- 扫描 `$ADP_RUNTIME_DIR` 的直接子目录。
+- 只把包含 `.adp-runtime.yaml` 且 `generated_by: adp` 的目录视为 ADP-owned runtime。
+- 清理过期 runtime 目录。
+
+验收：
+
+- 默认跳过 `keep: true` 的 runtime。
+- `--dry-run` 只报告候选项，不删除。
+- 删除目标只能是扫描到的 runtime 子目录，不能来自 manifest 中的 project root。
 
 ### `adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]`
 
@@ -434,6 +479,7 @@ $ADP_HOME/logs/events.jsonl
 - 不记录 API key、token、完整 env。
 - 写入失败不应导致 Agent 无法启动，但要给 stderr warning。
 - 每行一条完整 JSON，便于后续 streaming 和 grep。
+- `adp events list` 返回最近匹配事件时，输出顺序仍保持时间顺序。
 
 ## 10. 并行开发边界
 
@@ -533,8 +579,11 @@ adp workspace add game-a /srv/game-a
 adp workspace list
 adp workspace show game-a
 adp env game-a --cd
+adp shell-hook --shell bash
 adp run codex --workspace game-a -- --version
 cd /srv/game-a && adp run claude -- --version
+adp events list --workspace game-a
+adp runtime prune --older-than 24h --dry-run
 adp enter game-a
 adp workspace rename game-a game-renamed
 adp workspace remove game-renamed
@@ -545,6 +594,9 @@ adp workspace remove game-renamed
 - `$ADP_HOME/workspaces/game-a/workspace.yaml` 存在且 project root 正确。
 - `adp workspace list` / `show` 能输出已注册 workspace。
 - `adp env` 能输出 shell-safe exports，并保留 runtime manifest。
+- `adp shell-hook` 能输出稳定 shell 函数。
+- `adp events list` 能查询 run start/finish 历史。
+- `adp runtime prune` 只报告或删除 ADP-owned runtime 目录。
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
 - runtime root 中存在 ADP 生成的 Agent 配置文件。
 - 真实 `/srv/game-a` 不新增 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/`。
@@ -567,7 +619,8 @@ symlink overlay 与真实项目已有配置冲突：
 `adp enter` 改变父 shell cwd 的误解：
 
 - MVP 明确启动子 shell。
-- 文档说明后续 shell hook 能力。
+- `adp shell-hook` 提供基础 parent-shell workflow。
+- 后续再补 shell completion 和更完整的 session restore。
 
 并行开发接口漂移：
 

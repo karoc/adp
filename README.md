@@ -17,6 +17,9 @@ Implemented Phase 1 foundations:
 - `adp workspace remove <name>`
 - `adp workspace rename <old-name> <new-name>`
 - `adp env <workspace> [--cd]`
+- `adp shell-hook [--shell <sh|bash|zsh>]`
+- `adp events list [--workspace <name>]`
+- `adp runtime prune [--older-than <duration>] [--dry-run]`
 - `adp run codex --workspace <name>`
 - `adp run claude --workspace <name>`
 - `adp enter <workspace>`
@@ -34,9 +37,12 @@ go run ./cmd/adp workspace add game-a /srv/game-a
 go run ./cmd/adp workspace list
 go run ./cmd/adp workspace show game-a
 go run ./cmd/adp env game-a --cd
+go run ./cmd/adp shell-hook --shell bash
 go run ./cmd/adp run codex --workspace game-a
 cd /srv/game-a && go run /path/to/adp/cmd/adp run claude
 go run ./cmd/adp run claude --workspace game-a
+go run ./cmd/adp events list --workspace game-a
+go run ./cmd/adp runtime prune --older-than 24h --dry-run
 go run ./cmd/adp enter game-a
 ```
 
@@ -66,6 +72,12 @@ When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the
 Agent-specific files are generated from the ADP workspace config. Real project files are linked into the runtime root. ADP-generated paths take priority inside the runtime view, and the original project directory is not modified.
 
 `adp env <workspace> --cd` prints POSIX shell exports for a kept runtime overlay. This is intended for shell-hook workflows and leaves the runtime directory in place so the calling shell can enter it.
+
+`adp shell-hook --shell bash` prints a shell function that calls `adp env <workspace> --cd` and evaluates the result in the parent shell. `sh`, `bash`, and `zsh` are supported.
+
+`adp events list` reads `$ADP_HOME/logs/events.jsonl` and prints recent runtime events with optional workspace, session, type, and limit filters.
+
+`adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered ADP-owned only when it contains `.adp-runtime.yaml` with `generated_by: adp`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
 ## Development
 
