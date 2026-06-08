@@ -41,6 +41,50 @@ func TestUsageIncludesEveryMetadataLine(t *testing.T) {
 	}
 }
 
+func TestCommandHelpIncludesUsageAndValues(t *testing.T) {
+	t.Parallel()
+
+	help, ok := CommandHelp("tasks")
+	if !ok {
+		t.Fatal("CommandHelp(tasks) returned false")
+	}
+	for _, want := range []string{
+		"adp tasks - manage workspace task state",
+		"Usage:",
+		"adp tasks add",
+		"Subcommands:",
+		"Options:",
+		"--workspace - workspace name",
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("command help missing %q:\n%s", want, help)
+		}
+	}
+}
+
+func TestSubcommandHelpIncludesFocusedUsage(t *testing.T) {
+	t.Parallel()
+
+	help, ok := SubcommandHelp("phase", "commit")
+	if !ok {
+		t.Fatal("SubcommandHelp(phase, commit) returned false")
+	}
+	for _, want := range []string{
+		"adp phase commit",
+		"Usage:",
+		"adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]",
+		"See also:",
+		"adp phase --help",
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("subcommand help missing %q:\n%s", want, help)
+		}
+	}
+	if strings.Contains(help, "adp phase add") {
+		t.Fatalf("subcommand help included unrelated usage:\n%s", help)
+	}
+}
+
 func assertUniqueValues(t *testing.T, label string, values []Value) {
 	t.Helper()
 

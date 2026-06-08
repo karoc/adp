@@ -26,7 +26,8 @@ func TestRenderCompletionTracksCommandMetadata(t *testing.T) {
 		assertCompletionValues(t, bashCompletion, zshCompletion, command.Name+" options", command.Options)
 	}
 	for name, values := range map[string][]commandmeta.Value{
-		"shell names":            commandmeta.Shells,
+		"hook shell names":       commandmeta.HookShells,
+		"completion shell names": commandmeta.CompletionShells,
 		"event types":            commandmeta.EventTypes,
 		"runtime ages":           commandmeta.RuntimeAges,
 		"text/json formats":      commandmeta.TextJSONFormats,

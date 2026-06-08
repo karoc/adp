@@ -38,6 +38,7 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	var jsonErr bytes.Buffer
 	var invalidErr bytes.Buffer
 	var invalidFormatErr bytes.Buffer
+	var textFormatErr bytes.Buffer
 	exitCode := 0
 	deps := Dependencies{
 		WorkspaceStore:   &fakeStore{cfg: testConfig()},
@@ -67,6 +68,7 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	jsonCode := NewApp(deps, &jsonOut, &jsonErr).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--format", "json"})
 	invalidCode := NewApp(deps, &bytes.Buffer{}, &invalidErr).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--language", "fr"})
 	invalidFormatCode := NewApp(deps, &bytes.Buffer{}, &invalidFormatErr).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--format", "xml"})
+	textFormatCode := NewApp(deps, &bytes.Buffer{}, &textFormatErr).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--format", "text"})
 
 	if englishCode != 0 || markdownCode != 0 || chineseCode != 0 || jsonCode != 0 {
 		t.Fatalf("report codes = (%d, %d, %d, %d), stderr = %q, want all 0", englishCode, markdownCode, chineseCode, jsonCode, jsonErr.String())
@@ -118,6 +120,12 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	}
 	if !strings.Contains(invalidFormatErr.String(), `unknown progress report format "xml"`) {
 		t.Fatalf("invalid format stderr = %q", invalidFormatErr.String())
+	}
+	if textFormatCode != 1 {
+		t.Fatalf("text format exit code = %d, want 1", textFormatCode)
+	}
+	if !strings.Contains(textFormatErr.String(), `unknown progress report format "text"`) {
+		t.Fatalf("text format stderr = %q", textFormatErr.String())
 	}
 }
 

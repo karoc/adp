@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/commandmeta"
@@ -144,6 +145,13 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		fmt.Fprint(a.stdout, versionString())
 		return 0
 	}
+	if strings.HasPrefix(args[0], "-") {
+		return a.fail(fmt.Errorf("unknown global option %q", args[0]))
+	}
+	if output, ok := commandHelp(args); ok {
+		fmt.Fprint(a.stdout, output)
+		return 0
+	}
 	if a.deps.InitError != nil {
 		return a.fail(a.deps.InitError)
 	}
@@ -191,4 +199,27 @@ func (a *App) commandHandlers() map[string]commandHandler {
 func (a *App) fail(err error) int {
 	fmt.Fprintf(a.stderr, "adp: %v\n", err)
 	return 1
+}
+
+func commandHelp(args []string) (string, bool) {
+	if len(args) == 2 && isHelpArg(args[1]) {
+		return commandmeta.CommandHelp(args[0])
+	}
+	if len(args) == 3 && isHelpArg(args[2]) && isKnownSubcommand(args[0], args[1]) {
+		return commandmeta.SubcommandHelp(args[0], args[1])
+	}
+	return "", false
+}
+
+func isHelpArg(arg string) bool {
+	return arg == "--help" || arg == "-h"
+}
+
+func isKnownSubcommand(command, subcommand string) bool {
+	for _, name := range commandmeta.SubcommandNames(command) {
+		if name == subcommand {
+			return true
+		}
+	}
+	return false
 }

@@ -27,7 +27,10 @@ const (
 	ManifestGeneratedBy = "adp"
 )
 
-var ErrManifestPathReserved = errors.New(".adp-runtime.yaml is reserved for the ADP runtime manifest")
+var (
+	ErrManifestPathReserved = errors.New(".adp-runtime.yaml is reserved for the ADP runtime manifest")
+	ErrRuntimeParentUnsafe  = errors.New("unsafe runtime parent")
+)
 
 var sessionIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
@@ -85,9 +88,9 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		return nil, fmt.Errorf("invalid session id %q", sessionID)
 	}
 
-	runtimeParent, err := filepath.Abs(req.Layout.RuntimeParent)
+	runtimeParent, err := validateRuntimeParent(req.Layout.RuntimeParent, req.Config.Project.Root)
 	if err != nil {
-		return nil, fmt.Errorf("resolve runtime parent: %w", err)
+		return nil, err
 	}
 	runtimeRoot := filepath.Join(runtimeParent, req.Config.Workspace.Name+"-"+sessionID)
 	files, err := appendRuntimeManifest(req.Files, Manifest{
@@ -186,6 +189,85 @@ func appendRuntimeManifest(files []adapters.GeneratedFile, manifest Manifest) ([
 func isRuntimeManifestPath(filePath string) bool {
 	normalized := path.Clean(strings.ReplaceAll(filePath, "\\", "/"))
 	return normalized == ManifestPath || strings.HasPrefix(normalized, ManifestPath+"/")
+}
+
+func validateRuntimeParent(runtimeParent, projectRoot string) (string, error) {
+	runtimeAbs, err := filepath.Abs(runtimeParent)
+	if err != nil {
+		return "", fmt.Errorf("resolve runtime parent: %w", err)
+	}
+	runtimeAbs = filepath.Clean(runtimeAbs)
+	if filepath.Dir(runtimeAbs) == runtimeAbs {
+		return "", fmt.Errorf("%w: runtime parent must not be the filesystem root: %s", ErrRuntimeParentUnsafe, runtimeAbs)
+	}
+
+	projectAbs, err := filepath.Abs(projectRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve project root: %w", err)
+	}
+	projectAbs = filepath.Clean(projectAbs)
+
+	runtimeCandidates := appendResolvedPath(nil, runtimeAbs)
+	projectCandidates := appendResolvedPath(nil, projectAbs)
+	switch {
+	case pathsOverlap(runtimeCandidates, projectCandidates, sameCleanPath):
+		return "", fmt.Errorf("%w: runtime parent must not be the project root: %s", ErrRuntimeParentUnsafe, runtimeAbs)
+	case pathsOverlap(projectCandidates, runtimeCandidates, pathInsideDir):
+		return "", fmt.Errorf("%w: runtime parent must not be inside the project root: %s", ErrRuntimeParentUnsafe, runtimeAbs)
+	case pathsOverlap(runtimeCandidates, projectCandidates, pathInsideDir):
+		return "", fmt.Errorf("%w: runtime parent must not contain the project root: %s", ErrRuntimeParentUnsafe, runtimeAbs)
+	default:
+		return runtimeAbs, nil
+	}
+}
+
+func sameCleanPath(left string, right string) bool {
+	rel, err := filepath.Rel(filepath.Clean(left), filepath.Clean(right))
+	return err == nil && rel == "."
+}
+
+func pathInsideDir(parent string, child string) bool {
+	rel, err := filepath.Rel(filepath.Clean(parent), filepath.Clean(child))
+	if err != nil || rel == "." || rel == ".." {
+		return false
+	}
+	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+func appendResolvedPath(paths []string, candidate string) []string {
+	candidate = filepath.Clean(candidate)
+	paths = appendUniqueCleanPath(paths, candidate)
+
+	resolved, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		return paths
+	}
+	resolvedAbs, err := filepath.Abs(resolved)
+	if err != nil {
+		return paths
+	}
+	return appendUniqueCleanPath(paths, resolvedAbs)
+}
+
+func appendUniqueCleanPath(paths []string, candidate string) []string {
+	candidate = filepath.Clean(candidate)
+	for _, existing := range paths {
+		if sameCleanPath(existing, candidate) {
+			return paths
+		}
+	}
+	return append(paths, candidate)
+}
+
+func pathsOverlap(leftPaths []string, rightPaths []string, match func(string, string) bool) bool {
+	for _, left := range leftPaths {
+		for _, right := range rightPaths {
+			if match(left, right) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func warningsFromConflicts(conflicts []overlay.Conflict) []string {

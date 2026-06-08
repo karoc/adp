@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 run_fake_diagnostics_checks() {
-  local output
+  local output project_snapshot
 
   info "fake smoke: inspect agent diagnostics"
   mkdir -p "$diag_project_root/.codex" "$diag_project_root/planning"
@@ -57,10 +57,26 @@ YAML
     run_adp_expect_fail "$REPO_ROOT" doctor game-a
   )
   assert_contains "$output" "workspace.runtime.parent.project_root" "doctor runtime parent output"
+  project_snapshot="$smoke_root/runtime-parent-project-root-before.txt"
+  snapshot_tree_entries "$project_root" "$project_snapshot"
+  output=$(
+    export ADP_RUNTIME_DIR="$project_root"
+    run_adp_expect_fail "$REPO_ROOT" env game-a --cd
+  )
+  assert_contains "$output" "must not be the project root" "env runtime parent project root output"
+  assert_tree_entries_unchanged "$project_root" "$project_snapshot" "project root after project-root runtime parent"
 
   output=$(
     export ADP_RUNTIME_DIR="$project_root/.adp-runtime-parent"
     run_adp_expect_fail "$REPO_ROOT" workspace doctor game-a
   )
   assert_contains "$output" "workspace.runtime.parent.inside_project_root" "workspace doctor runtime parent output"
+  project_snapshot="$smoke_root/runtime-parent-inside-project-before.txt"
+  snapshot_tree_entries "$project_root" "$project_snapshot"
+  output=$(
+    export ADP_RUNTIME_DIR="$project_root/.adp-runtime-parent"
+    run_adp_expect_fail "$REPO_ROOT" env game-a --cd
+  )
+  assert_contains "$output" "must not be inside the project root" "env runtime parent inside project output"
+  assert_tree_entries_unchanged "$project_root" "$project_snapshot" "project root after inside-project runtime parent"
 }

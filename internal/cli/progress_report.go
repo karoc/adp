@@ -124,7 +124,7 @@ func parseProgressReportLanguage(value string) (string, error) {
 
 func parseProgressReportFormat(value string) (string, error) {
 	switch strings.TrimSpace(value) {
-	case "", reportFormatMarkdown, string(outputFormatText):
+	case "", reportFormatMarkdown:
 		return reportFormatMarkdown, nil
 	case reportFormatJSON:
 		return reportFormatJSON, nil

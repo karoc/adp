@@ -220,7 +220,9 @@ var rootCommands = []Command{
 type valueDescriptions map[string]string
 
 var (
-	Shells              = values("bash", "zsh")
+	HookShells          = values("sh", "bash", "zsh")
+	CompletionShells    = values("bash", "zsh")
+	Shells              = CompletionShells
 	EventTypes          = values("run_started", "run_finished")
 	RuntimeAges         = values("1h", "24h", "168h")
 	TextJSONFormats     = describedValues(valueDescriptions{"text": "text output", "json": "JSON output"}, "text", "json")
@@ -309,6 +311,54 @@ func Usage() string {
 	return out.String()
 }
 
+func CommandHelp(name string) (string, bool) {
+	command, ok := Lookup(name)
+	if !ok {
+		return "", false
+	}
+
+	var out strings.Builder
+	out.WriteString("adp ")
+	out.WriteString(command.Name)
+	if command.Description != "" {
+		out.WriteString(" - ")
+		out.WriteString(command.Description)
+	}
+	out.WriteString("\n\nUsage:\n")
+	writeUsageLines(&out, command.Usage)
+	writeValuesSection(&out, "Subcommands", command.Subcommands)
+	writeValuesSection(&out, "Options", command.Options)
+	return out.String(), true
+}
+
+func SubcommandHelp(commandName, subcommand string) (string, bool) {
+	command, ok := Lookup(commandName)
+	if !ok || !hasValue(command.Subcommands, subcommand) {
+		return "", false
+	}
+
+	usage := usageLinesForSubcommand(command, subcommand)
+	if len(usage) == 0 {
+		return "", false
+	}
+
+	var out strings.Builder
+	out.WriteString("adp ")
+	out.WriteString(command.Name)
+	out.WriteByte(' ')
+	out.WriteString(subcommand)
+	if description := valueDescription(command.Subcommands, subcommand); description != "" {
+		out.WriteString(" - ")
+		out.WriteString(description)
+	}
+	out.WriteString("\n\nUsage:\n")
+	writeUsageLines(&out, usage)
+	out.WriteString("\nSee also:\n  adp ")
+	out.WriteString(command.Name)
+	out.WriteString(" --help\n")
+	return out.String(), true
+}
+
 func UsageLines() []string {
 	var lines []string
 	for _, command := range rootCommands {
@@ -357,4 +407,63 @@ func describedValues(descriptions valueDescriptions, names ...string) []Value {
 		out = append(out, Value{Name: name, Description: descriptions[name]})
 	}
 	return out
+}
+
+func usageLinesForSubcommand(command Command, subcommand string) []string {
+	prefix := "adp " + command.Name + " " + subcommand
+	var lines []string
+	for _, line := range command.Usage {
+		if strings.HasPrefix(line, prefix) {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
+
+func writeUsageLines(out *strings.Builder, lines []string) {
+	for _, line := range lines {
+		out.WriteString("  ")
+		out.WriteString(line)
+		out.WriteByte('\n')
+	}
+}
+
+func writeValuesSection(out *strings.Builder, title string, values []Value) {
+	if len(values) == 0 {
+		return
+	}
+	out.WriteByte('\n')
+	out.WriteString(title)
+	out.WriteString(":\n")
+	for _, value := range values {
+		out.WriteString("  ")
+		out.WriteString(value.Name)
+		if value.Description != "" {
+			out.WriteString(" - ")
+			out.WriteString(value.Description)
+		}
+		out.WriteByte('\n')
+	}
+}
+
+func hasValue(values []Value, name string) bool {
+	return valueDescription(values, name) != "" || hasValueName(values, name)
+}
+
+func hasValueName(values []Value, name string) bool {
+	for _, value := range values {
+		if value.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func valueDescription(values []Value, name string) string {
+	for _, value := range values {
+		if value.Name == name {
+			return value.Description
+		}
+	}
+	return ""
 }

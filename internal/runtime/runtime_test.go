@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -227,6 +228,75 @@ func TestBuildRejectsInvalidProjectRootAndSessionID(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected unsafe session id to fail")
+	}
+}
+
+func TestBuildRejectsUnsafeRuntimeParent(t *testing.T) {
+	base := t.TempDir()
+	projectRoot := filepath.Join(base, "project")
+	if err := os.MkdirAll(projectRoot, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	linkToProject := filepath.Join(base, "runtime-link")
+	if err := os.Symlink(projectRoot, linkToProject); err != nil {
+		t.Logf("skip symlink runtime parent case: %v", err)
+		linkToProject = ""
+	}
+
+	cases := []struct {
+		name          string
+		runtimeParent string
+		want          string
+	}{
+		{
+			name:          "project-root",
+			runtimeParent: projectRoot,
+			want:          "must not be the project root",
+		},
+		{
+			name:          "inside-project-root",
+			runtimeParent: filepath.Join(projectRoot, "runtime"),
+			want:          "must not be inside the project root",
+		},
+		{
+			name:          "contains-project-root",
+			runtimeParent: base,
+			want:          "must not contain the project root",
+		},
+	}
+	if linkToProject != "" {
+		cases = append(cases, struct {
+			name          string
+			runtimeParent string
+			want          string
+		}{
+			name:          "symlink-to-project-root",
+			runtimeParent: linkToProject,
+			want:          "must not be the project root",
+		})
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionID := "unsafe-" + safeSessionSuffix(tc.name)
+			_, err := Build(context.Background(), BuildRequest{
+				Layout:    paths.New(filepath.Join(base, "adp-home-"+tc.name), tc.runtimeParent),
+				Config:    testConfig(projectRoot),
+				SessionID: sessionID,
+			})
+			if !errors.Is(err, ErrRuntimeParentUnsafe) {
+				t.Fatalf("expected unsafe runtime parent error, got %v", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error %q missing %q", err.Error(), tc.want)
+			}
+
+			runtimeRoot := filepath.Join(tc.runtimeParent, "game-a-"+sessionID)
+			if _, statErr := os.Stat(runtimeRoot); !os.IsNotExist(statErr) {
+				t.Fatalf("runtime root should not be created, stat err: %v", statErr)
+			}
+		})
 	}
 }
 

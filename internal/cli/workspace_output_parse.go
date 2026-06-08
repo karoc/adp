@@ -20,6 +20,7 @@ type workspaceOutputOptions struct {
 
 func parseWorkspaceOnlyArgs(args []string, usage string) (string, error) {
 	var workspace string
+	command := usageCommandLabel(usage, "workspace")
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
@@ -30,7 +31,7 @@ func parseWorkspaceOnlyArgs(args []string, usage string) (string, error) {
 			i++
 			workspace = args[i]
 		default:
-			return "", fmt.Errorf("unknown workspace option %q", arg)
+			return "", fmt.Errorf("unknown %s option %q", command, arg)
 		}
 	}
 	return workspace, nil
@@ -38,6 +39,7 @@ func parseWorkspaceOnlyArgs(args []string, usage string) (string, error) {
 
 func parseWorkspaceOutputArgs(args []string, usage string) (workspaceOutputOptions, error) {
 	opts := workspaceOutputOptions{format: outputFormatText}
+	command := usageCommandLabel(usage, "workspace")
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
@@ -58,10 +60,21 @@ func parseWorkspaceOutputArgs(args []string, usage string) (workspaceOutputOptio
 			}
 			opts.format, i = format, next
 		default:
-			return workspaceOutputOptions{}, fmt.Errorf("unknown workspace option %q", arg)
+			return workspaceOutputOptions{}, fmt.Errorf("unknown %s option %q", command, arg)
 		}
 	}
 	return opts, nil
+}
+
+func usageCommandLabel(usage string, fallback string) string {
+	fields := strings.Fields(usage)
+	if len(fields) < 2 || fields[0] != "adp" {
+		return fallback
+	}
+	if len(fields) >= 3 && !strings.HasPrefix(fields[2], "[") && !strings.HasPrefix(fields[2], "<") {
+		return fields[1] + " " + fields[2]
+	}
+	return fields[1]
 }
 
 func parseOutputFormat(value string) (outputFormat, error) {
