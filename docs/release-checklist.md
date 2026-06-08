@@ -76,6 +76,8 @@ The fake runtime smoke verifies:
 - Runtime manifest compatibility checks that keep prune limited to current-version, self-consistent ADP runtime directories.
 - Protection against polluting the real project root with runtime artifacts or planning files.
 
+P25 splits bash and zsh completion renderers into shell-specific implementation files to remove line pressure from `internal/shell/completion.go`. This is an internal maintenance boundary: `adp completion`, bash/zsh output semantics, metadata drift checks, dynamic value endpoints, and the default fake runtime smoke remain the release evidence. It does not add interactive completion simulation or new shell support.
+
 `scripts/example-workspace-smoke.sh` builds the current `cmd/adp` binary, copies `examples/basic-workspace` into a temporary `ADP_HOME`, rewrites the copied `project.root` to a temporary project, and verifies `adp init`, `workspace doctor`, `workspace show`, `env --cd`, fake Codex runtime launch, local events, sessions, and restore-plan output against that copied example.
 
 The example workspace smoke verifies:

@@ -76,6 +76,8 @@ fake runtime smoke 验证：
 - runtime manifest compatibility checks，确保 prune 只处理当前版本且结构自洽的 ADP runtime 目录。
 - 防止 runtime artifact 或 planning 文件污染真实项目根目录。
 
+P25 将 bash 和 zsh completion renderer 拆分到按 shell 区分的实现文件中，用来消除 `internal/shell/completion.go` 的行数压力。这是内部维护边界：`adp completion`、bash/zsh 输出语义、metadata drift checks、动态 value endpoints 和默认 fake runtime smoke 仍然是发布证据。它不新增交互式 completion 模拟，也不新增 shell 支持。
+
 `scripts/example-workspace-smoke.sh` 会构建当前 `cmd/adp` 二进制，把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，把复制后的 `project.root` 改写为临时项目，并用该示例验证 `adp init`、`workspace doctor`、`workspace show`、`env --cd`、fake Codex runtime launch、本地 events、sessions 和 restore-plan 输出。
 
 example workspace smoke 验证：

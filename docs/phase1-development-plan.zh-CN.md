@@ -827,6 +827,7 @@ Phase process gate：
 - P22 Phase 1 bilingual roadmap normalization 已完成：英文默认 roadmap 与简体中文 counterpart 现在拥有相同章节树、当前 command surface、目录职责、local-first 非目标、validation gates、E2E expectations，以及 validate/accept/commit/push/record 阶段纪律。
 - P23 line pressure audit tooling 已完成：`scripts/check-file-lines.sh --audit` 会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的文件，默认阈值为 600，并以退出码 0 结束，便于在触及 700 行硬限制前规划拆分阶段。必跑的 `scripts/check-file-lines.sh` 硬门禁和 `scripts/check-all.sh` pass/fail 语义保持不变。
 - P24 phase gate status and ordering hardening 已完成：`adp phase status [--workspace <name>] [--format text|json]` 暴露只读本地 gate snapshot；新 phase 带有显式本地 order；phase start 会拒绝跳过更早 planned 或 unfinished phases；successful push evidence 不能被 failed push evidence 覆盖。
+- P25 shell completion renderer split 已完成：bash 和 zsh completion rendering 已拆到按 shell 区分的文件中，同时 `RenderCompletion`、command-name validation、基于 metadata 的候选项、动态本地 value endpoints 以及公开 `adp completion` 行为保持不变。该阶段只属于维护性的 line-pressure 工作，不新增命令、shell 类型、Web/SaaS 行为、automatic Git execution、hosted orchestration、provider-native resume 或 project-root exports。
 - 已完成的 Phase 1 slices 保持同一组非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
 每个阶段切片必须先完成 validation、acceptance、commit、push 和 evidence record，然后再开始下一阶段。
