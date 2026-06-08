@@ -16,7 +16,7 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Register workspaces that map project roots to ADP runtime configuration.
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
-- Support `adp init`, `adp workspace add/list/show/remove/rename`, `adp env`, `adp shell-hook`, `adp events list`, `adp runtime prune`, `adp enter`, and `adp run`.
+- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp env`, `adp shell-hook`, `adp completion`, `adp events list`, `adp sessions list/show`, `adp runtime prune`, `adp enter`, and `adp run`.
 - Write a local JSONL event log for future replay, session restore, and multi-agent orchestration.
 
 Phase 1 explicitly excludes:
@@ -91,11 +91,14 @@ adp/
 │   │   └── shared/
 │   ├── runner/
 │   ├── shell/
+│   ├── sessions/
 │   └── events/
 ├── test/
 │   └── e2e/
 ├── scripts/
 ├── docs/
+├── examples/
+│   └── basic-workspace/
 ├── README.md
 ├── README.zh-CN.md
 ├── COMMERCIAL.md
@@ -113,7 +116,8 @@ Package responsibilities:
 - `internal/runtime`: orchestrate workspace config, adapter output, overlay lifecycle, runtime env, manifest handling, and runtime pruning.
 - `internal/adapters`: adapter contracts, registry, concrete Codex/Claude adapters, and shared rendering.
 - `internal/runner`: execute external commands with controlled cwd, env, and streams.
-- `internal/shell`: implement `adp enter`, shell export rendering, and parent-shell hook rendering.
+- `internal/shell`: implement `adp enter`, shell export rendering, parent-shell hook rendering, and shell completion rendering.
+- `internal/sessions`: aggregate local events into session history summaries and detail views.
 - `internal/events`: append and query JSONL runtime events.
 - `test/e2e`: end-to-end CLI tests using fake agents.
 
@@ -144,6 +148,8 @@ Tests and local development must support:
 
 - `ADP_HOME` overriding the default home.
 - `ADP_RUNTIME_DIR` overriding the default runtime parent directory.
+
+The repository also includes `examples/basic-workspace` as a copyable workspace configuration with base prompts, shared memory, MCP configuration, and Codex/Claude profiles. It is documentation and test material for local-first workspace configuration, not a hosted template service.
 
 ## 5. Unified Workspace Schema
 
@@ -282,6 +288,10 @@ Prints registered workspace names, project roots, and ADP workspace directories.
 
 Prints operational details for one workspace, including project root, workspace directory, memory status, and MCP status.
 
+### `adp workspace doctor [name]`
+
+Checks one workspace, or all registered workspaces when no name is supplied. Diagnostics cover config loading and validation, project root reachability, prompt, memory, MCP, profile file references, path escapes, and agent command defaults. Error-level diagnostics should be terminal-readable and return a non-zero process exit code.
+
 ### `adp workspace remove <name>`
 
 Removes the ADP workspace directory without touching the real project root.
@@ -302,9 +312,21 @@ Builds a kept runtime overlay and prints POSIX shell exports for the ADP runtime
 
 Prints a shell function that calls `adp env <workspace> --cd` and evaluates the result in the parent shell. This provides a parent-shell workflow without changing the behavior of `adp enter`, which still starts a child shell.
 
+### `adp completion [--shell <bash|zsh>] [--command <name>]`
+
+Prints deterministic shell completion for supported shells, defaulting to bash when `--shell` is omitted. The completion script should cover the current command surface, including nested workspace, event, runtime, and session subcommands. The optional command name supports packaged binaries or aliases without hard-coding `adp`.
+
 ### `adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]`
 
 Reads `$ADP_HOME/logs/events.jsonl`, filters JSONL events, and prints recent matching events in a stable terminal table. Corrupted event log lines are reported with line numbers instead of being ignored.
+
+### `adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]`
+
+Groups local event log records by `session_id` and prints recent session summaries. Empty session IDs are ignored. Workspace and agent filters should be applied before limiting, and the selected sessions should remain in chronological session-start order for terminal readability.
+
+### `adp sessions show <session-id>`
+
+Prints the ordered events for one session. Missing sessions return a clear not-found error. The command is read-only and derives its data from the local JSONL event log.
 
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
@@ -343,6 +365,7 @@ Constraints:
 - Event log write failures should warn on stderr but should not prevent agent startup.
 - One complete JSON object per line.
 - `adp events list` must return the most recent matching events while preserving chronological output order.
+- `adp sessions list/show` are read-only views over the same local log and must not create, mutate, or delete runtime state.
 
 ## 10. Parallel Development Boundaries
 
@@ -352,9 +375,11 @@ Parallel slices:
 
 - CLI/Foundation: `cmd/`, `internal/cli/`, root wiring.
 - Workspace Registry: `internal/workspace/`, `internal/schema/`.
+- Workspace Diagnostics: `internal/workspace/diagnostics*`, with CLI wiring in `internal/cli/`.
 - Runtime Overlay: `internal/runtime/`, `internal/overlay/`.
 - Adapter Layer: `internal/adapters/`.
 - Runner/Shell/Events: `internal/runner/`, `internal/shell/`, `internal/events/`.
+- Session History: `internal/sessions/`, with CLI wiring in `internal/cli/`.
 - Docs/Examples: `README*`, `docs/`, `examples/`.
 - Integration QA: `test/`, CI workflows, quality checks.
 
@@ -383,12 +408,16 @@ End-to-end expectations:
 - `adp init` creates local ADP home.
 - `adp workspace add` creates a workspace config without touching the project root.
 - `adp workspace list` and `adp workspace show` expose registered workspace details.
+- `adp workspace doctor` reports healthy workspaces and returns a non-zero exit code for error-level diagnostics.
 - `adp workspace remove` and `adp workspace rename` modify only ADP workspace registry data.
 - `adp env` prints shell-safe exports for a kept runtime overlay.
 - `adp shell-hook` prints a deterministic shell function for `sh`, `bash`, and `zsh`.
+- `adp completion` prints deterministic completion for `bash` and `zsh`.
 - `adp events list` prints filtered run history from JSONL events.
+- `adp sessions list` and `adp sessions show` expose local session history derived from JSONL events.
 - `adp runtime prune` reports and removes only ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays.
+- `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
 - Fake agent tests can assert cwd, env, generated files, symlinks, args, exit code, logs, and cleanup.
 - The real project directory must not gain `AGENTS.md`, `CLAUDE.md`, `.codex/`, or `.claude/`.
 
@@ -396,5 +425,5 @@ End-to-end expectations:
 
 Next polishing should stay close to the runtime-manager goal:
 
-- Add richer shell completion and session-restore workflows.
+- Extend shell completion with dynamic local workspace and profile values, then add session-restore workflows.
 - Keep adapter formats isolated and update them only after checking current Codex/Claude CLI behavior.

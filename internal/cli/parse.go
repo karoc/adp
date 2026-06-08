@@ -11,6 +11,7 @@ import (
 )
 
 const defaultEventLimit = 20
+const defaultSessionLimit = 20
 
 type runOptions struct {
 	agent     string
@@ -24,6 +25,12 @@ type eventsListOptions struct {
 	workspace string
 	sessionID string
 	eventType string
+	limit     int
+}
+
+type sessionsListOptions struct {
+	workspace string
+	agent     string
 	limit     int
 }
 
@@ -135,6 +142,30 @@ func parseShellHookArgs(args []string) (shell.HookOptions, error) {
 	return opts, nil
 }
 
+func parseCompletionArgs(args []string) (shell.CompletionOptions, error) {
+	var opts shell.CompletionOptions
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--shell", "-s":
+			if i+1 >= len(args) {
+				return shell.CompletionOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.Shell = args[i]
+		case "--command":
+			if i+1 >= len(args) {
+				return shell.CompletionOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.CommandName = args[i]
+		default:
+			return shell.CompletionOptions{}, fmt.Errorf("unknown completion option %q", arg)
+		}
+	}
+	return opts, nil
+}
+
 func parseEventsListArgs(args []string) (eventsListOptions, error) {
 	opts := eventsListOptions{limit: defaultEventLimit}
 	for i := 0; i < len(args); i++ {
@@ -173,6 +204,47 @@ func parseEventsListArgs(args []string) (eventsListOptions, error) {
 		}
 	}
 	return opts, nil
+}
+
+func parseSessionsListArgs(args []string) (sessionsListOptions, error) {
+	opts := sessionsListOptions{limit: defaultSessionLimit}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			if i+1 >= len(args) {
+				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.workspace = args[i]
+		case "--agent":
+			if i+1 >= len(args) {
+				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.agent = args[i]
+		case "--limit":
+			if i+1 >= len(args) {
+				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			limit, err := parseNonNegativeInt(args[i], "limit")
+			if err != nil {
+				return sessionsListOptions{}, err
+			}
+			opts.limit = limit
+		default:
+			return sessionsListOptions{}, fmt.Errorf("unknown sessions list option %q", arg)
+		}
+	}
+	return opts, nil
+}
+
+func parseSessionsShowArgs(args []string) (string, error) {
+	if len(args) != 1 {
+		return "", errors.New("usage: adp sessions show <session-id>")
+	}
+	return args[0], nil
 }
 
 func parseRuntimePruneArgs(args []string) (runtimePruneOptions, error) {

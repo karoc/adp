@@ -128,6 +128,59 @@ func TestWorkspaceRenameCommandCallsStore(t *testing.T) {
 	}
 }
 
+func TestWorkspaceDoctorCommandPrintsNamedReport(t *testing.T) {
+	store := &fakeStore{
+		diagnoseReport: workspace.DiagnosticReport{
+			Workspace:    "game-a",
+			WorkspaceDir: "/tmp/adp-home/workspaces/game-a",
+		},
+	}
+	var stdout bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "doctor", "game-a"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if store.diagnoseName != "game-a" {
+		t.Fatalf("Diagnose called with %q", store.diagnoseName)
+	}
+	output := stdout.String()
+	if !strings.Contains(output, "game-a") || !strings.Contains(output, "ok") || !strings.Contains(output, "no issues") {
+		t.Fatalf("doctor output missing healthy report: %q", output)
+	}
+}
+
+func TestWorkspaceDoctorCommandReturnsTwoWhenDiagnosticsHaveErrors(t *testing.T) {
+	store := &fakeStore{
+		diagnoseAllReports: []workspace.DiagnosticReport{{
+			Workspace: "game-a",
+			Diagnostics: []workspace.Diagnostic{{
+				Level:   workspace.DiagnosticLevelError,
+				Code:    workspace.DiagnosticCodeProjectRootMissing,
+				Message: "project root is missing",
+				Path:    "/srv/game-a",
+			}},
+		}},
+	}
+	var stdout bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "doctor"})
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !store.diagnoseAllCalled {
+		t.Fatal("DiagnoseAll was not called")
+	}
+	output := stdout.String()
+	for _, want := range []string{"game-a", "error", workspace.DiagnosticCodeProjectRootMissing, "/srv/game-a"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("doctor output missing %q: %q", want, output)
+		}
+	}
+}
+
 func TestRunCommandWiresAdapterRuntimeAndRunner(t *testing.T) {
 	store := &fakeStore{cfg: testConfig()}
 	registry := adapters.NewRegistry()
@@ -314,16 +367,20 @@ func TestEnterCommandWiresRuntimeAndShell(t *testing.T) {
 }
 
 type fakeStore struct {
-	initCalled        bool
-	addName           string
-	addRoot           string
-	cfg               schema.Config
-	records           []workspace.Record
-	findByProjectPath bool
-	findCalled        bool
-	removeName        string
-	renameOld         string
-	renameNew         string
+	initCalled         bool
+	addName            string
+	addRoot            string
+	cfg                schema.Config
+	records            []workspace.Record
+	findByProjectPath  bool
+	findCalled         bool
+	removeName         string
+	renameOld          string
+	renameNew          string
+	diagnoseName       string
+	diagnoseReport     workspace.DiagnosticReport
+	diagnoseAllCalled  bool
+	diagnoseAllReports []workspace.DiagnosticReport
 }
 
 func (s *fakeStore) Init(context.Context) error {
@@ -376,6 +433,19 @@ func (s *fakeStore) Rename(_ context.Context, oldName string, newName string) (*
 	cfg := testConfig()
 	cfg.Workspace.Name = newName
 	return &cfg, nil
+}
+
+func (s *fakeStore) Diagnose(_ context.Context, name string) (workspace.DiagnosticReport, error) {
+	s.diagnoseName = name
+	if s.diagnoseReport.Workspace == "" {
+		return workspace.DiagnosticReport{Workspace: name, WorkspaceDir: "/tmp/adp-home/workspaces/" + name}, nil
+	}
+	return s.diagnoseReport, nil
+}
+
+func (s *fakeStore) DiagnoseAll(context.Context) ([]workspace.DiagnosticReport, error) {
+	s.diagnoseAllCalled = true
+	return s.diagnoseAllReports, nil
 }
 
 type fakeAdapter struct {

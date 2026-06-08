@@ -1,0 +1,5 @@
+enabled: true
+servers:
+  - name: github
+    transport: stdio
+    command: github-mcp-server

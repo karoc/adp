@@ -1,0 +1,33 @@
+version: 1
+
+workspace:
+  name: game-a
+
+project:
+  root: /srv/game-a
+
+memory:
+  enabled: true
+  shared: memory/shared.md
+
+prompts:
+  base: prompts/base.md
+
+rules:
+  coding_style: strict
+
+mcp:
+  enabled: true
+  config: mcp/config.yaml
+  servers:
+    - github
+
+agents:
+  codex:
+    enabled: true
+    profile: senior-engineer
+    command: codex
+  claude:
+    enabled: true
+    profile: architect
+    command: claude

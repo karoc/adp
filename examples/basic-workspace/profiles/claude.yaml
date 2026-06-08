@@ -1,0 +1,4 @@
+profile: default
+command: claude
+notes:
+  - Use the generated CLAUDE.md as the primary runtime instruction file.

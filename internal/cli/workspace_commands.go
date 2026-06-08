@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"text/tabwriter"
+
+	"github.com/karoc/adp/internal/workspace"
 )
 
 func (a *App) init(ctx context.Context, args []string) error {
@@ -26,7 +28,7 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 		return errors.New("workspace store is not configured")
 	}
 	if len(args) == 0 {
-		return errors.New("usage: adp workspace <add|list|show|remove|rename>")
+		return errors.New("usage: adp workspace <add|list|show|remove|rename|doctor>")
 	}
 
 	switch args[0] {
@@ -64,6 +66,22 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 			return err
 		}
 		fmt.Fprintf(a.stdout, "workspace %q renamed to %q\n", args[1], args[2])
+	case "doctor":
+		if len(args) > 2 {
+			return errors.New("usage: adp workspace doctor [name]")
+		}
+		if len(args) == 2 {
+			report, err := a.deps.WorkspaceStore.Diagnose(ctx, args[1])
+			if err != nil {
+				return err
+			}
+			return a.workspaceDoctorReports([]workspace.DiagnosticReport{report})
+		}
+		reports, err := a.deps.WorkspaceStore.DiagnoseAll(ctx)
+		if err != nil {
+			return err
+		}
+		return a.workspaceDoctorReports(reports)
 	default:
 		return fmt.Errorf("unknown workspace command %q", args[0])
 	}
@@ -94,5 +112,36 @@ func (a *App) workspaceShow(ctx context.Context, name string) error {
 	fmt.Fprintf(a.stdout, "workspace_dir: %s\n", workspaceDir)
 	fmt.Fprintf(a.stdout, "memory_enabled: %t\n", cfg.Memory.Enabled)
 	fmt.Fprintf(a.stdout, "mcp_enabled: %t\n", cfg.MCP.Enabled)
+	return nil
+}
+
+func (a *App) workspaceDoctorReports(reports []workspace.DiagnosticReport) error {
+	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(writer, "WORKSPACE\tLEVEL\tCODE\tMESSAGE\tPATH")
+	hasErrors := false
+	for _, report := range reports {
+		if len(report.Diagnostics) == 0 {
+			fmt.Fprintf(writer, "%s\tok\t-\tno issues\t%s\n", valueOrDash(report.Workspace), valueOrDash(report.WorkspaceDir))
+			continue
+		}
+		if report.HasErrors() {
+			hasErrors = true
+		}
+		for _, diagnostic := range report.Diagnostics {
+			fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n",
+				valueOrDash(report.Workspace),
+				diagnostic.Level,
+				valueOrDash(diagnostic.Code),
+				valueOrDash(diagnostic.Message),
+				valueOrDash(diagnostic.Path),
+			)
+		}
+	}
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	if hasErrors {
+		return processExitError{code: 2}
+	}
 	return nil
 }

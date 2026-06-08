@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,6 +45,10 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	if !strings.Contains(showOut, "name: game-a") || !strings.Contains(showOut, "project_root: "+projectRoot) {
 		t.Fatalf("workspace show missing details: %q", showOut)
 	}
+	doctorOut := runADP(t, adpBin, repoRoot, env, "workspace", "doctor", "game-a")
+	if !strings.Contains(doctorOut, "game-a") || !strings.Contains(doctorOut, "ok") {
+		t.Fatalf("workspace doctor missing healthy report: %q", doctorOut)
+	}
 	envOut := runADP(t, adpBin, repoRoot, env, "env", "game-a", "--cd")
 	runtimeRoot := parseExport(t, envOut, "ADP_RUNTIME_ROOT")
 	if !strings.Contains(envOut, "cd '"+runtimeRoot+"'") {
@@ -56,6 +61,10 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	if !strings.Contains(hookOut, "adp-enter()") || !strings.Contains(hookOut, `adp env "$1" --cd`) {
 		t.Fatalf("shell-hook output missing bash hook: %q", hookOut)
 	}
+	completionOut := runADP(t, adpBin, repoRoot, env, "completion", "--shell", "bash")
+	if !strings.Contains(completionOut, "complete -F _adp_completion adp") || !strings.Contains(completionOut, "sessions") {
+		t.Fatalf("completion output missing bash completion: %q", completionOut)
+	}
 
 	codexOut := runADP(t, adpBin, repoRoot, env, "run", "codex", "--workspace", "game-a", "--", "--probe")
 	claudeOut := runADP(t, adpBin, projectRoot, env, "run", "claude", "--", "--probe")
@@ -67,6 +76,19 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	eventsOut := runADP(t, adpBin, repoRoot, env, "events", "list", "--workspace", "game-a", "--type", "run_finished", "--limit", "2")
 	if !strings.Contains(eventsOut, "run_finished") || !strings.Contains(eventsOut, "codex") || !strings.Contains(eventsOut, "claude") {
 		t.Fatalf("events list missing run history: %q", eventsOut)
+	}
+	sessionIDs := sessionIDsByAgent(t, filepath.Join(adpHome, "logs", "events.jsonl"))
+	codexSession := sessionIDs["codex"]
+	if codexSession == "" {
+		t.Fatalf("codex session id missing in event log: %#v", sessionIDs)
+	}
+	sessionsOut := runADP(t, adpBin, repoRoot, env, "sessions", "list", "--workspace", "game-a", "--agent", "codex")
+	if !strings.Contains(sessionsOut, codexSession) || !strings.Contains(sessionsOut, "codex") {
+		t.Fatalf("sessions list missing codex session: %q", sessionsOut)
+	}
+	sessionOut := runADP(t, adpBin, repoRoot, env, "sessions", "show", codexSession)
+	if !strings.Contains(sessionOut, "session_id: "+codexSession) || !strings.Contains(sessionOut, "run_started") || !strings.Contains(sessionOut, "run_finished") {
+		t.Fatalf("sessions show missing session detail: %q", sessionOut)
 	}
 	assertProjectClean(t, projectRoot)
 	assertRuntimeEntries(t, runtimeDir, 1)
@@ -153,6 +175,30 @@ func assertEventLines(t *testing.T, path string, want int) {
 	if len(lines) != want {
 		t.Fatalf("event line count = %d, want %d\n%s", len(lines), want, data)
 	}
+}
+
+func sessionIDsByAgent(t *testing.T, path string) map[string]string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read event log: %v", err)
+	}
+
+	ids := map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		var event struct {
+			Type      string `json:"type"`
+			Agent     string `json:"agent"`
+			SessionID string `json:"session_id"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("decode event line %q: %v", line, err)
+		}
+		if event.Type == "run_started" && event.Agent != "" && event.SessionID != "" {
+			ids[event.Agent] = event.SessionID
+		}
+	}
+	return ids
 }
 
 func assertProjectClean(t *testing.T, projectRoot string) {

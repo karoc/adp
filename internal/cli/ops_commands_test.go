@@ -10,6 +10,7 @@ import (
 	"github.com/karoc/adp/internal/events"
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/runtime"
+	"github.com/karoc/adp/internal/sessions"
 	"github.com/karoc/adp/internal/shell"
 )
 
@@ -36,6 +37,33 @@ func TestShellHookCommandRendersHook(t *testing.T) {
 		t.Fatalf("hook options = %+v", gotOpts)
 	}
 	if stdout.String() != "hook body\n" {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestCompletionCommandRendersCompletion(t *testing.T) {
+	var stdout bytes.Buffer
+	var gotOpts shell.CompletionOptions
+
+	deps := Dependencies{
+		RenderCompletion: func(opts shell.CompletionOptions) (string, error) {
+			gotOpts = opts
+			return "completion body\n", nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"completion", "--shell", "zsh", "--command", "adp-dev"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if gotOpts.Shell != "zsh" || gotOpts.CommandName != "adp-dev" {
+		t.Fatalf("completion options = %+v", gotOpts)
+	}
+	if stdout.String() != "completion body\n" {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
@@ -82,6 +110,106 @@ func TestEventsListCommandReadsAndPrintsEvents(t *testing.T) {
 	for _, want := range []string{"run_finished", "game-a", "codex", "session-1", "0", "/tmp/runtime"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("events output missing %q: %q", want, output)
+		}
+	}
+}
+
+func TestSessionsListCommandReadsAndPrintsSummaries(t *testing.T) {
+	var stdout bytes.Buffer
+	var gotLayout paths.Layout
+	var gotQuery sessions.Query
+	exitCode := 0
+	duration := int64(120000)
+
+	layout := paths.New("/tmp/adp-home", "/tmp/adp-runtime")
+	deps := Dependencies{
+		Layout: layout,
+		ListSessions: func(_ context.Context, layout paths.Layout, query sessions.Query) ([]sessions.Summary, error) {
+			gotLayout = layout
+			gotQuery = query
+			return []sessions.Summary{{
+				SessionID:      "session-1",
+				Workspace:      "game-a",
+				Agent:          "codex",
+				Profile:        "senior",
+				RuntimePath:    "/tmp/runtime",
+				StartedAt:      time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
+				FinishedAt:     time.Date(2026, 6, 8, 12, 2, 0, 0, time.UTC),
+				ExitCode:       &exitCode,
+				DurationMillis: &duration,
+				EventCount:     2,
+			}}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"sessions", "list", "--workspace", "game-a", "--agent", "codex", "--limit", "3"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if gotLayout != layout {
+		t.Fatalf("layout = %+v, want %+v", gotLayout, layout)
+	}
+	if gotQuery.Workspace != "game-a" || gotQuery.Agent != "codex" || gotQuery.Limit != 3 {
+		t.Fatalf("query = %+v", gotQuery)
+	}
+	output := stdout.String()
+	for _, want := range []string{"session-1", "game-a", "codex", "senior", "0", "120000", "2", "/tmp/runtime"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("sessions list output missing %q: %q", want, output)
+		}
+	}
+}
+
+func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
+	var stdout bytes.Buffer
+	var gotSessionID string
+	exitCode := 7
+	duration := int64(10)
+
+	deps := Dependencies{
+		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
+			gotSessionID = sessionID
+			return &sessions.Detail{
+				Summary: sessions.Summary{
+					SessionID:      "session-1",
+					Workspace:      "game-a",
+					Agent:          "codex",
+					Profile:        "senior",
+					ProjectRoot:    "/srv/game-a",
+					RuntimePath:    "/tmp/runtime",
+					StartedAt:      time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
+					FinishedAt:     time.Date(2026, 6, 8, 12, 0, 1, 0, time.UTC),
+					ExitCode:       &exitCode,
+					DurationMillis: &duration,
+					EventCount:     2,
+				},
+				Events: []events.Event{{
+					Timestamp: time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
+					Type:      "run_started",
+					Workspace: "game-a",
+					Agent:     "codex",
+					SessionID: "session-1",
+				}},
+			}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"sessions", "show", "session-1"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if gotSessionID != "session-1" {
+		t.Fatalf("session id = %q", gotSessionID)
+	}
+	output := stdout.String()
+	for _, want := range []string{"session_id: session-1", "workspace: game-a", "project_root: /srv/game-a", "exit_code: 7", "duration_ms: 10", "run_started"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("sessions show output missing %q: %q", want, output)
 		}
 	}
 }

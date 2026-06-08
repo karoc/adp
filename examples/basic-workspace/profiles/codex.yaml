@@ -1,0 +1,4 @@
+profile: default
+command: codex
+notes:
+  - Use the generated AGENTS.md as the primary runtime instruction file.

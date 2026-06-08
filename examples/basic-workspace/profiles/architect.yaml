@@ -1,0 +1,6 @@
+profile: architect
+command: claude
+style:
+  - design-first
+  - contract-aware
+  - boundary-focused

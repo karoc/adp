@@ -12,6 +12,7 @@ import (
 	"github.com/karoc/adp/internal/runner"
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/schema"
+	"github.com/karoc/adp/internal/sessions"
 	"github.com/karoc/adp/internal/shell"
 	"github.com/karoc/adp/internal/workspace"
 )
@@ -25,10 +26,14 @@ Usage:
   adp workspace show <name>
   adp workspace remove <name>
   adp workspace rename <old-name> <new-name>
+  adp workspace doctor [name]
   adp enter <workspace> [--keep-runtime]
   adp env <workspace> [--cd]
   adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]
+  adp completion [--shell <bash|zsh>] [--command <name>]
   adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]
+  adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]
+  adp sessions show <session-id>
   adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]
   adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]
 `
@@ -41,6 +46,8 @@ type WorkspaceStore interface {
 	FindByProjectPath(context.Context, string) (*schema.Config, string, error)
 	Remove(context.Context, string) error
 	Rename(context.Context, string, string) (*schema.Config, error)
+	Diagnose(context.Context, string) (workspace.DiagnosticReport, error)
+	DiagnoseAll(context.Context) ([]workspace.DiagnosticReport, error)
 }
 
 type AdapterRegistry interface {
@@ -53,18 +60,21 @@ type EventLogger interface {
 }
 
 type Dependencies struct {
-	Layout         paths.Layout
-	WorkspaceStore WorkspaceStore
-	Adapters       AdapterRegistry
-	BuildRuntime   func(context.Context, runtime.BuildRequest) (*runtime.Handle, error)
-	CleanupRuntime func(context.Context, runtime.Handle) error
-	RunProcess     func(context.Context, adapters.LaunchSpec, runner.Streams) (*runner.Result, error)
-	EnterShell     func(context.Context, adapters.RuntimeHandle, shell.Streams) error
-	EventLogger    EventLogger
-	ReadEvents     func(context.Context, paths.Layout, events.Query) ([]events.Event, error)
-	PruneRuntimes  func(context.Context, runtime.PruneRequest) ([]runtime.PruneResult, error)
-	RenderHook     func(shell.HookOptions) (string, error)
-	InitError      error
+	Layout           paths.Layout
+	WorkspaceStore   WorkspaceStore
+	Adapters         AdapterRegistry
+	BuildRuntime     func(context.Context, runtime.BuildRequest) (*runtime.Handle, error)
+	CleanupRuntime   func(context.Context, runtime.Handle) error
+	RunProcess       func(context.Context, adapters.LaunchSpec, runner.Streams) (*runner.Result, error)
+	EnterShell       func(context.Context, adapters.RuntimeHandle, shell.Streams) error
+	EventLogger      EventLogger
+	ReadEvents       func(context.Context, paths.Layout, events.Query) ([]events.Event, error)
+	ListSessions     func(context.Context, paths.Layout, sessions.Query) ([]sessions.Summary, error)
+	GetSession       func(context.Context, paths.Layout, string) (*sessions.Detail, error)
+	PruneRuntimes    func(context.Context, runtime.PruneRequest) ([]runtime.PruneResult, error)
+	RenderHook       func(shell.HookOptions) (string, error)
+	RenderCompletion func(shell.CompletionOptions) (string, error)
+	InitError        error
 }
 
 type App struct {
@@ -102,8 +112,11 @@ func DefaultDependencies() Dependencies {
 	deps.EnterShell = shell.Enter
 	deps.EventLogger = events.NewLogger(layout)
 	deps.ReadEvents = events.Read
+	deps.ListSessions = sessions.List
+	deps.GetSession = sessions.Get
 	deps.PruneRuntimes = runtime.Prune
 	deps.RenderHook = shell.RenderHook
+	deps.RenderCompletion = shell.RenderCompletion
 	return deps
 }
 
@@ -128,8 +141,12 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		err = a.env(ctx, args[1:])
 	case "shell-hook":
 		err = a.shellHook(ctx, args[1:])
+	case "completion":
+		err = a.completion(ctx, args[1:])
 	case "events":
 		err = a.events(ctx, args[1:])
+	case "sessions":
+		err = a.sessions(ctx, args[1:])
 	case "runtime":
 		err = a.runtime(ctx, args[1:])
 	case "run":
