@@ -1,0 +1,175 @@
+package runtime
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/karoc/adp/internal/adapters"
+	"github.com/karoc/adp/internal/paths"
+	"github.com/karoc/adp/internal/schema"
+)
+
+func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
+	projectRoot := t.TempDir()
+	writeFile(t, filepath.Join(projectRoot, "go.mod"), []byte("module example\n"))
+	writeFile(t, filepath.Join(projectRoot, "AGENTS.md"), []byte("real agents\n"))
+
+	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
+	handle, err := Build(context.Background(), BuildRequest{
+		Layout: layout,
+		Config: testConfig(projectRoot),
+		Files: []adapters.GeneratedFile{
+			{Path: "AGENTS.md", Data: []byte("adp agents\n")},
+		},
+		Env: map[string]string{
+			"CUSTOM":      "1",
+			paths.EnvHome: "adapter-should-not-win",
+		},
+		SessionID: "session-1",
+	})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	wantRoot := filepath.Join(layout.RuntimeParent, "game-a-session-1")
+	if handle.Root != wantRoot {
+		t.Fatalf("runtime root mismatch: got %s want %s", handle.Root, wantRoot)
+	}
+	if handle.SessionID != "session-1" {
+		t.Fatalf("session id mismatch: %s", handle.SessionID)
+	}
+	if handle.Env[paths.EnvHome] != layout.Home {
+		t.Fatalf("ADP_HOME mismatch: %s", handle.Env[paths.EnvHome])
+	}
+	if handle.Env["ADP_WORKSPACE"] != "game-a" {
+		t.Fatalf("ADP_WORKSPACE mismatch: %s", handle.Env["ADP_WORKSPACE"])
+	}
+	if handle.Env["ADP_PROJECT_ROOT"] != projectRoot {
+		t.Fatalf("ADP_PROJECT_ROOT mismatch: %s", handle.Env["ADP_PROJECT_ROOT"])
+	}
+	if handle.Env["ADP_RUNTIME_ROOT"] != wantRoot {
+		t.Fatalf("ADP_RUNTIME_ROOT mismatch: %s", handle.Env["ADP_RUNTIME_ROOT"])
+	}
+	if handle.Env["ADP_SESSION_ID"] != "session-1" {
+		t.Fatalf("ADP_SESSION_ID mismatch: %s", handle.Env["ADP_SESSION_ID"])
+	}
+	if handle.Env["CUSTOM"] != "1" {
+		t.Fatalf("adapter env was not preserved: %#v", handle.Env)
+	}
+
+	assertContent(t, filepath.Join(handle.Root, "AGENTS.md"), "adp agents\n")
+	assertSymlink(t, filepath.Join(handle.Root, "go.mod"), filepath.Join(projectRoot, "go.mod"))
+	assertContent(t, filepath.Join(projectRoot, "AGENTS.md"), "real agents\n")
+	if len(handle.Warnings) == 0 {
+		t.Fatalf("expected conflict warning for project AGENTS.md")
+	}
+}
+
+func TestBuildGeneratesSessionIDAndCleanupHonorsKeep(t *testing.T) {
+	projectRoot := t.TempDir()
+	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
+
+	handle, err := Build(context.Background(), BuildRequest{
+		Layout: layout,
+		Config: testConfig(projectRoot),
+		Keep:   true,
+	})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if handle.SessionID == "" {
+		t.Fatalf("expected generated session id")
+	}
+	if _, err := os.Stat(handle.Root); err != nil {
+		t.Fatalf("expected runtime root to exist: %v", err)
+	}
+	if err := Cleanup(context.Background(), *handle); err != nil {
+		t.Fatalf("cleanup keep: %v", err)
+	}
+	if _, err := os.Stat(handle.Root); err != nil {
+		t.Fatalf("expected kept runtime root to remain: %v", err)
+	}
+
+	handle.Keep = false
+	if err := Cleanup(context.Background(), *handle); err != nil {
+		t.Fatalf("cleanup remove: %v", err)
+	}
+	if _, err := os.Stat(handle.Root); !os.IsNotExist(err) {
+		t.Fatalf("expected runtime root to be removed, stat err: %v", err)
+	}
+}
+
+func TestBuildRejectsInvalidProjectRootAndSessionID(t *testing.T) {
+	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
+
+	_, err := Build(context.Background(), BuildRequest{
+		Layout:    layout,
+		Config:    testConfig("relative-project"),
+		SessionID: "session-1",
+	})
+	if err == nil {
+		t.Fatalf("expected relative project root to fail")
+	}
+
+	_, err = Build(context.Background(), BuildRequest{
+		Layout:    layout,
+		Config:    testConfig(t.TempDir()),
+		SessionID: "../escape",
+	})
+	if err == nil {
+		t.Fatalf("expected unsafe session id to fail")
+	}
+}
+
+func testConfig(projectRoot string) schema.Config {
+	return schema.Config{
+		Version: schema.CurrentVersion,
+		Workspace: schema.Workspace{
+			Name: "game-a",
+		},
+		Project: schema.Project{
+			Root: projectRoot,
+		},
+	}
+}
+
+func writeFile(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertContent(t *testing.T, path, want string) {
+	t.Helper()
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if string(got) != want {
+		t.Fatalf("content mismatch for %s: got %q want %q", path, got, want)
+	}
+}
+
+func assertSymlink(t *testing.T, path, want string) {
+	t.Helper()
+	info, err := os.Lstat(path)
+	if err != nil {
+		t.Fatalf("lstat %s: %v", path, err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("%s is not a symlink", path)
+	}
+	got, err := os.Readlink(path)
+	if err != nil {
+		t.Fatalf("readlink %s: %v", path, err)
+	}
+	if got != want {
+		t.Fatalf("symlink target mismatch for %s: got %s want %s", path, got, want)
+	}
+}

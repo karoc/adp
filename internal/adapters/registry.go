@@ -3,6 +3,9 @@ package adapters
 import (
 	"fmt"
 	"sort"
+
+	"github.com/karoc/adp/internal/adapters/claude"
+	"github.com/karoc/adp/internal/adapters/codex"
 )
 
 type Registry struct {
@@ -11,6 +14,29 @@ type Registry struct {
 
 func NewRegistry() *Registry {
 	return &Registry{adapters: map[string]Adapter{}}
+}
+
+func NewDefaultRegistry() (*Registry, error) {
+	registry := NewRegistry()
+	if err := RegisterDefaults(registry); err != nil {
+		return nil, err
+	}
+	return registry, nil
+}
+
+func RegisterDefaults(registry *Registry) error {
+	if registry == nil {
+		return fmt.Errorf("registry is nil")
+	}
+	for _, adapter := range []Adapter{
+		codex.New(),
+		claude.New(),
+	} {
+		if err := registry.Register(adapter); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *Registry) Register(adapter Adapter) error {

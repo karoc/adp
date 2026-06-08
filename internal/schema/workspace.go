@@ -1,8 +1,13 @@
 package schema
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
+
+	"gopkg.in/yaml.v3"
 )
 
 const CurrentVersion = 1
@@ -54,11 +59,55 @@ func (c Config) Validate() error {
 	if c.Version != CurrentVersion {
 		return fmt.Errorf("unsupported workspace schema version %d", c.Version)
 	}
-	if !workspaceNamePattern.MatchString(c.Workspace.Name) {
-		return fmt.Errorf("invalid workspace name %q", c.Workspace.Name)
+	if err := ValidateWorkspaceName(c.Workspace.Name); err != nil {
+		return err
 	}
 	if c.Project.Root == "" {
 		return fmt.Errorf("project root is required")
+	}
+	if !filepath.IsAbs(c.Project.Root) {
+		return fmt.Errorf("project root must be absolute: %s", c.Project.Root)
+	}
+	return nil
+}
+
+func ValidateWorkspaceName(name string) error {
+	if !workspaceNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid workspace name %q", name)
+	}
+	return nil
+}
+
+func LoadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read workspace config: %w", err)
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("decode workspace config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func SaveConfig(path string, cfg *Config) error {
+	if cfg == nil {
+		return errors.New("workspace config is nil")
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("encode workspace config: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write workspace config: %w", err)
 	}
 	return nil
 }
