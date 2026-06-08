@@ -97,6 +97,14 @@ type progressReportJSON struct {
 	RuntimeSessions []runtimeSessionJSON `json:"runtime_sessions"`
 }
 
+type planImportJSON struct {
+	Workspace string      `json:"workspace"`
+	Mode      string      `json:"mode"`
+	Source    string      `json:"source"`
+	Phases    []phaseJSON `json:"phases"`
+	Tasks     []taskJSON  `json:"tasks"`
+}
+
 type phaseEvidenceJSON struct {
 	ID         string                `json:"id"`
 	Acceptance *acceptanceRecordJSON `json:"acceptance,omitempty"`
@@ -219,6 +227,24 @@ func progressOutput(workspace string, progress taskstore.Progress, phases []task
 		Total:     progress.Total,
 		Counts:    counts,
 		Next:      next,
+	}
+}
+
+func planImportOutput(workspace string, mode string, source string, result taskstore.PlanImportResult) planImportJSON {
+	phases := make([]phaseJSON, 0, len(result.Phases))
+	for _, phase := range result.Phases {
+		phases = append(phases, phaseOutput(phase))
+	}
+	tasks := make([]taskJSON, 0, len(result.Tasks))
+	for _, task := range result.Tasks {
+		tasks = append(tasks, taskOutput(task))
+	}
+	return planImportJSON{
+		Workspace: workspace,
+		Mode:      mode,
+		Source:    source,
+		Phases:    phases,
+		Tasks:     tasks,
 	}
 }
 

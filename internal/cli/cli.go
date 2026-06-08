@@ -49,6 +49,8 @@ Usage:
 	  adp tasks release [--workspace <name>] <task-id> [--owner <owner>]
 	  adp tasks done [--workspace <name>] <task-id>
 	  adp tasks block [--workspace <name>] <task-id> --reason <reason>
+	  adp plan preview [--workspace <name>] --file <path|-> [--format <text|json>]
+	  adp plan apply [--workspace <name>] --file <path|-> [--format <text|json>]
 	  adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>
 	  adp phase list [--workspace <name>] [--format <text|json>]
 	  adp phase show [--workspace <name>] <phase-id> [--format <text|json>]
@@ -98,6 +100,8 @@ type TaskStore interface {
 	Claim(context.Context, taskstore.ClaimRequest) (taskstore.Task, error)
 	Release(context.Context, taskstore.ReleaseRequest) (taskstore.Task, error)
 	Progress(context.Context) (taskstore.Progress, error)
+	PreviewPlanImport(context.Context, taskstore.PlanImportRequest) (taskstore.PlanImportResult, error)
+	ApplyPlanImport(context.Context, taskstore.PlanImportRequest) (taskstore.PlanImportResult, error)
 	AddPhase(context.Context, taskstore.PhaseAddRequest) (taskstore.Phase, error)
 	ListPhases(context.Context) ([]taskstore.Phase, error)
 	GetPhase(context.Context, string) (taskstore.Phase, error)
@@ -211,6 +215,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		err = a.runtime(ctx, args[1:])
 	case "tasks":
 		err = a.tasks(ctx, args[1:])
+	case "plan":
+		err = a.plan(ctx, args[1:])
 	case "phase":
 		err = a.phase(ctx, args[1:])
 	case "progress":

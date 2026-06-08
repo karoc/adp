@@ -132,6 +132,8 @@ Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 sym
 
 P3 提供项目规划和执行进度管理的本地 phase ledger。它会在 `$ADP_HOME` 下记录任务归属、可选 claim lease、验收记录、commit 记录、push 记录和明确的阶段门禁纪律。该能力仍然保持 terminal-first、local-first；它不是 Web dashboard、SaaS tracker、cloud sync layer 或 hosted orchestration service。
 
+`adp plan preview --workspace <name> --file <path|-> [--format text|json]` 和 `adp plan apply --workspace <name> --file <path|-> [--format text|json]` 提供本地 planning intake，用于结构化 YAML/JSON phase 和 task 输入。Preview 保持只读。Apply 会在校验通过后显式写入 `$ADP_HOME/workspaces/<workspace>/planning`。JSON 输出不能成为第二份 planning store；ADP 不提供 Web UI、dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git、automatic claim/done/phase acceptance、provider-native resume、project-root report/planning export，或自由文本自然语言拆任务。
+
 仓库包含 `examples/basic-workspace`，作为可复制的本地 workspace 配置示例，内含 Codex 和 Claude profile、base prompt、shared memory 与 MCP 设置。实际运行前需要替换其中的 `project.root`。它展示了 ADP 如何在保持 terminal-first 的前提下，把 Agent 配置保存在真实项目目录之外。
 
 ## 开发
@@ -142,7 +144,7 @@ P3 提供项目规划和执行进度管理的本地 phase ledger。它会在 `$A
 scripts/check-all.sh
 ```
 
-聚合 gate 覆盖确定性 runtime smoke、示例 workspace smoke、task manager smoke、Go test 和 vet、文件行数限制、双语文档配对以及 diff 空白检查。CI 使用同一个 `scripts/check-all.sh` gate，确保本地和自动化 release evidence 对齐。针对示例 workspace 的独立验证可运行 `scripts/example-workspace-smoke.sh`。
+聚合 gate 覆盖确定性 runtime smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 diff 空白检查。CI 使用同一个 `scripts/check-all.sh` gate，确保本地和自动化 release evidence 对齐。针对示例 workspace 的独立验证可运行 `scripts/example-workspace-smoke.sh`。
 
 项目代码文件必须控制在 700 行以内。超过前按职责拆分。详见 [docs/engineering-standards.zh-CN.md](docs/engineering-standards.zh-CN.md)。
 

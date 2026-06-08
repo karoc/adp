@@ -377,14 +377,19 @@ func TestTasksCommandReportsUnknownSubcommand(t *testing.T) {
 }
 
 type fakeTaskStore struct {
-	addReq        taskstore.AddRequest
-	tasks         []taskstore.Task
-	phases        []taskstore.Phase
-	updatedStatus taskstore.Status
-	blockReason   string
-	claimReq      taskstore.ClaimRequest
-	releaseReq    taskstore.ReleaseRequest
-	progress      taskstore.Progress
+	addReq            taskstore.AddRequest
+	tasks             []taskstore.Task
+	phases            []taskstore.Phase
+	updatedStatus     taskstore.Status
+	blockReason       string
+	claimReq          taskstore.ClaimRequest
+	releaseReq        taskstore.ReleaseRequest
+	progress          taskstore.Progress
+	planReq           taskstore.PlanImportRequest
+	planPreviewResult taskstore.PlanImportResult
+	planApplyResult   taskstore.PlanImportResult
+	previewCalls      int
+	applyCalls        int
 }
 
 func (s *fakeTaskStore) Add(_ context.Context, req taskstore.AddRequest) (taskstore.Task, error) {
@@ -434,6 +439,18 @@ func (s *fakeTaskStore) Release(_ context.Context, req taskstore.ReleaseRequest)
 
 func (s *fakeTaskStore) Progress(context.Context) (taskstore.Progress, error) {
 	return s.progress, nil
+}
+
+func (s *fakeTaskStore) PreviewPlanImport(_ context.Context, req taskstore.PlanImportRequest) (taskstore.PlanImportResult, error) {
+	s.planReq = req
+	s.previewCalls++
+	return s.planPreviewResult, nil
+}
+
+func (s *fakeTaskStore) ApplyPlanImport(_ context.Context, req taskstore.PlanImportRequest) (taskstore.PlanImportResult, error) {
+	s.planReq = req
+	s.applyCalls++
+	return s.planApplyResult, nil
 }
 
 func (s *fakeTaskStore) AddPhase(_ context.Context, req taskstore.PhaseAddRequest) (taskstore.Phase, error) {

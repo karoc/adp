@@ -132,6 +132,8 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 P3 provides a local phase ledger for project planning and execution progress management. It records task ownership, optional claim leases, acceptance records, commit records, push records, and explicit stage gate discipline under `$ADP_HOME`. This remains terminal-first and local-first; it is not a Web dashboard, SaaS tracker, cloud sync layer, or hosted orchestration service.
 
+`adp plan preview --workspace <name> --file <path|-> [--format text|json]` and `adp plan apply --workspace <name> --file <path|-> [--format text|json]` provide local planning intake for structured YAML/JSON phase and task input. Preview is read-only. Apply explicitly writes only `$ADP_HOME/workspaces/<workspace>/planning` after validation succeeds. JSON output is not a second planning store, and ADP does not provide a Web UI, dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git, automatic claim/done/phase acceptance, provider-native resume, project-root report/planning exports, or free-text natural-language task splitting.
+
 The repository includes `examples/basic-workspace` as a copyable local workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings. Replace its `project.root` before running it against a local project. It is intended as a terminal-first reference for how ADP keeps agent configuration outside the real project tree.
 
 ## Development
@@ -142,7 +144,7 @@ Use the aggregate validation gate before handoff:
 scripts/check-all.sh
 ```
 
-The aggregate gate covers deterministic runtime smoke, example workspace smoke, task manager smoke, Go test and vet, file length limits, bilingual documentation pairing, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
+The aggregate gate covers deterministic runtime smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file length limits, bilingual documentation pairing, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
 
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 

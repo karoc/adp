@@ -12,6 +12,7 @@ run_step() {
 run_step scripts/runtime-smoke.sh --fake
 run_step scripts/example-workspace-smoke.sh
 run_step scripts/task-manager-smoke.sh
+run_step scripts/plan-intake-smoke.sh
 run_step go test -count=1 ./...
 run_step go vet ./...
 run_step scripts/check-file-lines.sh

@@ -26,6 +26,8 @@ The first task-management slice provides:
 - `adp phase accept`
 - `adp phase commit`
 - `adp phase push`
+- `adp plan preview [--workspace <name>] --file <path|-> [--format text|json]`
+- `adp plan apply [--workspace <name>] --file <path|-> [--format text|json]`
 - `adp progress`
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 - Read-only `--format json` output for task, phase, and progress inspection.
@@ -78,6 +80,21 @@ The JSON contract includes:
 Each candidate uses the same task object shape as `adp tasks list --format json`, including task ID, title, status, priority, phase ID, owner or lease information when present, and blocker summary when relevant.
 
 The endpoint is read-only. It must not claim a task, update status, change owners or leases, clear blockers, mutate phases, append planning or runtime events, create runtime directories, start agents, run Git, infer acceptance, close tasks, write output files into the project root, sync with a hosted service, or maintain JSON output as a second planning store.
+
+## Planning Intake Scope
+
+P14 adds local planning intake commands for deterministic, cross-tool phase/task input:
+
+```bash
+adp plan preview --workspace <name> --file <path|-> [--format text|json]
+adp plan apply --workspace <name> --file <path|-> [--format text|json]
+```
+
+The first version accepts structured YAML or JSON only. It does not split free-text natural language into tasks inside ADP.
+
+`preview` is read-only: it parses and validates the input, then prints the phase and task changes that would be created. It must not write planning files, append events, create runtime directories, start agents, run Git, change task ownership, close tasks, accept phases, sync hosted trackers, or write report/planning exports into the project root.
+
+`apply` is explicit. It writes only the local planning ledger under `$ADP_HOME/workspaces/<workspace>/planning` after validation succeeds, and JSON output remains an inspection format rather than a second planning store. The feature remains terminal-first and local-first; it is not a Web UI, dashboard, SaaS tracker, cloud sync layer, hosted orchestration service, hosted tracker sync, automatic Git workflow, automatic claim/done/phase acceptance flow, provider-native resume flow, or project-root report/planning export path.
 
 ## Storage
 

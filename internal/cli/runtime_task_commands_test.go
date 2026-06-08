@@ -191,6 +191,14 @@ func (s *runTaskStore) Progress(context.Context) (taskstore.Progress, error) {
 	return taskstore.Progress{}, errors.New("not implemented")
 }
 
+func (s *runTaskStore) PreviewPlanImport(context.Context, taskstore.PlanImportRequest) (taskstore.PlanImportResult, error) {
+	return taskstore.PlanImportResult{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) ApplyPlanImport(context.Context, taskstore.PlanImportRequest) (taskstore.PlanImportResult, error) {
+	return taskstore.PlanImportResult{}, errors.New("not implemented")
+}
+
 func (s *runTaskStore) AddPhase(context.Context, taskstore.PhaseAddRequest) (taskstore.Phase, error) {
 	return taskstore.Phase{}, errors.New("not implemented")
 }
