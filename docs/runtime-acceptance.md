@@ -29,6 +29,10 @@ The script creates and removes temporary paths for:
 
 The fake path requires only Go and a POSIX shell environment. It does not require real Codex or Claude CLIs.
 
+P17 runtime-smoke modularization keeps `scripts/runtime-smoke.sh` as the only public entry point while moving shared helpers and fake diagnostics, session, and prune slices into focused helper files under `scripts/`. Those files are implementation details: they must not execute smoke work when sourced, and release gates still run `scripts/runtime-smoke.sh --fake` through `scripts/check-all.sh`.
+
+This split is maintenance and hardening only. It must not weaken runtime acceptance, change the fake default path, remove the fake subshell isolation, or relax the explicit real-CLI environment gates.
+
 ## Fake Acceptance Coverage
 
 The fake smoke executes the current CLI runtime path end to end:

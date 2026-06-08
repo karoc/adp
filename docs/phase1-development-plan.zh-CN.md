@@ -849,7 +849,7 @@ symlink overlay 与真实项目已有配置冲突：
 - P14 local planning intake preview/apply 已完成：`adp plan preview --workspace <name> --file <path|-> [--format text|json]` 和 `adp plan apply --workspace <name> --file <path|-> [--format text|json]` 接收结构化 YAML/JSON phase 和 task 输入。Preview 保持只读；apply 必须显式执行，并且只写入 `$ADP_HOME/workspaces/<workspace>/planning`；JSON 输出不能成为第二份 planning store；第一版 ADP 不做自由文本自然语言拆任务。
 - P15 MVP completion audit 已完成：已审计 command/runtime coverage、release-gate 文档、maintainability pressure 和双语 roadmap 漂移。该审计把下一批本地 planning backlog 写入 planned phases P16-P23，但没有启动任何后续阶段。
 - P16 command surface hardening 已完成：本地 command metadata contract 已让 usage text、dispatch wiring、bash/zsh completion、聚焦测试、smoke 或文档验收保持一致。该阶段只属于本地 CLI 维护，不引入新的 CLI 框架或 hosted command surface。
-- P17 planned：在不改变公开入口的前提下拆分 `scripts/runtime-smoke.sh`，再继续增加 runtime acceptance 覆盖。
+- P17 runtime smoke split 已完成：`scripts/runtime-smoke.sh` 仍然是公开入口，共享 helpers 和 fake diagnostics/session/prune slices 已拆到更聚焦的实现文件中，并保持在 700 行上限以内。该阶段只属于维护，不削弱 fake smoke 覆盖、fake subshell 隔离、真实 CLI opt-in 门禁，也继续保持 `scripts/check-all.sh` 作为聚合门禁。
 - P18 planned：拆分剩余的大型混合 CLI command tests。
 - P19 planned：为 workspace rename/remove 和非交互式 `adp enter` 增加 runtime acceptance。
 - P20 planned：覆盖 `adp plan --file -` stdin intake 路径。

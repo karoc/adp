@@ -29,6 +29,10 @@ scripts/runtime-smoke.sh
 
 fake 路径只要求 Go 和 POSIX shell 环境，不要求安装真实 Codex 或 Claude CLI。
 
+P17 runtime-smoke modularization 会继续把 `scripts/runtime-smoke.sh` 保持为唯一公开入口，同时把共享 helper 以及 fake diagnostics、session、prune slices 拆到 `scripts/` 下的聚焦 helper 文件。这些文件属于实现细节：被 source 时不能执行 smoke 工作，release gates 仍然通过 `scripts/check-all.sh` 运行 `scripts/runtime-smoke.sh --fake`。
+
+这次拆分只属于维护和 hardening。它不能削弱 runtime acceptance，不能改变 fake 默认路径，不能移除 fake subshell 隔离，也不能放宽真实 CLI 的显式环境门禁。
+
 ## Fake 验收覆盖
 
 fake smoke 会端到端执行当前 CLI runtime 路径：

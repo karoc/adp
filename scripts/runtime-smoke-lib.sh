@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+
+fail() {
+  printf 'runtime-smoke: %s\n' "$*" >&2
+  exit 1
+}
+
+info() {
+  printf '[runtime-smoke] %s\n' "$*"
+}
+
+assert_contains() {
+  local output="$1"
+  local needle="$2"
+  local label="$3"
+
+  case "$output" in
+    *"$needle"*) ;;
+    *)
+      printf '%s\n' "$output" >&2
+      fail "$label missing expected text: $needle"
+      ;;
+  esac
+}
+
+assert_file() {
+  local path="$1"
+  if [ ! -f "$path" ]; then
+    fail "missing file: $path"
+  fi
+}
+
+assert_symlink() {
+  local path="$1"
+  if [ ! -L "$path" ]; then
+    fail "missing symlink: $path"
+  fi
+}
+
+assert_absent_project_artifacts() {
+  local project_root="$1"
+  local rel
+
+  for rel in AGENTS.md CLAUDE.md .codex .claude planning tasks.yaml phases.yaml progress.jsonl; do
+    if [ -e "$project_root/$rel" ] || [ -L "$project_root/$rel" ]; then
+      fail "project root was polluted with $rel"
+    fi
+  done
+}
+
+assert_runtime_entries() {
+  local runtime_dir="$1"
+  local want="$2"
+  local got
+
+  got=$(find "$runtime_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]')
+  if [ "$got" != "$want" ]; then
+    fail "runtime dir entry count is $got, expected $want"
+  fi
+}
+
+assert_line_count() {
+  local path="$1"
+  local want="$2"
+  local got
+
+  assert_file "$path"
+  got=$(wc -l < "$path" | tr -d '[:space:]')
+  if [ "$got" != "$want" ]; then
+    printf '%s\n' "event log:" >&2
+    cat "$path" >&2
+    fail "$path line count is $got, expected $want"
+  fi
+}
+
+line_count() {
+  local path="$1"
+
+  assert_file "$path"
+  wc -l < "$path" | tr -d '[:space:]'
+}
+
+parse_export() {
+  local output="$1"
+  local name="$2"
+  local value
+
+  value=$(printf '%s\n' "$output" | sed -n "s/^export ${name}='\\(.*\\)'$/\\1/p" | head -n 1)
+  if [ -z "$value" ]; then
+    printf '%s\n' "$output" >&2
+    fail "export $name not found"
+  fi
+  printf '%s\n' "$value"
+}
+
+session_id_by_agent() {
+  local events_file="$1"
+  local agent="$2"
+  local id
+
+  id=$(
+    {
+      grep '"type":"run_started"' "$events_file" |
+        grep "\"agent\":\"$agent\"" |
+        sed -n 's/.*"session_id":"\([^"]*\)".*/\1/p' |
+        tail -n 1
+    } || true
+  )
+  printf '%s\n' "$id"
+}
+
+run_adp() {
+  local dir="$1"
+  shift
+  local output
+
+  if ! output=$(cd "$dir" && "$ADP_BIN" "$@" 2>&1); then
+    printf '%s\n' "$output" >&2
+    fail "adp $* failed"
+  fi
+  printf '%s\n' "$output"
+}
+
+run_adp_expect_fail() {
+  local dir="$1"
+  shift
+  local output
+
+  if output=$(cd "$dir" && "$ADP_BIN" "$@" 2>&1); then
+    printf '%s\n' "$output" >&2
+    fail "adp $* succeeded, expected failure"
+  fi
+  printf '%s\n' "$output"
+}
+
+write_fake_agent() {
+  local path="$1"
+  local agent="$2"
+  local instructions="$3"
+  local config="$4"
+  local linked="$5"
+
+  cat > "$path" <<EOF
+#!/usr/bin/env sh
+set -eu
+
+printf 'fake-$agent cwd=%s args=%s\n' "\$(pwd)" "\$*"
+
+test "\${ADP_WORKSPACE:-}" = "game-a"
+test -n "\${ADP_SESSION_ID:-}"
+test -n "\${ADP_RUNTIME_ROOT:-}"
+test "\$(pwd)" = "\$ADP_RUNTIME_ROOT"
+test -f "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "version: 1" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "runtime_root: \$ADP_RUNTIME_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "generated_by: adp" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+test -f "$instructions"
+test -f "$config"
+test -L "$linked"
+test -f "$linked"
+if [ -n "\${ADP_EXPECT_TASK_ID:-}" ]; then
+  test "\${ADP_TASK_ID:-}" = "\$ADP_EXPECT_TASK_ID"
+  test "\${ADP_TASK_TITLE:-}" = "Bind runtime session to task"
+  grep -q "\$ADP_EXPECT_TASK_ID" "$instructions"
+  grep -q "Bind runtime session to task" "$instructions"
+  grep -q "task_id: \$ADP_EXPECT_TASK_ID" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+fi
+test "\$#" -eq 2
+test "\$1" = "--probe"
+test "\$2" = "$agent-payload"
+EOF
+  chmod 755 "$path"
+}
+
+first_line() {
+  printf '%s\n' "$1" | sed -n '1p'
+}
+
+run_real_cli_smoke() {
+  local label="$1"
+  local gate_var="$2"
+  local bin="$3"
+  local output
+
+  if [ "${!gate_var:-}" != "1" ]; then
+    fail "real $label smoke requires $gate_var=1"
+  fi
+  if ! command -v "$bin" >/dev/null 2>&1; then
+    fail "real $label smoke requested, but command is not available: $bin"
+  fi
+
+  if output=$("$bin" --version 2>&1); then
+    info "real $label CLI responded to --version: $(first_line "$output")"
+    return
+  fi
+  if output=$("$bin" --help 2>&1); then
+    info "real $label CLI responded to --help: $(first_line "$output")"
+    return
+  fi
+
+  printf '%s\n' "$output" >&2
+  fail "real $label CLI did not complete --version or --help"
+}

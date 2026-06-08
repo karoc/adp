@@ -50,6 +50,8 @@ P3 phase gate work turns this discipline into local records under `$ADP_HOME/wor
 
 `scripts/runtime-smoke.sh --fake` builds the current `cmd/adp` binary into a temporary directory and runs the deterministic fake-agent runtime acceptance path. It uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root.
 
+P17 may split shared helpers and fake diagnostics/session/prune slices into helper files under `scripts/`. That split is an implementation detail for maintainability under the 700-line file cap; callers still run `scripts/runtime-smoke.sh --fake`, and the aggregate release gate still runs it through `scripts/check-all.sh`.
+
 The fake runtime smoke verifies:
 
 - Runtime overlay creation.

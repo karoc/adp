@@ -50,6 +50,8 @@ P3 phase gate 工作会把这条纪律转化为 `$ADP_HOME/workspaces/<workspace
 
 `scripts/runtime-smoke.sh --fake` 会把当前 `cmd/adp` 二进制构建到临时目录，并运行确定性的 fake-agent runtime acceptance 路径。它使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时项目根目录。
 
+P17 可以把共享 helper 以及 fake diagnostics/session/prune slices 拆到 `scripts/` 下的 helper 文件。这只是为了在 700 行文件上限内保持可维护性的实现细节；调用方仍然运行 `scripts/runtime-smoke.sh --fake`，聚合 release gate 仍然通过 `scripts/check-all.sh` 运行它。
+
 fake runtime smoke 验证：
 
 - runtime overlay 创建。

@@ -503,13 +503,13 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P14 local planning intake preview/apply completed: `adp plan preview --workspace <name> --file <path|-> [--format text|json]` and `adp plan apply --workspace <name> --file <path|-> [--format text|json]` accept structured YAML/JSON phase and task input. Preview is read-only; apply explicitly writes only `$ADP_HOME/workspaces/<workspace>/planning`; JSON output is not a second planning store; ADP does not split free-text natural language into tasks in this first version.
 - P15 MVP completion audit completed: command/runtime coverage, release-gate documentation, maintainability pressure, and bilingual roadmap drift were audited. The audit seeded the next local planning backlog as planned phases P16-P23 without starting any later phase.
 - P16 command surface hardening completed: the local command metadata contract now keeps usage text, dispatch wiring, bash/zsh completion, focused tests, and smoke or documentation acceptance aligned. This is local CLI maintenance only and does not introduce a new CLI framework or hosted command surface.
-- P17 planned: split `scripts/runtime-smoke.sh` behind the same public entrypoint before adding more runtime acceptance coverage.
+- P17 runtime smoke split completed: `scripts/runtime-smoke.sh` remains the public entry point, while shared helpers and fake diagnostics/session/prune slices are split into focused implementation files under the 700-line cap. The phase is maintenance-only and preserves fake smoke coverage, fake subshell isolation, real CLI opt-in gates, and `scripts/check-all.sh` as the aggregate gate.
 - P18 planned: split the remaining large mixed CLI command tests.
 - P19 planned: add runtime acceptance for workspace rename/remove and non-interactive `adp enter`.
 - P20 planned: cover `adp plan --file -` stdin intake paths.
 - P21 planned: split taskstore core files by model, persistence, events, ranking, and lifecycle responsibilities.
 - P22 planned: normalize the Phase 1 English default roadmap and Simplified Chinese counterpart at the content level.
 - P23 planned: add non-blocking line pressure audit tooling before files approach the hard 700-line cap.
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
+- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.
