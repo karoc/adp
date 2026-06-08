@@ -129,6 +129,64 @@ func TestRegistryGetSuccess(t *testing.T) {
 	}
 }
 
+func TestRegistryListSortsWorkspaces(t *testing.T) {
+	registry, _ := newTestRegistry(t)
+	zRoot := createProject(t)
+	aRoot := createProject(t)
+
+	if _, err := registry.Add(context.Background(), "z-game", zRoot); err != nil {
+		t.Fatalf("Add() z-game error = %v", err)
+	}
+	if _, err := registry.Add(context.Background(), "a-game", aRoot); err != nil {
+		t.Fatalf("Add() a-game error = %v", err)
+	}
+
+	records, err := registry.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("List() returned %d records, want 2", len(records))
+	}
+	if records[0].Name != "a-game" || records[0].ProjectRoot != aRoot {
+		t.Fatalf("first record = %+v, want a-game", records[0])
+	}
+	if records[1].Name != "z-game" || records[1].ProjectRoot != zRoot {
+		t.Fatalf("second record = %+v, want z-game", records[1])
+	}
+}
+
+func TestRegistryFindByProjectPathUsesLongestProjectRootMatch(t *testing.T) {
+	registry, _ := newTestRegistry(t)
+	parentRoot := createProject(t)
+	childRoot := filepath.Join(parentRoot, "child")
+	if err := os.Mkdir(childRoot, 0o755); err != nil {
+		t.Fatalf("create child project: %v", err)
+	}
+	nestedDir := filepath.Join(childRoot, "internal", "pkg")
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("create nested dir: %v", err)
+	}
+
+	if _, err := registry.Add(context.Background(), "parent", parentRoot); err != nil {
+		t.Fatalf("Add() parent error = %v", err)
+	}
+	if _, err := registry.Add(context.Background(), "child", childRoot); err != nil {
+		t.Fatalf("Add() child error = %v", err)
+	}
+
+	cfg, workspaceDir, err := registry.FindByProjectPath(context.Background(), nestedDir)
+	if err != nil {
+		t.Fatalf("FindByProjectPath() error = %v", err)
+	}
+	if cfg.Workspace.Name != "child" {
+		t.Fatalf("matched workspace = %q, want child", cfg.Workspace.Name)
+	}
+	if workspaceDir != registry.Layout.WorkspaceDir("child") {
+		t.Fatalf("workspace dir = %q, want child dir", workspaceDir)
+	}
+}
+
 func newTestRegistry(t *testing.T) (*Registry, paths.Layout) {
 	t.Helper()
 

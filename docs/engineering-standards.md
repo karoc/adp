@@ -1,5 +1,7 @@
 # Engineering Standards
 
+Simplified Chinese: [engineering-standards.zh-CN.md](engineering-standards.zh-CN.md)
+
 This document defines repository-wide engineering rules for ADP contributors and automation agents.
 
 ## File Size Limit
@@ -34,6 +36,25 @@ The check defaults to 700 lines. For local experiments, override it with:
 
 ```bash
 MAX_FILE_LINES=700 scripts/check-file-lines.sh
+```
+
+## Bilingual Documentation
+
+English is the default documentation language.
+
+Project-maintained documentation must provide both English and Simplified Chinese:
+
+- English default files use the base filename, such as `README.md` or `docs/engineering-standards.md`.
+- Simplified Chinese counterparts use `*.zh-CN.md`, such as `README.zh-CN.md`.
+- English documents should link to their Simplified Chinese counterpart.
+- Simplified Chinese documents should link back to their English counterpart.
+
+`LICENSE` is the authoritative English legal text. Any translation of legal terms is explanatory only and must not replace the English license.
+
+Run the local check before handoff:
+
+```bash
+scripts/check-docs-bilingual.sh
 ```
 
 ## Licensing Boundary

@@ -1,5 +1,7 @@
 # Commercial License
 
+Simplified Chinese: [COMMERCIAL.zh-CN.md](COMMERCIAL.zh-CN.md)
+
 ADP is publicly available for learning, research, evaluation, and other noncommercial purposes under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
 Commercial use is not permitted under the public license. Any commercial use requires a separate paid commercial license from the copyright holder.

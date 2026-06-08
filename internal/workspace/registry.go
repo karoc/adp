@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/schema"
@@ -18,6 +20,12 @@ var (
 
 type Registry struct {
 	Layout paths.Layout
+}
+
+type Record struct {
+	Name         string
+	ProjectRoot  string
+	WorkspaceDir string
 }
 
 func NewRegistry(layout paths.Layout) *Registry {
@@ -91,6 +99,71 @@ func (r *Registry) Get(ctx context.Context, name string) (*schema.Config, string
 	}
 
 	return cfg, workspaceDir, nil
+}
+
+func (r *Registry) List(ctx context.Context) ([]Record, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(r.Layout.WorkspacesDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read workspaces directory: %w", err)
+	}
+
+	records := []Record{}
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if !entry.IsDir() {
+			continue
+		}
+		cfg, workspaceDir, err := r.Get(ctx, entry.Name())
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, Record{
+			Name:         cfg.Workspace.Name,
+			ProjectRoot:  cfg.Project.Root,
+			WorkspaceDir: workspaceDir,
+		})
+	}
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].Name < records[j].Name
+	})
+	return records, nil
+}
+
+func (r *Registry) FindByProjectPath(ctx context.Context, path string) (*schema.Config, string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, "", err
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("resolve project path: %w", err)
+	}
+
+	records, err := r.List(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var match Record
+	matchLen := -1
+	for _, record := range records {
+		if isPathInside(absPath, record.ProjectRoot) && len(record.ProjectRoot) > matchLen {
+			match = record
+			matchLen = len(record.ProjectRoot)
+		}
+	}
+	if matchLen < 0 {
+		return nil, "", fmt.Errorf("%w for path: %s", ErrWorkspaceNotFound, absPath)
+	}
+	return r.Get(ctx, match.Name)
 }
 
 const defaultRegistryConfig = `version: 1
@@ -168,6 +241,16 @@ func writeFileIfMissing(path string, data []byte) error {
 		return fmt.Errorf("write file %s: %w", path, err)
 	}
 	return nil
+}
+
+func isPathInside(path string, root string) bool {
+	cleanPath := filepath.Clean(path)
+	cleanRoot := filepath.Clean(root)
+	rel, err := filepath.Rel(cleanRoot, cleanPath)
+	if err != nil {
+		return false
+	}
+	return rel == "." || rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
 func defaultWorkspaceConfig(name string, projectRoot string) *schema.Config {

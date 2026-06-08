@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/karoc/adp/internal/adapters"
@@ -24,6 +25,8 @@ const usage = `adp - Agent Development Platform
 Usage:
   adp init
   adp workspace add <name> <project-root>
+  adp workspace list
+  adp workspace show <name>
   adp enter <workspace> [--keep-runtime]
   adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]
 `
@@ -32,6 +35,8 @@ type WorkspaceStore interface {
 	Init(context.Context) error
 	Add(context.Context, string, string) (*schema.Config, error)
 	Get(context.Context, string) (*schema.Config, string, error)
+	List(context.Context) ([]workspace.Record, error)
+	FindByProjectPath(context.Context, string) (*schema.Config, string, error)
 }
 
 type AdapterRegistry interface {
@@ -143,16 +148,62 @@ func (a *App) init(ctx context.Context, args []string) error {
 }
 
 func (a *App) workspace(ctx context.Context, args []string) error {
-	if len(args) != 3 || args[0] != "add" {
-		return errors.New("usage: adp workspace add <name> <project-root>")
-	}
 	if a.deps.WorkspaceStore == nil {
 		return errors.New("workspace store is not configured")
 	}
-	if _, err := a.deps.WorkspaceStore.Add(ctx, args[1], args[2]); err != nil {
+	if len(args) == 0 {
+		return errors.New("usage: adp workspace <add|list|show>")
+	}
+
+	switch args[0] {
+	case "add":
+		if len(args) != 3 {
+			return errors.New("usage: adp workspace add <name> <project-root>")
+		}
+		if _, err := a.deps.WorkspaceStore.Add(ctx, args[1], args[2]); err != nil {
+			return err
+		}
+		fmt.Fprintf(a.stdout, "workspace %q added\n", args[1])
+	case "list":
+		if len(args) != 1 {
+			return errors.New("usage: adp workspace list")
+		}
+		return a.workspaceList(ctx)
+	case "show":
+		if len(args) != 2 {
+			return errors.New("usage: adp workspace show <name>")
+		}
+		return a.workspaceShow(ctx, args[1])
+	default:
+		return fmt.Errorf("unknown workspace command %q", args[0])
+	}
+	return nil
+}
+
+func (a *App) workspaceList(ctx context.Context) error {
+	records, err := a.deps.WorkspaceStore.List(ctx)
+	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "workspace %q added\n", args[1])
+
+	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(writer, "NAME\tPROJECT ROOT\tWORKSPACE DIR")
+	for _, record := range records {
+		fmt.Fprintf(writer, "%s\t%s\t%s\n", record.Name, record.ProjectRoot, record.WorkspaceDir)
+	}
+	return writer.Flush()
+}
+
+func (a *App) workspaceShow(ctx context.Context, name string) error {
+	cfg, workspaceDir, err := a.deps.WorkspaceStore.Get(ctx, name)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(a.stdout, "name: %s\n", cfg.Workspace.Name)
+	fmt.Fprintf(a.stdout, "project_root: %s\n", cfg.Project.Root)
+	fmt.Fprintf(a.stdout, "workspace_dir: %s\n", workspaceDir)
+	fmt.Fprintf(a.stdout, "memory_enabled: %t\n", cfg.Memory.Enabled)
+	fmt.Fprintf(a.stdout, "mcp_enabled: %t\n", cfg.MCP.Enabled)
 	return nil
 }
 
@@ -302,11 +353,19 @@ func (a *App) loadWorkspace(ctx context.Context, name string) (*schema.Config, s
 	if name == "" {
 		name = os.Getenv("ADP_WORKSPACE")
 	}
-	if name == "" {
-		return nil, "", errors.New("workspace is required; pass --workspace or set ADP_WORKSPACE")
-	}
 	if a.deps.WorkspaceStore == nil {
 		return nil, "", errors.New("workspace store is not configured")
+	}
+	if name == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, "", fmt.Errorf("resolve current directory: %w", err)
+		}
+		cfg, workspaceDir, err := a.deps.WorkspaceStore.FindByProjectPath(ctx, cwd)
+		if err != nil {
+			return nil, "", errors.New("workspace is required; pass --workspace, set ADP_WORKSPACE, or run from inside a registered project")
+		}
+		return cfg, workspaceDir, nil
 	}
 	return a.deps.WorkspaceStore.Get(ctx, name)
 }

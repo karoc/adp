@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        run: go test -count=1 ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Check file line limits
+        run: scripts/check-file-lines.sh
+
+      - name: Check bilingual docs
+        run: scripts/check-docs-bilingual.sh
+
+      - name: Check whitespace
+        run: git diff --check

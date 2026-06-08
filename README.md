@@ -1,5 +1,7 @@
 # ADP
 
+Simplified Chinese: [README.zh-CN.md](README.zh-CN.md)
+
 ADP, short for Agent Development Platform, is an Agent Runtime Environment and Agent Workspace Manager for terminal-first AI agent workflows.
 
 ADP keeps AI agent configuration outside the project directory, then builds a temporary runtime overlay when an agent starts. The agent sees generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/`, while the real project directory stays clean.
@@ -10,6 +12,8 @@ Implemented Phase 1 foundations:
 
 - `adp init`
 - `adp workspace add <name> <project-root>`
+- `adp workspace list`
+- `adp workspace show <name>`
 - `adp run codex --workspace <name>`
 - `adp run claude --workspace <name>`
 - `adp enter <workspace>`
@@ -24,7 +28,10 @@ Implemented Phase 1 foundations:
 ```bash
 go run ./cmd/adp init
 go run ./cmd/adp workspace add game-a /srv/game-a
+go run ./cmd/adp workspace list
+go run ./cmd/adp workspace show game-a
 go run ./cmd/adp run codex --workspace game-a
+cd /srv/game-a && go run /path/to/adp/cmd/adp run claude
 go run ./cmd/adp run claude --workspace game-a
 go run ./cmd/adp enter game-a
 ```
@@ -34,6 +41,8 @@ Useful environment variables:
 - `ADP_HOME`: ADP home directory. Defaults to `~/.adp`.
 - `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`.
 - `ADP_WORKSPACE`: default workspace for commands that accept a workspace.
+
+When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the current directory to a registered project root.
 
 ## Runtime Model
 
@@ -56,12 +65,16 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 Run the standard checks before handoff:
 
 ```bash
-go test ./...
+go test -count=1 ./...
+go vet ./...
 scripts/check-file-lines.sh
+scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
+
+Documentation defaults to English and must include Simplified Chinese counterparts using `*.zh-CN.md`.
 
 ## License
 

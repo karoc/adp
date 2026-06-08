@@ -19,7 +19,9 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	binDir := filepath.Join(tmp, "bin")
 	adpHome := filepath.Join(tmp, "adp-home")
 	runtimeDir := filepath.Join(tmp, "runtime")
+	adpBin := filepath.Join(tmp, "adp")
 	mkdirAll(t, projectRoot, binDir, runtimeDir)
+	buildADP(t, adpBin)
 	writeFile(t, filepath.Join(projectRoot, "go.mod"), "module example.com/game\n")
 	writeFile(t, filepath.Join(projectRoot, "main.go"), "package main\n")
 	writeExecutable(t, filepath.Join(binDir, "codex"), fakeAgentScript("codex", "AGENTS.md", ".codex/config.toml", "go.mod"))
@@ -31,10 +33,11 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 	)
 
-	runADP(t, env, "init")
-	runADP(t, env, "workspace", "add", "game-a", projectRoot)
-	codexOut := runADP(t, env, "run", "codex", "--workspace", "game-a", "--", "--probe")
-	claudeOut := runADP(t, env, "run", "claude", "--workspace", "game-a", "--", "--probe")
+	repoRoot := repositoryRoot(t)
+	runADP(t, adpBin, repoRoot, env, "init")
+	runADP(t, adpBin, repoRoot, env, "workspace", "add", "game-a", projectRoot)
+	codexOut := runADP(t, adpBin, repoRoot, env, "run", "codex", "--workspace", "game-a", "--", "--probe")
+	claudeOut := runADP(t, adpBin, projectRoot, env, "run", "claude", "--", "--probe")
 
 	if !strings.Contains(codexOut, "fake-codex") || !strings.Contains(claudeOut, "fake-claude") {
 		t.Fatalf("fake agents did not run:\ncodex=%s\nclaude=%s", codexOut, claudeOut)
@@ -44,11 +47,22 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	assertRuntimeCleaned(t, runtimeDir)
 }
 
-func runADP(t *testing.T, env []string, args ...string) string {
+func buildADP(t *testing.T, output string) {
 	t.Helper()
 
-	cmdArgs := append([]string{"run", "../../cmd/adp"}, args...)
-	cmd := exec.Command("go", cmdArgs...)
+	cmd := exec.Command("go", "build", "-o", output, "./cmd/adp")
+	cmd.Dir = repositoryRoot(t)
+	outputBytes, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("build adp failed: %v\n%s", err, outputBytes)
+	}
+}
+
+func runADP(t *testing.T, adpBin string, dir string, env []string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.Command(adpBin, args...)
+	cmd.Dir = dir
 	cmd.Env = env
 
 	output, err := cmd.CombinedOutput()
@@ -56,6 +70,16 @@ func runADP(t *testing.T, env []string, args ...string) string {
 		t.Fatalf("adp %v failed: %v\n%s", args, err, output)
 	}
 	return string(output)
+}
+
+func repositoryRoot(t *testing.T) string {
+	t.Helper()
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve test file")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }
 
 func fakeAgentScript(agent, instructions, config, linked string) string {

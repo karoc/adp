@@ -16,6 +16,7 @@ import (
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/schema"
 	"github.com/karoc/adp/internal/shell"
+	"github.com/karoc/adp/internal/workspace"
 )
 
 func TestExecuteShowsHelp(t *testing.T) {
@@ -58,6 +59,38 @@ func TestWorkspaceAddCommandCallsStore(t *testing.T) {
 	}
 	if store.addName != "game-a" || store.addRoot != "/srv/game-a" {
 		t.Fatalf("Add called with (%q, %q)", store.addName, store.addRoot)
+	}
+}
+
+func TestWorkspaceListCommandPrintsRecords(t *testing.T) {
+	store := &fakeStore{records: []workspace.Record{
+		{Name: "game-a", ProjectRoot: "/srv/game-a", WorkspaceDir: "/tmp/adp/workspaces/game-a"},
+	}}
+	var stdout bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "list"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	output := stdout.String()
+	if !strings.Contains(output, "game-a") || !strings.Contains(output, "/srv/game-a") {
+		t.Fatalf("list output missing workspace: %q", output)
+	}
+}
+
+func TestWorkspaceShowCommandPrintsDetails(t *testing.T) {
+	store := &fakeStore{cfg: testConfig()}
+	var stdout bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "show", "game-a"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	output := stdout.String()
+	if !strings.Contains(output, "name: game-a") || !strings.Contains(output, "project_root: /srv/game-a") {
+		t.Fatalf("show output missing details: %q", output)
 	}
 }
 
@@ -136,6 +169,35 @@ func TestRunCommandWiresAdapterRuntimeAndRunner(t *testing.T) {
 	}
 }
 
+func TestRunCommandCanResolveWorkspaceFromCurrentDirectory(t *testing.T) {
+	store := &fakeStore{cfg: testConfig(), findByProjectPath: true}
+	registry := adapters.NewRegistry()
+	adapter := &fakeAdapter{name: "codex"}
+	if err := registry.Register(adapter); err != nil {
+		t.Fatal(err)
+	}
+	deps := Dependencies{
+		WorkspaceStore: store,
+		Adapters:       registry,
+		BuildRuntime: func(_ context.Context, _ runtime.BuildRequest) (*runtime.Handle, error) {
+			return &runtime.Handle{Root: "/tmp/runtime", Env: map[string]string{}}, nil
+		},
+		CleanupRuntime: func(context.Context, runtime.Handle) error { return nil },
+		RunProcess: func(context.Context, adapters.LaunchSpec, runner.Streams) (*runner.Result, error) {
+			return &runner.Result{ExitCode: 0}, nil
+		},
+	}
+
+	code := NewApp(deps, &bytes.Buffer{}, &bytes.Buffer{}).Execute(context.Background(), []string{"run", "codex"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !store.findCalled {
+		t.Fatal("FindByProjectPath was not called")
+	}
+}
+
 func TestEnterCommandWiresRuntimeAndShell(t *testing.T) {
 	store := &fakeStore{cfg: testConfig()}
 	var entered adapters.RuntimeHandle
@@ -170,10 +232,13 @@ func TestEnterCommandWiresRuntimeAndShell(t *testing.T) {
 }
 
 type fakeStore struct {
-	initCalled bool
-	addName    string
-	addRoot    string
-	cfg        schema.Config
+	initCalled        bool
+	addName           string
+	addRoot           string
+	cfg               schema.Config
+	records           []workspace.Record
+	findByProjectPath bool
+	findCalled        bool
 }
 
 func (s *fakeStore) Init(context.Context) error {
@@ -190,6 +255,22 @@ func (s *fakeStore) Add(_ context.Context, name string, root string) (*schema.Co
 
 func (s *fakeStore) Get(_ context.Context, name string) (*schema.Config, string, error) {
 	if name != "game-a" {
+		return nil, "", errors.New("workspace not found")
+	}
+	cfg := s.cfg
+	if cfg.Version == 0 {
+		cfg = testConfig()
+	}
+	return &cfg, "/tmp/adp-home/workspaces/game-a", nil
+}
+
+func (s *fakeStore) List(context.Context) ([]workspace.Record, error) {
+	return s.records, nil
+}
+
+func (s *fakeStore) FindByProjectPath(_ context.Context, _ string) (*schema.Config, string, error) {
+	s.findCalled = true
+	if !s.findByProjectPath {
 		return nil, "", errors.New("workspace not found")
 	}
 	cfg := s.cfg
