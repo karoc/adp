@@ -29,6 +29,7 @@ Implemented Phase 1 foundations:
 - `adp sessions restore-plan <session-id>`
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 - `adp tasks add/list/next/show/update/claim/release/done/block`
+- `adp plan preview/apply --workspace <name> --file <path|->`
 - `adp phase add/list/show/start/accept/commit/push`
 - `adp progress [--workspace <name>]`
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`

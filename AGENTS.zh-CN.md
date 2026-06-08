@@ -48,6 +48,8 @@ scripts/check-all.sh
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
+scripts/plan-intake-smoke.sh
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh

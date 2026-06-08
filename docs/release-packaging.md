@@ -12,7 +12,7 @@ Run the same aggregate gate locally and in CI before preparing an artifact:
 scripts/check-all.sh
 ```
 
-The gate covers fake runtime acceptance, example workspace smoke, task manager smoke, Go test and vet, file-line limits, bilingual documentation pairing, and whitespace checks. CI intentionally calls this same script so release evidence is not split between a local path and a separate GitHub Actions path.
+The gate covers fake runtime acceptance, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file-line limits, bilingual documentation pairing, and whitespace checks. CI intentionally calls this same script so release evidence is not split between a local path and a separate GitHub Actions path.
 
 Optional real Codex or Claude CLI checks remain operator evidence only:
 

@@ -6,7 +6,7 @@
 
 English: [phase1-development-plan.md](phase1-development-plan.md)
 
-本文档用于把 ADP MVP 拆成可以并行推进的工程任务。目标不是现在实现全部功能，而是先固定架构边界、公共契约、目录所有权和验收标准，方便后续启动多个子 Agent 并行开发。
+本文档把 ADP MVP 转换为可并行推进、可验收、可维护的工程计划，并持续记录已完成阶段、公共契约、目录所有权和验收标准。
 
 ## 1. MVP 结论
 
@@ -16,7 +16,7 @@ ADP Phase 1 的产品核心是一个 terminal-first 的 Agent Runtime Environmen
 - 注册 workspace，保存真实项目根目录与 ADP runtime 配置的映射。
 - 为 Agent 构建临时 runtime overlay，让 Agent 在不污染真实项目目录的前提下看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等配置文件。
 - 提供 Claude Code CLI 与 Codex CLI 两个 adapter。
-- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show/restore-plan`、`adp runtime prune`、`adp enter`、`adp run`。
+- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show/restore-plan`、`adp runtime prune`、`adp enter`、`adp run`，以及本地 planning 命令 `adp tasks`、`adp phase`、`adp progress` 和 `adp plan preview/apply`。
 - 记录本地 JSONL event log，为后续 replay、session restore、多 Agent 编排预留数据基础。
 
 Phase 1 明确不做：
@@ -47,7 +47,7 @@ Phase 1 明确不做：
 - 业务包不能读取真实 `~/.adp`，必须通过 path/env abstraction 注入，保证测试可控。
 - 新增第三方依赖前必须确认许可证与 ADP 的非商业源码可用授权策略兼容。
 
-## 2.1 License and Engineering Gates
+## 2.1 License、文档与工程门禁
 
 ADP 采用 source-available non-commercial 授权模式，而不是 OSI 定义下的开源许可证。
 
@@ -573,6 +573,22 @@ MVP adapter 输出：
 - 命令保持只读，不能领取任务、修改 task 状态、修改 owner 或 lease、清理 blocker、修改 phase、追加 events、创建 runtime 目录、启动 Agent、运行 Git、push、推断验收、关闭任务、恢复 provider 原生会话、写入真实项目根目录、同步 hosted tracker，或把 JSON 作为第二份 planning store 维护。
 - 执行前后 task state、phase state、event log、runtime directories、Git state、hosted service state 和真实项目根目录保持不变。
 
+### `adp plan preview|apply [--workspace <name>] --file <path|-> [--format text|json]`
+
+职责：
+
+- 接收结构化本地 YAML/JSON planning 输入，包含 phases 和 tasks。
+- `preview` 只把拟导入内容输出到 stdout，不创建 planning 文件或目录。
+- `apply` 必须显式执行，并把校验后的批次写入 `$ADP_HOME/workspaces/<workspace>/planning`。
+- JSON 输出只用于 inspection 和本地跨工具解析，不能成为第二份 planning store。
+
+验收：
+
+- `preview` 保持只读。
+- `apply` 只写本地 planning ledger，不写真实项目根目录。
+- 失败的 apply 不留下 partial phase、task 或 progress state。
+- 命令不能把自由文本自然语言拆成任务、同步 hosted tracker、运行 Git、启动 Agent、推断验收、自动领取或关闭任务，或修改 runtime state。
+
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
 职责：
@@ -737,6 +753,7 @@ adp shell-hook --shell bash
 adp completion --shell bash
 adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task"
 adp tasks next --workspace game-a --limit 0 --format json
+adp plan preview --workspace game-a --file plan.yaml
 adp run codex --workspace game-a --task <task-id> -- --version
 cd /srv/game-a && adp run claude -- --version
 adp events list --workspace game-a --task <task-id>
@@ -763,6 +780,7 @@ adp workspace remove game-renamed
 - `adp sessions list` / `show` / `restore-plan` 能从 event log 查询 session history 和只读 restore planning。
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` 默认能向 stdout 打印 Markdown 规划/执行报告，传入 `--format json` 时输出只读 JSON handoff snapshot，在 JSONL event/session 数据存在时包含最近本地 runtime session evidence，并保持 planning state、Git state、runtime state、event log 和真实项目根目录不变。
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 会向 stdout 打印紧凑的优先级 next-work snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
+- `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` 接收结构化本地 planning 输入；preview 保持只读，apply 只写 `$ADP_HOME` 下的本地 planning ledger，失败 apply 不留下 partial phase、task 或 progress state。
 - `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
 - `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
@@ -826,6 +844,15 @@ symlink overlay 与真实项目已有配置冲突：
 - P12 CLI parse helper split 已完成：在 `internal/cli/parse.go` helper 面触及 700 行代码文件限制前，将持续增长的解析辅助逻辑拆分到更聚焦的文件中。P12 只属于维护和 hardening：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
 - P13 CLI base test split 已完成：在 `internal/cli/cli_test.go` 基础 CLI 测试覆盖触及 700 行代码文件限制前，已将其拆分为更聚焦的测试文件。P13 只属于维护：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
 - P14 local planning intake preview/apply 已完成：`adp plan preview --workspace <name> --file <path|-> [--format text|json]` 和 `adp plan apply --workspace <name> --file <path|-> [--format text|json]` 接收结构化 YAML/JSON phase 和 task 输入。Preview 保持只读；apply 必须显式执行，并且只写入 `$ADP_HOME/workspaces/<workspace>/planning`；JSON 输出不能成为第二份 planning store；第一版 ADP 不做自由文本自然语言拆任务。
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
+- P15 MVP completion audit 已完成：已审计 command/runtime coverage、release-gate 文档、maintainability pressure 和双语 roadmap 漂移。该审计把下一批本地 planning backlog 写入 planned phases P16-P23，但没有启动任何后续阶段。
+- P16 planned：command surface metadata 和 usage、dispatch、completion、tests、smoke documentation 的 drift checks。
+- P17 planned：在不改变公开入口的前提下拆分 `scripts/runtime-smoke.sh`，再继续增加 runtime acceptance 覆盖。
+- P18 planned：拆分剩余的大型混合 CLI command tests。
+- P19 planned：为 workspace rename/remove 和非交互式 `adp enter` 增加 runtime acceptance。
+- P20 planned：覆盖 `adp plan --file -` stdin intake 路径。
+- P21 planned：按 model、persistence、events、ranking 和 lifecycle responsibilities 拆分 taskstore core 文件。
+- P22 planned：从内容层面对齐 Phase 1 英文默认 roadmap 与简体中文 counterpart。
+- P23 planned：增加非阻断 line pressure audit tooling，在文件接近 700 行硬限制前规划拆分。
+- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

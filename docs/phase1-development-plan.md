@@ -16,7 +16,7 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Register workspaces that map project roots to ADP runtime configuration.
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
-- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show/restore-plan`, `adp runtime prune`, `adp enter`, and `adp run`.
+- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show/restore-plan`, `adp runtime prune`, `adp enter`, `adp run`, and the local planning commands `adp tasks`, `adp phase`, `adp progress`, and `adp plan preview/apply`.
 - Write a local JSONL event log for future replay, session restore, and multi-agent orchestration.
 
 Phase 1 explicitly excludes:
@@ -359,6 +359,12 @@ Text is the default format and should be easy to scan in a terminal. `--limit <n
 
 The command is read-only. It must not claim tasks, mutate task status, change owners or leases, clear blockers, mutate phases, append events, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, write files into the real project root, sync with hosted trackers, or maintain JSON as a second planning store.
 
+### `adp plan preview|apply [--workspace <name>] --file <path|-> [--format text|json]`
+
+Accepts structured local YAML/JSON planning input with phases and tasks. `preview` renders the proposed import to stdout without creating planning files or directories. `apply` explicitly writes the validated batch to `$ADP_HOME/workspaces/<workspace>/planning`.
+
+JSON output is for inspection and local cross-tool parsing only. It must not become a second planning store. Plan intake must not split free-text natural language into tasks, sync hosted trackers, run Git, start agents, infer acceptance, claim or close tasks automatically, write planning files into the real project root, or mutate runtime state.
+
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
 Scans direct child directories under `$ADP_RUNTIME_DIR`. A directory becomes a prune candidate only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp`, non-empty workspace and session IDs, an absolute `project_root`, a matching `runtime_root`, and a valid `created_at`. The command removes ADP-owned runtime directories older than `--older-than`, skips `keep: true` by default unless `--include-kept` is passed, reports candidates without deleting when `--dry-run` is set, skips incompatible or self-inconsistent manifests, and never removes a target derived from the manifest project root.
@@ -427,6 +433,16 @@ Rules:
 Required local checks:
 
 ```bash
+scripts/check-all.sh
+```
+
+The aggregate gate runs the deterministic smoke and repository checks:
+
+```bash
+scripts/runtime-smoke.sh --fake
+scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
+scripts/plan-intake-smoke.sh
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh
@@ -450,6 +466,7 @@ End-to-end expectations:
 - `adp sessions list`, `adp sessions show`, and `adp sessions restore-plan` expose local session history and read-only restore planning derived from JSONL events.
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a Markdown planning/execution report to stdout by default, emits a read-only JSON handoff snapshot with `--format json`, includes recent local runtime session evidence when JSONL event/session data exists, and leaves planning state, Git state, runtime state, event logs, and the real project root unchanged.
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` prints a compact prioritized next-work snapshot to stdout, exposes a stable JSON contract for local tools, and leaves task state, phase state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
+- `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` accepts structured local planning input; preview stays read-only, apply writes only the local planning ledger under `$ADP_HOME`, and failed apply leaves no partial phase, task, or progress state.
 - `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
@@ -480,6 +497,15 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P12 CLI parse helper split completed: the growing `internal/cli/parse.go` helper surface is split into focused files before it breaches the 700-line code-file limit. P12 is maintenance and hardening only: no runtime behavior change, no new product command, no Web/SaaS/hosted orchestration drift, no Git automation, and no change to the terminal-first local planning boundary.
 - P13 CLI base test split completed: the growing `internal/cli/cli_test.go` base CLI coverage is split before it breaches the 700-line code-file limit. P13 is maintenance-only: no runtime behavior change, no new product command, no Web/SaaS/hosted orchestration drift, no Git automation, and no change to the terminal-first local planning boundary.
 - P14 local planning intake preview/apply completed: `adp plan preview --workspace <name> --file <path|-> [--format text|json]` and `adp plan apply --workspace <name> --file <path|-> [--format text|json]` accept structured YAML/JSON phase and task input. Preview is read-only; apply explicitly writes only `$ADP_HOME/workspaces/<workspace>/planning`; JSON output is not a second planning store; ADP does not split free-text natural language into tasks in this first version.
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
+- P15 MVP completion audit completed: command/runtime coverage, release-gate documentation, maintainability pressure, and bilingual roadmap drift were audited. The audit seeded the next local planning backlog as planned phases P16-P23 without starting any later phase.
+- P16 planned: command surface metadata and drift checks across usage, dispatch, completion, tests, and smoke documentation.
+- P17 planned: split `scripts/runtime-smoke.sh` behind the same public entrypoint before adding more runtime acceptance coverage.
+- P18 planned: split the remaining large mixed CLI command tests.
+- P19 planned: add runtime acceptance for workspace rename/remove and non-interactive `adp enter`.
+- P20 planned: cover `adp plan --file -` stdin intake paths.
+- P21 planned: split taskstore core files by model, persistence, events, ranking, and lifecycle responsibilities.
+- P22 planned: normalize the Phase 1 English default roadmap and Simplified Chinese counterpart at the content level.
+- P23 planned: add non-blocking line pressure audit tooling before files approach the hard 700-line cap.
+- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

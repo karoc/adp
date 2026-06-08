@@ -155,6 +155,21 @@ For Phase Gate MVP behavior, this smoke should verify only CLI that actually exi
 
 Do not add placeholder commands, TODO assertions, Web UI checks, SaaS checks, cloud sync checks, hosted tracker checks, hosted orchestration checks, automatic Git execution, automatic task closure, provider-native resume, or project-root report export behavior to smoke scripts.
 
+## Plan Intake Acceptance
+
+`scripts/plan-intake-smoke.sh` is the focused acceptance path for structured local planning intake. It uses a deterministic temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, and temporary project root, then verifies `adp plan preview` and `adp plan apply` with structured YAML input.
+
+The smoke covers:
+
+- `adp plan preview --workspace <name> --file <path>` prints planned phases and tasks without creating the planning directory.
+- `adp plan apply --workspace <name> --file <path> --format json` explicitly writes only `$ADP_HOME/workspaces/<workspace>/planning`.
+- JSON output remains an inspection format, not a second planning store.
+- Preview after apply remains read-only.
+- Invalid apply on a fresh workspace leaves no empty `planning` directory.
+- Failed or duplicate apply leaves phase, task, and progress state unchanged.
+- Staging failures leave no partial `phases.yaml`, `tasks.yaml`, or `progress.jsonl` state.
+- Preview and apply do not create runtime event logs, mutate runtime directories, run Git, or write planning artifacts into the real project root.
+
 ## Real CLI Smoke
 
 Real external agent checks are intentionally not part of the default path. They must be explicitly enabled with both a flag and an environment gate:
@@ -197,6 +212,7 @@ This smoke validates ADP's runtime responsibilities:
 - Agent command/profile diagnostics through workspace and global doctor commands, covering adapter default fallback, inline command arguments, path-like command wrappers, missing or ambiguous profile files, profile path escapes, unknown enabled agents, and reserved project-root paths.
 - Local build identity output through `adp version`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
+- Local plan intake preview/apply smoke through `scripts/plan-intake-smoke.sh`.
 - Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.
 - Progress report Markdown and JSON output, including runtime session evidence derived from local JSONL events when event/session data exists, with no event-log append, runtime creation, project-root writes, report exports, or separate state store creation.
 - ADP-owned runtime pruning.
@@ -212,6 +228,7 @@ Run the runtime smoke with the standard repository checks:
 ```bash
 scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
+scripts/plan-intake-smoke.sh
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh

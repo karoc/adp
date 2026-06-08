@@ -26,6 +26,7 @@ The required gate runs these checks in order:
 scripts/runtime-smoke.sh --fake
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
+scripts/plan-intake-smoke.sh
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh
@@ -86,6 +87,8 @@ P9 may move shared smoke helpers and the JSON report validator into helper files
 
 The phase gate smoke path covers phase records, task claim ownership with leases, owner-checked release, task phase validation, acceptance or gate records, commit records, push records, lifecycle ordering guards, and project-root pollution protection. Go tests additionally cover planning lock behavior, claim conflicts, lease expiry, terminal-task claim rejection, failed acceptance, and failed push semantics. Do not add placeholder assertions for commands that do not exist yet.
 
+`scripts/plan-intake-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, and verifies `adp plan preview` and `adp plan apply` with structured YAML input. It proves preview stays read-only, apply writes only the local planning ledger under `$ADP_HOME/workspaces/<workspace>/planning`, JSON output remains an inspection format, invalid input on a fresh workspace leaves no planning directory, staging failures leave no partial phase/task/progress state, and no runtime, Git, event-log, or real project-root side effects occur.
+
 `go test -count=1 ./...` verifies the full Go test suite without using cached test results.
 
 `go vet ./...` runs Go static checks.
@@ -137,6 +140,8 @@ If a version step fails, inspect the CLI build variables in `internal/cli` and t
 If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examples/basic-workspace/workspace.yaml` still matches the current schema and whether `adp env <workspace> --cd` still produces a kept runtime with project-file symlinks.
 
 If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, next-work JSON selection, helper wiring, JSON report validation, next-work/report read-only checks, and project-root pollution checks.
+
+If `scripts/plan-intake-smoke.sh` fails, inspect plan input parsing, plan preview read-only behavior, explicit apply writes under `$ADP_HOME`, planning batch rollback behavior, JSON output shape, and the project-root/runtime/Git side-effect checks.
 
 If a phase-gate smoke step fails, inspect phase record storage, task owner state, claim lease parsing, owner-checked release, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root.
 

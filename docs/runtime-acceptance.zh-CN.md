@@ -155,6 +155,21 @@ P9 task-manager smoke modularization 可以把共享 shell helpers 和 JSON repo
 
 不要向 smoke 脚本添加 placeholder commands、TODO assertions、Web UI 检查、SaaS 检查、cloud sync 检查、hosted tracker 检查、hosted orchestration 检查、automatic Git execution、automatic task closure、provider-native resume 或 project-root report export 行为。
 
+## Plan Intake 验收
+
+`scripts/plan-intake-smoke.sh` 是结构化本地 planning intake 的聚焦验收路径。它使用确定性的临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR` 和临时项目根目录，并用结构化 YAML 输入验证 `adp plan preview` 和 `adp plan apply`。
+
+该 smoke 覆盖：
+
+- `adp plan preview --workspace <name> --file <path>` 会打印计划中的 phases 和 tasks，但不创建 planning 目录。
+- `adp plan apply --workspace <name> --file <path> --format json` 只会显式写入 `$ADP_HOME/workspaces/<workspace>/planning`。
+- JSON 输出保持为 inspection format，不是第二份 planning store。
+- apply 之后再次 preview 仍然保持只读。
+- fresh workspace 上的 invalid apply 不会留下空 `planning` 目录。
+- 失败或重复 apply 会保持 phase、task 和 progress state 不变。
+- staging failure 不会留下 partial `phases.yaml`、`tasks.yaml` 或 `progress.jsonl` state。
+- preview 和 apply 不会创建 runtime event log、修改 runtime directories、运行 Git，或把 planning artifacts 写入真实项目根目录。
+
 ## 真实 CLI Smoke
 
 真实外部 agent 检查刻意不进入默认路径。必须同时使用 flag 和环境变量 gate 显式启用：
@@ -197,6 +212,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 通过 workspace 和全局 doctor 命令检查 agent command/profile diagnostics，覆盖 adapter default fallback、inline command arguments、路径型 command wrapper、缺失或重复的 profile 文件、profile path escape、未知 enabled agent，以及 project root 中的保留路径。
 - 通过 `adp version` 输出本地 build identity。
 - 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
+- 通过 `scripts/plan-intake-smoke.sh` 验收本地 plan intake preview/apply。
 - 验收 Phase Gate ledger evidence、claim lease、release owner check 和 lifecycle ordering。
 - 验收 progress report 的 Markdown 和 JSON 输出；当 event/session 数据存在时，验收从本地 JSONL events 派生的 runtime session evidence，并确认不会追加 event log、创建 runtime、写入 project root、导出 report 文件或创建单独状态存储。
 - 清理 ADP-owned runtime。
@@ -212,6 +228,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 ```bash
 scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
+scripts/plan-intake-smoke.sh
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh
