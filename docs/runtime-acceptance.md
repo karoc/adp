@@ -223,7 +223,7 @@ This smoke validates ADP's runtime responsibilities:
 
 - Isolated runtime overlay creation.
 - Runtime environment variable injection.
-- Runtime task binding through `adp run --task <task-id>`.
+- Runtime task binding through `adp run <agent> --task <task-id>`.
 - Agent command launch from the runtime root.
 - Local JSONL event logging.
 - Session history aggregation from local events.
@@ -235,6 +235,8 @@ This smoke validates ADP's runtime responsibilities:
 - Runtime parent safety diagnostics through workspace and global doctor commands, covering filesystem root, project-root overlap, symlink warning, and non-directory cases.
 - Agent command/profile diagnostics through workspace and global doctor commands, covering adapter default fallback, inline command arguments, path-like command wrappers, missing or ambiguous profile files, profile path escapes, unknown enabled agents, and reserved project-root paths.
 - Local build identity output through `adp version`.
+- Broad runtime audit smoke through `scripts/runtime-audit-smoke.sh`.
+- Release readiness smoke through `scripts/release-readiness-smoke.sh`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
 - Local plan intake preview/apply smoke through `scripts/plan-intake-smoke.sh`.
 - Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.
@@ -252,6 +254,8 @@ Run the runtime smoke with the standard repository checks:
 ```bash
 scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
+scripts/runtime-audit-smoke.sh
+scripts/release-readiness-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh

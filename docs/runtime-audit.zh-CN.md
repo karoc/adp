@@ -73,5 +73,5 @@ ADP 二进制文件，使用临时 ADP home/runtime/project 目录，只使用 f
 scripts/check-all.sh
 ```
 
-阶段验收证据必须记录实际运行过的命令及其结果。只有验收通过后，才能记录
+阶段验收证据必须通过 `adp phase accept` 记录实际运行过的命令及其结果。只有验收通过后，才能记录
 commit 和 push 证据。

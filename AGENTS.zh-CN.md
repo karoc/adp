@@ -48,6 +48,8 @@ scripts/check-all.sh
 
 ```bash
 scripts/runtime-smoke.sh --fake
+scripts/runtime-audit-smoke.sh
+scripts/release-readiness-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -113,6 +115,22 @@ scripts/runtime-smoke.sh --fake
 ```
 
 它验证本地 runtime overlay、fake Codex/Claude 启动链路、event log、session history、runtime pruning，以及不污染 project root。
+
+广覆盖 runtime audit 路径是：
+
+```bash
+scripts/runtime-audit-smoke.sh
+```
+
+它使用 fake agent 和临时目录验证已发布 CLI 命令面、help 输出、JSON 可解析性、task/phase/plan/progress flow、session、restore planning、completion values，以及 local-first runtime 边界。
+
+release readiness smoke 路径是：
+
+```bash
+scripts/release-readiness-smoke.sh
+```
+
+它验证不依赖真实 provider CLI 的 release gate invariant，包括 phase commit 和 push 命令只记录证据、不会执行 Git。
 
 可复制 example workspace smoke 路径是：
 

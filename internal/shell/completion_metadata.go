@@ -14,6 +14,16 @@ func bashProgressTopWords() string {
 	return commandmeta.ShellWords(progressTopValues())
 }
 
+func completionTopValues() []commandmeta.Value {
+	values := commandmeta.Subcommands("completion")
+	values = append(values, completionRootOptions()...)
+	return values
+}
+
+func completionRootOptions() []commandmeta.Value {
+	return excludedOptions("completion", "--workspace", "-w")
+}
+
 func progressTopValues() []commandmeta.Value {
 	values := commandmeta.Subcommands("progress")
 	for _, option := range commandmeta.Options("progress") {
@@ -21,6 +31,40 @@ func progressTopValues() []commandmeta.Value {
 			continue
 		}
 		values = append(values, option)
+	}
+	return values
+}
+
+func excludedOptions(command string, names ...string) []commandmeta.Value {
+	excluded := make(map[string]bool, len(names))
+	for _, name := range names {
+		excluded[name] = true
+	}
+
+	var values []commandmeta.Value
+	for _, option := range commandmeta.Options(command) {
+		if !excluded[option.Name] {
+			values = append(values, option)
+		}
+	}
+	return values
+}
+
+func completionValuesOptions() []commandmeta.Value {
+	return selectedOptions("completion", "--workspace", "-w")
+}
+
+func selectedOptions(command string, names ...string) []commandmeta.Value {
+	wanted := make(map[string]bool, len(names))
+	for _, name := range names {
+		wanted[name] = true
+	}
+
+	var values []commandmeta.Value
+	for _, option := range commandmeta.Options(command) {
+		if wanted[option.Name] {
+			values = append(values, option)
+		}
 	}
 	return values
 }

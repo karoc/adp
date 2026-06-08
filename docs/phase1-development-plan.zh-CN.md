@@ -720,6 +720,8 @@ scripts/check-all.sh
 
 ```bash
 scripts/runtime-smoke.sh --fake
+scripts/runtime-audit-smoke.sh
+scripts/release-readiness-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -760,8 +762,10 @@ adp workspace rename game-a game-renamed
 adp workspace remove game-renamed
 ```
 
+- `adp init` 能创建本地 ADP home。
+- `adp workspace add` 会创建 workspace config，并且不修改项目根目录。
 - `$ADP_HOME/workspaces/game-a/workspace.yaml` 存在且 project root 正确。
-- `adp workspace list` / `show` 能输出已注册 workspace。
+- `adp workspace list` 和 `adp workspace show` 能输出已注册 workspace。
 - `adp workspace doctor` 能报告健康 workspace，并对 error 级 diagnostics 返回非零退出码。
 - `adp doctor` 能作为全局入口输出同一组 workspace diagnostics。
 - `adp env` 能输出 shell-safe exports，并保留 runtime manifest。
@@ -770,15 +774,15 @@ adp workspace remove game-renamed
 - P16 command metadata drift check 能证明本地命令清单、usage text、dispatch wiring 和 bash/zsh completion 保持一致，并且不引入新的 CLI 框架。
 - `adp version` 能输出 CLI build identity。
 - `adp events list` 能查询 run start/finish 历史。
-- `adp sessions list` / `show` / `restore-plan` 能从 event log 查询 session history 和只读 restore planning。
+- `adp sessions list`、`adp sessions show` 和 `adp sessions restore-plan` 能从 event log 查询 session history 和只读 restore planning。
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` 默认能向 stdout 打印 Markdown 规划/执行报告，传入 `--format json` 时输出只读 JSON handoff snapshot，在 JSONL event/session 数据存在时包含最近本地 runtime session evidence，并保持 planning state、Git state、runtime state、event log 和真实项目根目录不变。
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 会向 stdout 打印紧凑的优先级 next-work snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp phase status [--workspace <name>] [--format text|json]` 会向 stdout 打印紧凑的只读 phase gate snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` 接收结构化本地 planning 输入；preview 保持只读，apply 只写 `$ADP_HOME` 下的本地 planning ledger，失败 apply 不留下 partial phase、task 或 progress state。
 - `adp plan doctor [--workspace <name>] [--format text|json]` 会输出只读本地 planning ledger diagnostics，覆盖 task、phase、progress-log、lock 和 phase-gate invariants；存在 error-level diagnostics 时返回退出码 `2`，并保持 planning state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
-- `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
+- `adp run codex` 和 `adp run claude` 会构建 runtime overlay，`adp run <agent> --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
 - `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
-- `adp workspace rename` / `remove` 只修改 ADP workspace registry。
+- `adp workspace rename` 和 `adp workspace remove` 只修改 ADP workspace registry。
 - `examples/basic-workspace` 保持为有效本地 workspace 示例，其中 Markdown prompt 和 memory 文件保持英文默认与简体中文 counterpart 配对。
 - runtime root 中存在 ADP 生成的 Agent 配置文件。
 - 真实 `/srv/game-a` 不新增 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/`、`planning/`、`tasks.yaml`、`phases.yaml`、`progress.jsonl` 或 report export 文件。
@@ -800,7 +804,7 @@ Phase process gate：
 后续工作按“是否能增强 ADP 的 terminal-first runtime 和 workspace 管理闭环”排序，同时避免偏向 hosted project management 或 dashboard。
 
 - P0 已完成：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
-- P1 已完成：Runtime task binding。增加 `adp run --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
+- P1 已完成：Runtime task binding。增加 `adp run <agent> --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
 - P2 已完成：Early preview hardening。动态 agent/workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明已纳入聚合门禁和 runtime smoke。
 - P3 Phase Gate MVP 已完成：项目规划与执行进度管理现在具备 phase records、task claim 和 owner records、acceptance 或 gate records、commit records、push records，并已纳入 task-manager smoke。
 - P3 planning coordination hardening 已完成：会用本地 lock 保护 planning 修改操作，task claim 会强制 owner conflict 和可选 lease，release 支持 owner 校验；phase ledger 存在后 task 会校验 phase ID；phase lifecycle guards 会强制 accept-before-commit、commit-before-push，以及 push-before-next-phase 纪律。

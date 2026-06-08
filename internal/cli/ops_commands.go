@@ -47,6 +47,9 @@ func (a *App) completion(ctx context.Context, args []string) error {
 	if len(args) > 0 && args[0] == "values" {
 		return a.completionValues(ctx, args[1:])
 	}
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		return fmt.Errorf("unknown completion command %q", args[0])
+	}
 
 	opts, err := parseCompletionArgs(args)
 	if err != nil {

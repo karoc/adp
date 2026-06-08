@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 . "$SCRIPT_DIR/task-manager-smoke-lib.sh"
+. "$SCRIPT_DIR/smoke-git-tripwire-lib.sh"
 
 if ! command -v go >/dev/null 2>&1; then
   fail "Go is required to build cmd/adp"
@@ -22,6 +23,7 @@ PROJECT_ROOT="$TMP_ROOT/project"
 ADP_HOME="$TMP_ROOT/adp-home"
 ADP_RUNTIME_DIR="$TMP_ROOT/runtime"
 FAKE_BIN="$TMP_ROOT/bin"
+GIT_TRIPWIRE_LOG="$TMP_ROOT/git-side-effects.log"
 EVENTS_FILE="$ADP_HOME/logs/events.jsonl"
 TASKS_FILE="$ADP_HOME/workspaces/game-a/planning/tasks.yaml"
 PHASES_FILE="$ADP_HOME/workspaces/game-a/planning/phases.yaml"
@@ -30,6 +32,7 @@ PROGRESS_FILE="$ADP_HOME/workspaces/game-a/planning/progress.jsonl"
 mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-task-smoke\n' > "$PROJECT_ROOT/go.mod"
 write_fake_codex "$FAKE_BIN/codex"
+setup_git_tripwire "$FAKE_BIN" "$GIT_TRIPWIRE_LOG"
 
 export ADP_HOME
 export ADP_RUNTIME_DIR
@@ -360,6 +363,8 @@ assert_contains "$(cat "$PROGRESS_FILE")" "task_released" "progress file"
 assert_contains "$(cat "$PROGRESS_FILE")" "task_blocked" "progress file"
 
 info "recording phase gate evidence"
+git_before=$(git_state)
+reset_git_tripwire
 output=$(run_adp "$REPO_ROOT" phase accept --workspace game-a p3 --command "scripts/task-manager-smoke.sh" --result passed --notes "deterministic smoke")
 assert_contains "$output" "phase p3 accepted: passed" "phase accept output"
 
@@ -368,6 +373,8 @@ assert_contains "$output" "phase p3 commit: abc123" "phase commit output"
 
 output=$(run_adp "$REPO_ROOT" phase push --workspace game-a p3 --remote origin --branch main --result pushed)
 assert_contains "$output" "phase p3 push: origin/main pushed" "phase push output"
+assert_no_git_side_effects "phase evidence recording"
+assert_text_unchanged "$git_before" "$(git_state)" "phase evidence recording" "Git state"
 
 output=$(run_adp "$REPO_ROOT" phase show --workspace game-a p3)
 assert_contains "$output" "status: pushed" "phase show pushed output"

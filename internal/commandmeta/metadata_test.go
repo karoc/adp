@@ -41,6 +41,26 @@ func TestUsageIncludesEveryMetadataLine(t *testing.T) {
 	}
 }
 
+func TestUsageOptionsAreDeclared(t *testing.T) {
+	t.Parallel()
+
+	for _, command := range Commands() {
+		declared := map[string]bool{}
+		for _, option := range command.Options {
+			declared[option.Name] = true
+		}
+		for _, line := range command.Usage {
+			for _, field := range strings.Fields(line) {
+				option := usageOption(field)
+				if option == "" || declared[option] {
+					continue
+				}
+				t.Fatalf("usage line %q references undeclared option %q", line, option)
+			}
+		}
+	}
+}
+
 func TestCommandHelpIncludesUsageAndValues(t *testing.T) {
 	t.Parallel()
 
@@ -98,4 +118,15 @@ func assertUniqueValues(t *testing.T, label string, values []Value) {
 		}
 		seen[value.Name] = true
 	}
+}
+
+func usageOption(field string) string {
+	field = strings.Trim(field, "[],")
+	if strings.HasPrefix(field, "--") {
+		return field
+	}
+	if strings.HasPrefix(field, "-") && len(field) == 2 {
+		return field
+	}
+	return ""
 }

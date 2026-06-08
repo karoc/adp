@@ -114,7 +114,7 @@ adp sessions restore-plan <session-id>
 ## 操作规则
 
 - 将 restore-plan output 视为指导，而不是自动修复或 resume 动作。
-- 如果 session 需要纳入项目规划追踪，使用 `adp run --task <task-id>` 绑定工作。
+- 如果 session 需要纳入项目规划追踪，使用 `adp run <agent> --task <task-id>` 绑定工作。
 - 通过 `adp tasks update`、`adp tasks done` 或 `adp tasks block` 显式推进 task 状态。
 - 将 restore-plan checks 与 `adp events list`、`adp sessions list`、`adp sessions show` 配合使用，保留本地 acceptance evidence。
 - 不要把 restore-plan 描述为云同步、远程 issue 跟踪、托管编排或 provider-native resume。

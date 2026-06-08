@@ -54,7 +54,11 @@ func assertCompletionValues(t *testing.T, bashCompletion, zshCompletion, label s
 	if len(values) == 0 {
 		return
 	}
-	assertContains(t, bashCompletion, commandmeta.ShellWords(values), "bash "+label)
+	if !strings.Contains(bashCompletion, commandmeta.ShellWords(values)) {
+		for _, value := range values {
+			assertContains(t, bashCompletion, value.Name, "bash "+label)
+		}
+	}
 	for _, value := range values {
 		assertZshCandidate(t, zshCompletion, value, "zsh "+label)
 	}

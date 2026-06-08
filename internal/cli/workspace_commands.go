@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/karoc/adp/internal/workspace"
@@ -75,11 +76,14 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 }
 
 func (a *App) doctor(ctx context.Context, args []string) error {
-	if a.deps.WorkspaceStore == nil {
-		return errors.New("workspace store is not configured")
-	}
 	if len(args) > 1 {
 		return errors.New("usage: adp doctor [workspace]")
+	}
+	if len(args) == 1 && strings.HasPrefix(args[0], "-") {
+		return fmt.Errorf("unknown doctor option %q", args[0])
+	}
+	if a.deps.WorkspaceStore == nil {
+		return errors.New("workspace store is not configured")
 	}
 	if len(args) == 1 {
 		report, err := a.deps.WorkspaceStore.Diagnose(ctx, args[0])

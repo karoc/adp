@@ -48,6 +48,8 @@ If `scripts/check-all.sh` is unavailable while bootstrapping a change, run the u
 
 ```bash
 scripts/runtime-smoke.sh --fake
+scripts/runtime-audit-smoke.sh
+scripts/release-readiness-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -113,6 +115,22 @@ scripts/runtime-smoke.sh --fake
 ```
 
 It verifies the local runtime overlay, fake Codex/Claude launch path, event log, session history, runtime pruning, and protection against project-root pollution.
+
+The broad runtime audit path is:
+
+```bash
+scripts/runtime-audit-smoke.sh
+```
+
+It verifies the published CLI command surface, help output, JSON parseability, task/phase/plan/progress flows, sessions, restore planning, completion values, and local-first runtime boundaries using fake agents and temporary directories only.
+
+The release readiness smoke path is:
+
+```bash
+scripts/release-readiness-smoke.sh
+```
+
+It verifies release-gate invariants that are not tied to a real provider CLI, including that phase commit and push commands record evidence without executing Git.
 
 The copyable example workspace smoke path is:
 

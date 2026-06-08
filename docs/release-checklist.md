@@ -24,6 +24,8 @@ The required gate runs these checks in order:
 
 ```bash
 scripts/runtime-smoke.sh --fake
+scripts/runtime-audit-smoke.sh
+scripts/release-readiness-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -57,7 +59,7 @@ The fake runtime smoke verifies:
 
 - Runtime overlay creation.
 - Runtime environment variables.
-- Task-bound runtime context through `adp run --task <task-id>`.
+- Task-bound runtime context through `adp run <agent> --task <task-id>`.
 - Codex and Claude adapter launch paths through fake binaries.
 - Event log writes.
 - Session history queries.
@@ -77,6 +79,24 @@ The fake runtime smoke verifies:
 - Protection against polluting the real project root with runtime artifacts or planning files.
 
 P25 splits bash and zsh completion renderers into shell-specific implementation files to remove line pressure from `internal/shell/completion.go`. This is an internal maintenance boundary: `adp completion`, bash/zsh output semantics, metadata drift checks, dynamic value endpoints, and the default fake runtime smoke remain the release evidence. It does not add interactive completion simulation or new shell support.
+
+`scripts/runtime-audit-smoke.sh` builds the current `cmd/adp` binary, uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root, and verifies the broad runtime audit matrix without real provider CLIs or network access.
+
+The runtime audit smoke verifies:
+
+- CLI discoverability and command metadata drift coverage.
+- Runtime entry points, events, sessions, restore-plan, runtime pruning, and project-root pollution guards.
+- Workspace lifecycle, diagnostics, task manager, phase gate, plan intake, and progress report surfaces through the current CLI.
+- Local-first boundaries: no hosted tracker sync, no automatic Git execution, no automatic task closure, no provider-native resume, and no project-root planning or report exports.
+
+`scripts/release-readiness-smoke.sh` builds the current `cmd/adp` binary, uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, a temporary project root, and a fake Git tripwire, then verifies release-readiness invariants that are independent of real provider CLIs.
+
+The release readiness smoke verifies:
+
+- Phase acceptance, commit, and push evidence can be recorded through the CLI.
+- Phase gate state reaches `plan_next_phase` only after accepted, committed, and pushed evidence exists.
+- Phase evidence commands do not execute Git side-effect commands such as `git commit`, `git push`, `git pull`, `git fetch`, `git clone`, or `git ls-remote`.
+- The default release path remains local, deterministic, and independent of real Codex or Claude CLIs.
 
 `scripts/example-workspace-smoke.sh` builds the current `cmd/adp` binary, copies `examples/basic-workspace` into a temporary `ADP_HOME`, rewrites the copied `project.root` to a temporary project, and verifies `adp init`, `workspace doctor`, `workspace show`, `env --cd`, fake Codex runtime launch, local events, sessions, and restore-plan output against that copied example.
 
@@ -144,6 +164,10 @@ Manual interactive evidence is required for any release note that claims real-ag
 ## Failure Triage
 
 If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The fake smoke is the highest-signal check for runtime overlay behavior, runtime manifest fields, adapter launch paths, local event history, session aggregation, and project-root pollution.
+
+If `scripts/runtime-audit-smoke.sh` fails, inspect whether the documented runtime audit matrix still matches the current CLI surface. The audit smoke is intentionally fake-runtime and local-only; failures should not be fixed by adding real Codex/Claude defaults, hosted services, automatic Git execution, provider-native resume, or project-root exports.
+
+If `scripts/release-readiness-smoke.sh` fails, inspect phase evidence recording and the fake Git tripwire first. Phase accept, commit, and push commands must record local evidence only; failures should not be fixed by making ADP run Git automatically or by weakening the phase lifecycle gate.
 
 If an optional real CLI check fails because `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1` is missing, treat it as an intentionally unenabled operator check. If the command is unavailable, install the external CLI on that machine or set `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN` to the intended command path. If both `--version` and `--help` fail, classify it as an external CLI, wrapper, or operator-environment evidence gap unless the deterministic fake gate or ADP launch contract also fails.
 

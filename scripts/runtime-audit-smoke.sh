@@ -14,6 +14,8 @@ info() {
   printf '[runtime-audit-smoke] %s\n' "$*"
 }
 
+. "$SCRIPT_DIR/smoke-git-tripwire-lib.sh"
+
 run_adp_stdin() {
   local dir="$1"
   local input="$2"
@@ -135,6 +137,7 @@ PROJECT_ROOT="$TMP_ROOT/project"
 ADP_HOME="$TMP_ROOT/adp-home"
 ADP_RUNTIME_DIR="$TMP_ROOT/runtime"
 FAKE_BIN="$TMP_ROOT/bin"
+GIT_TRIPWIRE_LOG="$TMP_ROOT/git-side-effects.log"
 EVENTS_FILE="$ADP_HOME/logs/events.jsonl"
 PLAN_FILE="$TMP_ROOT/plan.yaml"
 
@@ -145,6 +148,7 @@ printf 'package main\n' > "$PROJECT_ROOT/main.go"
 write_fake_agent "$FAKE_BIN/codex" codex AGENTS.md .codex/config.toml go.mod
 write_fake_agent "$FAKE_BIN/claude" claude CLAUDE.md .claude/settings.json main.go
 write_enter_probe_shell "$FAKE_BIN/enter-shell"
+setup_git_tripwire "$FAKE_BIN" "$GIT_TRIPWIRE_LOG"
 
 export ADP_HOME
 export ADP_RUNTIME_DIR
@@ -328,12 +332,14 @@ output=$(run_adp "$REPO_ROOT" runtime prune --older-than 0s --include-kept --dry
 assert_contains "$output" "would-remove" "runtime prune dry-run output"
 
 info "auditing phase acceptance evidence commands"
+reset_git_tripwire
 output=$(run_adp "$REPO_ROOT" phase accept --workspace game-a p-audit --command "scripts/runtime-audit-smoke.sh" --result passed --notes "runtime audit smoke passed")
 assert_contains "$output" "phase p-audit accepted: passed" "phase accept output"
 output=$(run_adp "$REPO_ROOT" phase commit --workspace game-a p-audit --hash 0123456789abcdef0123456789abcdef01234567 --message "Audit smoke fixture")
 assert_contains "$output" "phase p-audit commit" "phase commit output"
 output=$(run_adp "$REPO_ROOT" phase push --workspace game-a p-audit --remote origin --branch main --result pushed)
 assert_contains "$output" "phase p-audit push: origin/main pushed" "phase push output"
+assert_no_git_side_effects "runtime audit phase evidence recording"
 output=$(run_adp "$REPO_ROOT" phase show --workspace game-a p-audit --format json)
 assert_json_valid "$output" "phase show json output"
 assert_contains "$output" '"status": "pushed"' "phase show json output"

@@ -24,6 +24,8 @@ scripts/check-all.sh
 
 ```bash
 scripts/runtime-smoke.sh --fake
+scripts/runtime-audit-smoke.sh
+scripts/release-readiness-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -57,7 +59,7 @@ fake runtime smoke 验证：
 
 - runtime overlay 创建。
 - runtime 环境变量。
-- 通过 `adp run --task <task-id>` 注入 task-bound runtime context。
+- 通过 `adp run <agent> --task <task-id>` 注入 task-bound runtime context。
 - 通过 fake binary 覆盖 Codex 和 Claude adapter 启动路径。
 - event log 写入。
 - session history 查询。
@@ -77,6 +79,24 @@ fake runtime smoke 验证：
 - 防止 runtime artifact 或 planning 文件污染真实项目根目录。
 
 P25 将 bash 和 zsh completion renderer 拆分到按 shell 区分的实现文件中，用来消除 `internal/shell/completion.go` 的行数压力。这是内部维护边界：`adp completion`、bash/zsh 输出语义、metadata drift checks、动态 value endpoints 和默认 fake runtime smoke 仍然是发布证据。它不新增交互式 completion 模拟，也不新增 shell 支持。
+
+`scripts/runtime-audit-smoke.sh` 会构建当前 `cmd/adp` 二进制，使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时项目根目录，在不依赖真实 provider CLI 或网络访问的前提下验证广覆盖 runtime audit matrix。
+
+runtime audit smoke 验证：
+
+- CLI 可发现性和 command metadata drift 覆盖。
+- Runtime 入口、events、sessions、restore-plan、runtime pruning 和项目根目录污染防护。
+- 通过当前 CLI 覆盖 workspace lifecycle、diagnostics、task manager、phase gate、plan intake 和 progress report 表面。
+- 本地优先边界：不做 hosted tracker sync、不自动执行 Git、不自动关闭任务、不恢复 provider-native session，也不导出 project-root planning 或 report。
+
+`scripts/release-readiness-smoke.sh` 会构建当前 `cmd/adp` 二进制，使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、临时项目根目录和 fake Git tripwire，验证不依赖真实 provider CLI 的 release-readiness invariant。
+
+release readiness smoke 验证：
+
+- 可以通过 CLI 记录 phase acceptance、commit 和 push evidence。
+- 只有 accepted、committed、pushed evidence 都存在后，phase gate 状态才会进入 `plan_next_phase`。
+- Phase evidence 命令不会执行 `git commit`、`git push`、`git pull`、`git fetch`、`git clone` 或 `git ls-remote` 等 Git 副作用命令。
+- 默认 release path 保持本地、确定性，并且不依赖真实 Codex 或 Claude CLI。
 
 `scripts/example-workspace-smoke.sh` 会构建当前 `cmd/adp` 二进制，把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，把复制后的 `project.root` 改写为临时项目，并用该示例验证 `adp init`、`workspace doctor`、`workspace show`、`env --cd`、fake Codex runtime launch、本地 events、sessions 和 restore-plan 输出。
 
@@ -144,6 +164,10 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ## 失败定位
 
 如果 `scripts/runtime-smoke.sh --fake` 失败，优先查看报告的失败步骤。fake smoke 是 runtime overlay 行为、runtime manifest 字段、adapter 启动路径、本地 event history、session 聚合和项目根目录污染防护的最高信号检查。
+
+如果 `scripts/runtime-audit-smoke.sh` 失败，优先检查文档中的 runtime audit matrix 是否仍匹配当前 CLI surface。audit smoke 刻意保持 fake-runtime 和 local-only；不能通过增加真实 Codex/Claude 默认路径、hosted service、automatic Git execution、provider-native resume 或 project-root export 来修复失败。
+
+如果 `scripts/release-readiness-smoke.sh` 失败，优先检查 phase evidence recording 和 fake Git tripwire。Phase accept、commit 和 push 命令只能记录本地 evidence；不能通过让 ADP 自动执行 Git 或削弱 phase lifecycle gate 来修复失败。
 
 如果可选真实 CLI 检查因为缺少 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1` 而失败，应把它视为 operator 尚未显式启用该检查。如果命令不可用，应在该机器上安装外部 CLI，或通过 `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 指向预期命令路径。如果 `--version` 和 `--help` 都失败，应归类为外部 CLI、wrapper 或 operator 环境的 evidence gap，除非确定性 fake gate 或 ADP launch contract 也同时失败。
 

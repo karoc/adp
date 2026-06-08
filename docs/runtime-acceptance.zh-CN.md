@@ -223,7 +223,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 
 - 创建隔离 runtime overlay。
 - 注入 runtime 环境变量。
-- 通过 `adp run --task <task-id>` 进行 runtime task binding。
+- 通过 `adp run <agent> --task <task-id>` 进行 runtime task binding。
 - 从 runtime root 启动 agent 命令。
 - 写入本地 JSONL event log。
 - 从本地 events 聚合 session history。
@@ -235,6 +235,8 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 通过 workspace 和全局 doctor 命令检查 runtime parent 安全性，覆盖文件系统根目录、project-root overlap、symlink warning 和非目录场景。
 - 通过 workspace 和全局 doctor 命令检查 agent command/profile diagnostics，覆盖 adapter default fallback、inline command arguments、路径型 command wrapper、缺失或重复的 profile 文件、profile path escape、未知 enabled agent，以及 project root 中的保留路径。
 - 通过 `adp version` 输出本地 build identity。
+- 通过 `scripts/runtime-audit-smoke.sh` 验收广覆盖 runtime audit。
+- 通过 `scripts/release-readiness-smoke.sh` 验收 release readiness。
 - 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
 - 通过 `scripts/plan-intake-smoke.sh` 验收本地 plan intake preview/apply。
 - 验收 Phase Gate ledger evidence、claim lease、release owner check 和 lifecycle ordering。
@@ -252,6 +254,8 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 ```bash
 scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
+scripts/runtime-audit-smoke.sh
+scripts/release-readiness-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh

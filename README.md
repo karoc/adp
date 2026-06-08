@@ -19,24 +19,25 @@ Implemented Phase 1 foundations:
 - `adp workspace remove <name>`
 - `adp workspace rename <old-name> <new-name>`
 - `adp env <workspace> [--cd]`
-- `adp shell-hook [--shell <sh|bash|zsh>]`
+- `adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]`
 - `adp completion [--shell <bash|zsh>] [--command <name>]`
 - `adp completion values <agents|workspaces|profiles> [--workspace <name>]`
 - `adp version`
-- `adp events list [--workspace <name>] [--task <task-id>]`
+- `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]`
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 - `adp sessions show <session-id>`
 - `adp sessions restore-plan <session-id>`
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
-- `adp tasks add/list/next/show/update/claim/release/done/block`
-- `adp plan preview/apply --workspace <name> --file <path|->`
-- `adp plan doctor [--workspace <name>] [--format text|json]`
+- `adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>`
+- `adp tasks list/next/show/update/claim/release/done/block`
+- `adp plan preview [--workspace <name>] --file <path|-> [--format <text|json>]`
+- `adp plan apply [--workspace <name>] --file <path|-> [--format <text|json>]`
+- `adp plan doctor [--workspace <name>] [--format <text|json>]`
 - `adp phase add/list/show/status/start/accept/commit/push`
-- `adp progress [--workspace <name>]`
-- `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
-- `adp run codex --workspace <name> [--task <task-id>]`
-- `adp run claude --workspace <name> [--task <task-id>]`
-- `adp enter <workspace>`
+- `adp progress [--workspace <name>] [--format <text|json>]`
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format <markdown|json>]`
+- `adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]`
+- `adp enter <workspace> [--keep-runtime]`
 - local workspace registry under `$ADP_HOME`
 - symlink-based runtime overlay under `$ADP_RUNTIME_DIR`
 - Codex and Claude adapter layer
@@ -87,7 +88,7 @@ Useful environment variables:
 - `ADP_HOME`: ADP home directory. Defaults to `~/.adp`.
 - `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`. Do not point it at the filesystem root, a project root, a directory inside a project root, or a directory that contains the project root. Prefer a direct local directory; symlink runtime parents are reported as warnings by doctor commands.
 - `ADP_WORKSPACE`: default workspace for commands that accept a workspace.
-- `ADP_TASK_ID`, `ADP_TASK_TITLE`, `ADP_TASK_STATUS`, `ADP_TASK_PRIORITY`, and `ADP_TASK_PHASE`: available inside runtimes launched with `adp run --task <task-id>`.
+- `ADP_TASK_ID`, `ADP_TASK_TITLE`, `ADP_TASK_STATUS`, `ADP_TASK_PRIORITY`, and `ADP_TASK_PHASE`: available inside runtimes launched with `adp run <agent> --task <task-id>`.
 
 When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the current directory to a registered project root.
 
@@ -132,7 +133,7 @@ P16 hardens the command surface with a local metadata contract that keeps usage 
 
 `adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered pruneable only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp` and a matching `runtime_root`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
-`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; `adp phase status` adds a compact gate snapshot with the open phase, next planned phase, whether the next phase can start, and the next required action. `adp plan doctor` adds read-only local diagnostics for task, phase, progress-log, lock, and phase-gate consistency and returns exit code `2` when error-level diagnostics exist. The authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. `adp run --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
+`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; `adp phase status` adds a compact gate snapshot with the open phase, next planned phase, whether the next phase can start, and the next required action. `adp plan doctor` adds read-only local diagnostics for task, phase, progress-log, lock, and phase-gate consistency and returns exit code `2` when error-level diagnostics exist. The authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. `adp run <agent> --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
 
 `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a local planning/execution handoff snapshot to stdout. The default output remains English Markdown; `--language zh-CN` applies to Markdown only. `--format json` emits a machine-readable, read-only snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists. JSON output is for cross-tool parsing and must not become a separate state store. The report command is read-only and does not append events, mutate task or phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into the project root.
 
@@ -150,7 +151,7 @@ Use the aggregate validation gate before handoff:
 scripts/check-all.sh
 ```
 
-The aggregate gate covers deterministic runtime smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file length limits, bilingual documentation pairing, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
+The aggregate gate covers deterministic runtime smoke, broad runtime audit smoke, release readiness smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file length limits, bilingual documentation pairing and command-reference sync, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
 
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 

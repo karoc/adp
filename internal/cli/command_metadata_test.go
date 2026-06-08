@@ -71,6 +71,23 @@ func TestMetadataHelpWorksBeforeInit(t *testing.T) {
 	}
 }
 
+func TestMetadataShortHelpMatchesLongHelpBeforeInit(t *testing.T) {
+	t.Parallel()
+
+	for _, command := range commandmeta.Commands() {
+		command := command
+		t.Run(command.Name, func(t *testing.T) {
+			t.Parallel()
+
+			longHelp := executeHelp(t, command.Name, "--help")
+			shortHelp := executeHelp(t, command.Name, "-h")
+			if shortHelp != longHelp {
+				t.Fatalf("%s -h output drifted from --help\n-h:\n%s\n--help:\n%s", command.Name, shortHelp, longHelp)
+			}
+		})
+	}
+}
+
 func TestMetadataSubcommandHelpWorksBeforeInit(t *testing.T) {
 	t.Parallel()
 
@@ -98,4 +115,39 @@ func TestMetadataSubcommandHelpWorksBeforeInit(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestMetadataSubcommandShortHelpMatchesLongHelpBeforeInit(t *testing.T) {
+	t.Parallel()
+
+	for _, command := range commandmeta.Commands() {
+		command := command
+		for _, subcommand := range command.Subcommands {
+			subcommand := subcommand
+			t.Run(command.Name+"/"+subcommand.Name, func(t *testing.T) {
+				t.Parallel()
+
+				longHelp := executeHelp(t, command.Name, subcommand.Name, "--help")
+				shortHelp := executeHelp(t, command.Name, subcommand.Name, "-h")
+				if shortHelp != longHelp {
+					t.Fatalf("%s %s -h output drifted from --help\n-h:\n%s\n--help:\n%s", command.Name, subcommand.Name, shortHelp, longHelp)
+				}
+			})
+		}
+	}
+}
+
+func executeHelp(t *testing.T, args ...string) string {
+	t.Helper()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := NewApp(Dependencies{InitError: errors.New("bad env")}, &stdout, &stderr).Execute(context.Background(), args)
+	if code != 0 {
+		t.Fatalf("%v exit code = %d, want 0; stderr = %q", args, code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("%v stderr = %q, want empty", args, stderr.String())
+	}
+	return stdout.String()
 }

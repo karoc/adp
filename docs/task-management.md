@@ -33,7 +33,7 @@ The first task-management slice provides:
 - `adp progress`
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 - Read-only `--format json` output for task, phase, and progress inspection.
-- `adp run --task <task-id>` runtime binding.
+- `adp run <agent> --task <task-id>` runtime binding.
 - Workspace-local planning files under `$ADP_HOME/workspaces/<workspace>/planning/`.
 - JSONL progress events for task creation and status changes.
 - Runtime event and session evidence linked by task ID.
@@ -392,7 +392,7 @@ adp sessions list --workspace adp --task <task-id>
 adp sessions show <session-id>
 ```
 
-`adp run --task` does not automatically move task status. Status changes remain explicit through `adp tasks update`, `adp tasks done`, and `adp tasks block`.
+`adp run <agent> --task <task-id>` does not automatically move task status. Status changes remain explicit through `adp tasks update`, `adp tasks done`, and `adp tasks block`.
 
 ## Phase Discipline
 

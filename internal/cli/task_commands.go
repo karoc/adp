@@ -246,6 +246,9 @@ func (a *App) progress(ctx context.Context, args []string) error {
 	if len(args) > 0 && args[0] == "report" {
 		return a.progressReport(ctx, args[1:])
 	}
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		return fmt.Errorf("unknown progress command %q", args[0])
+	}
 
 	opts, err := parseWorkspaceOutputArgs(args, "adp progress [--workspace <name>] [--format <text|json>]")
 	if err != nil {

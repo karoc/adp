@@ -65,10 +65,12 @@ var rootCommands = []Command{
 		},
 		Subcommands: describedValues(valueDescriptions{"values": "print dynamic completion values"}, "values"),
 		Options: describedValues(valueDescriptions{
-			"--shell":   "render for shell",
-			"-s":        "render for shell",
-			"--command": "command name",
-		}, "--shell", "-s", "--command"),
+			"--shell":     "render for shell",
+			"-s":          "render for shell",
+			"--command":   "command name",
+			"--workspace": "workspace name",
+			"-w":          "workspace name",
+		}, "--shell", "-s", "--command", "--workspace", "-w"),
 	},
 	{
 		Name:        "events",

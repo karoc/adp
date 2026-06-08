@@ -156,15 +156,17 @@ From the repository root, run the aggregate validation gate:
 scripts/check-all.sh
 ```
 
-The aggregate gate includes fake-agent runtime smoke, example workspace smoke, task manager smoke, plan intake smoke, Go tests, vet, file line checks, bilingual documentation checks, and diff whitespace checks.
+The aggregate gate includes fake-agent runtime smoke, broad runtime audit smoke, release readiness smoke, example workspace smoke, task manager smoke, plan intake smoke, Go tests, vet, file line checks, bilingual documentation checks, and diff whitespace checks.
 
 For targeted bootstrap checks, run:
 
 ```bash
 scripts/runtime-smoke.sh --fake
+scripts/runtime-audit-smoke.sh
+scripts/release-readiness-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
 ```
 
-The runtime smoke builds the current `cmd/adp` binary into a temporary directory and uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root. It verifies the runtime overlay path without requiring real Codex or Claude CLIs. The example workspace smoke copies `examples/basic-workspace` into a temporary `ADP_HOME` and verifies that the published example still bootstraps against a temporary project. The plan intake smoke verifies that structured local planning input can be previewed read-only and explicitly applied to `$ADP_HOME` without project-root, runtime, Git, or partial-write side effects.
+The runtime smoke builds the current `cmd/adp` binary into a temporary directory and uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root. It verifies the runtime overlay path without requiring real Codex or Claude CLIs. The runtime audit smoke broadens coverage across CLI help, JSON outputs, task/phase/plan/progress flows, sessions, restore planning, completion values, and local-first runtime boundaries. The release readiness smoke verifies release-gate invariants such as phase commit and push evidence recording without Git execution. The example workspace smoke copies `examples/basic-workspace` into a temporary `ADP_HOME` and verifies that the published example still bootstraps against a temporary project. The plan intake smoke verifies that structured local planning input can be previewed read-only and explicitly applied to `$ADP_HOME` without project-root, runtime, Git, or partial-write side effects.

@@ -114,7 +114,7 @@ If the suggested command is run manually, it starts a new local agent run with a
 ## Operating Rules
 
 - Treat restore-plan output as guidance, not as an automatic repair or resume action.
-- Bind work to tasks with `adp run --task <task-id>` when the session should be traceable in project planning.
+- Bind work to tasks with `adp run <agent> --task <task-id>` when the session should be traceable in project planning.
 - Move task status explicitly with `adp tasks update`, `adp tasks done`, or `adp tasks block`.
 - Keep acceptance evidence local by pairing restore-plan checks with `adp events list`, `adp sessions list`, and `adp sessions show`.
 - Do not describe restore-plan as cloud sync, remote issue tracking, hosted orchestration, or provider-native resume.

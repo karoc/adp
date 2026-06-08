@@ -97,3 +97,30 @@ func TestExecuteReportsCommandSpecificWorkspaceOutputOption(t *testing.T) {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
+
+func TestExecuteReportsCommandPositionUnknowns(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "completion", args: []string{"completion", "bogus"}, want: `adp: unknown completion command "bogus"`},
+		{name: "progress", args: []string{"progress", "bogus"}, want: `adp: unknown progress command "bogus"`},
+		{name: "doctor option", args: []string{"doctor", "--bogus"}, want: `adp: unknown doctor option "--bogus"`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+
+			code := NewApp(Dependencies{}, &bytes.Buffer{}, &stderr).Execute(context.Background(), test.args)
+
+			if code != 1 {
+				t.Fatalf("exit code = %d, want 1", code)
+			}
+			if !strings.Contains(stderr.String(), test.want) {
+				t.Fatalf("stderr = %q, want %q", stderr.String(), test.want)
+			}
+		})
+	}
+}
