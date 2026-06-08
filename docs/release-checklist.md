@@ -62,6 +62,8 @@ The fake runtime smoke verifies:
 - Session history queries.
 - Read-only session restore-plan output, including original agent arguments and no event-log mutation from inspection.
 - Workspace diagnostics through `adp workspace doctor` and `adp doctor`.
+- Workspace rename/remove lifecycle checks that prove only temporary ADP registry data is mutated while the real project root entry snapshot and runtime entry count remain unchanged.
+- Controlled `adp enter` child-shell execution through a fake `SHELL`, including runtime env/cwd, project symlinks, default cleanup, `--keep-runtime`, unchanged project-root entries, and content-level no event-log mutation.
 - Runtime parent safety diagnostics: fake smoke covers project-root overlap rejection, while Go tests cover filesystem-root, containing-project-root, symlink, and non-directory risks.
 - Agent command/profile diagnostics: fake smoke covers reserved project-root paths, adapter default command fallback, inline command arguments, missing non-default profiles, escaping profile symlinks, and unknown enabled agent entries; Go tests cover path-like missing or non-executable command wrappers and ambiguous profile files.
 - Shell export rendering.

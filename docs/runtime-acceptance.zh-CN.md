@@ -46,6 +46,10 @@ adp workspace doctor game-a
 adp workspace doctor
 adp doctor game-a
 adp doctor
+adp workspace add game-lifecycle-a <temp-lifecycle-project-root>
+adp workspace rename game-lifecycle-a game-lifecycle-b
+adp workspace show game-lifecycle-b
+adp workspace remove game-lifecycle-b
 adp version
 adp --version
 adp tasks add --workspace game-a --priority high --phase p1 "Bind runtime session to task"
@@ -57,6 +61,8 @@ adp completion values profiles --workspace game-a
 adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
 adp run claude --task <task-id> -- --probe claude-payload
 adp run codex --workspace game-a --task missing-task -- --probe codex-payload
+adp enter game-a
+adp enter game-a --keep-runtime
 adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
 adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
@@ -89,6 +95,8 @@ fake Codex 和 Claude 命令会断言：
 - bash 和 zsh completion 脚本包含动态值端点调用。
 - `adp completion values workspaces` 从本地状态返回已注册 workspace 名称。
 - `adp completion values profiles --workspace <name>` 从 workspace 配置和 profile 文件中返回本地 profile 名称。
+- `adp workspace rename` 和 `adp workspace remove` 只修改临时 `ADP_HOME` 下的 ADP workspace registry；lifecycle smoke 会保留 sentinel project 文件，通过 project-root entry snapshot 比对确认不会新增项目文件，验证 add/rename/remove 后 runtime directory entry count 都保持不变，并确认 completion values 不会保留 stale workspace names。
+- `adp enter` 会通过把 `SHELL` 设置为临时可执行 wrapper 来验收受控 child shell。该 wrapper 证明 child shell 启动在 `ADP_RUNTIME_ROOT` 中，收到 ADP runtime 环境，可以通过 runtime symlink 看到 project 文件，并且不会收到 task-bound runtime 变量。smoke 会检查默认 `enter` 会清理 runtime，`enter --keep-runtime` 会保留 runtime 直到 smoke 手动移除，project root entry snapshot 保持不变，并且两个路径都不会改变 event log 内容。
 
 脚本还会验收 session restore planning：
 

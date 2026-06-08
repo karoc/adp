@@ -23,6 +23,19 @@ assert_contains() {
   esac
 }
 
+assert_not_contains() {
+  local output="$1"
+  local needle="$2"
+  local label="$3"
+
+  case "$output" in
+    *"$needle"*)
+      printf '%s\n' "$output" >&2
+      fail "$label contained unexpected text: $needle"
+      ;;
+  esac
+}
+
 assert_file() {
   local path="$1"
   if [ ! -f "$path" ]; then
@@ -30,10 +43,52 @@ assert_file() {
   fi
 }
 
+assert_file_unchanged() {
+  local before="$1"
+  local after="$2"
+  local label="$3"
+
+  assert_file "$before"
+  assert_file "$after"
+  if ! cmp -s "$before" "$after"; then
+    printf '%s\n' "$label changed:" >&2
+    diff -u "$before" "$after" >&2 || true
+    fail "$label changed"
+  fi
+}
+
 assert_symlink() {
   local path="$1"
   if [ ! -L "$path" ]; then
     fail "missing symlink: $path"
+  fi
+}
+
+assert_absent_path() {
+  local path="$1"
+  if [ -e "$path" ] || [ -L "$path" ]; then
+    fail "path should be absent: $path"
+  fi
+}
+
+snapshot_tree_entries() {
+  local root="$1"
+  local output="$2"
+
+  (cd "$root" && find . -mindepth 1 -print | LC_ALL=C sort) > "$output"
+}
+
+assert_tree_entries_unchanged() {
+  local root="$1"
+  local before="$2"
+  local label="$3"
+  local after="${before}.after"
+
+  snapshot_tree_entries "$root" "$after"
+  if ! cmp -s "$before" "$after"; then
+    printf '%s\n' "$label changed:" >&2
+    diff -u "$before" "$after" >&2 || true
+    fail "$label changed"
   fi
 }
 
@@ -53,10 +108,16 @@ assert_runtime_entries() {
   local want="$2"
   local got
 
-  got=$(find "$runtime_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]')
+  got=$(runtime_entry_count "$runtime_dir")
   if [ "$got" != "$want" ]; then
     fail "runtime dir entry count is $got, expected $want"
   fi
+}
+
+runtime_entry_count() {
+  local runtime_dir="$1"
+
+  find "$runtime_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]'
 }
 
 assert_line_count() {

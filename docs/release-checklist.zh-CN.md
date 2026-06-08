@@ -62,6 +62,8 @@ fake runtime smoke 验证：
 - session history 查询。
 - 只读 session restore-plan 输出，包括原始 agent arguments，并且 inspection 不会修改 event log。
 - 通过 `adp workspace doctor` 和 `adp doctor` 提供 workspace diagnostics。
+- workspace rename/remove lifecycle 检查，证明只修改临时 ADP registry 数据，真实 project root entry snapshot 和 runtime entry count 都保持不变。
+- 通过 fake `SHELL` 执行受控的 `adp enter` child shell，覆盖 runtime env/cwd、project symlink、默认 cleanup、`--keep-runtime`、project-root entries 不变，以及内容级不修改 event log。
 - runtime parent safety diagnostics：fake smoke 覆盖 project-root overlap 拒绝路径，Go 测试覆盖文件系统根目录、包含 project root、symlink 和非目录风险。
 - agent command/profile diagnostics：fake smoke 覆盖 project root 中的保留路径、adapter default command fallback、inline command arguments、缺失的非 default profile、逃逸到 workspace 外部的 profile symlink，以及 enabled 但未知的 agent 配置；Go 测试覆盖缺失或不可执行的路径型 command wrapper 和重复 profile 文件。
 - shell export 渲染。

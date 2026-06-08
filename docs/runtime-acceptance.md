@@ -46,6 +46,10 @@ adp workspace doctor game-a
 adp workspace doctor
 adp doctor game-a
 adp doctor
+adp workspace add game-lifecycle-a <temp-lifecycle-project-root>
+adp workspace rename game-lifecycle-a game-lifecycle-b
+adp workspace show game-lifecycle-b
+adp workspace remove game-lifecycle-b
 adp version
 adp --version
 adp tasks add --workspace game-a --priority high --phase p1 "Bind runtime session to task"
@@ -57,6 +61,8 @@ adp completion values profiles --workspace game-a
 adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
 adp run claude --task <task-id> -- --probe claude-payload
 adp run codex --workspace game-a --task missing-task -- --probe codex-payload
+adp enter game-a
+adp enter game-a --keep-runtime
 adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
 adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
@@ -89,6 +95,8 @@ The script also checks the local CLI hardening surface:
 - Bash and zsh completion scripts include dynamic value endpoint calls.
 - `adp completion values workspaces` returns registered workspace names from local state.
 - `adp completion values profiles --workspace <name>` returns local profile names from workspace configuration and profile files.
+- `adp workspace rename` and `adp workspace remove` mutate only the ADP workspace registry under the temporary `ADP_HOME`; the lifecycle smoke keeps sentinel project files in place, compares project-root entry snapshots so no new project files appear, verifies the runtime directory entry count stays unchanged after add/rename/remove, and checks completion values do not retain stale workspace names.
+- `adp enter` is exercised through a controlled shell wrapper by setting `SHELL` to a temporary executable. The wrapper proves the child shell starts in `ADP_RUNTIME_ROOT`, receives the ADP runtime environment, sees project files through runtime symlinks, and does not receive task-bound runtime variables. The smoke checks default `enter` cleanup removes its runtime, `enter --keep-runtime` leaves a kept runtime until the smoke removes it, the project root entry snapshot stays unchanged, and neither path changes event log contents.
 
 The script also verifies session restore planning:
 

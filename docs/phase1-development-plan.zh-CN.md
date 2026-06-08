@@ -851,11 +851,11 @@ symlink overlay 与真实项目已有配置冲突：
 - P16 command surface hardening 已完成：本地 command metadata contract 已让 usage text、dispatch wiring、bash/zsh completion、聚焦测试、smoke 或文档验收保持一致。该阶段只属于本地 CLI 维护，不引入新的 CLI 框架或 hosted command surface。
 - P17 runtime smoke split 已完成：`scripts/runtime-smoke.sh` 仍然是公开入口，共享 helpers 和 fake diagnostics/session/prune slices 已拆到更聚焦的实现文件中，并保持在 700 行上限以内。该阶段只属于维护，不削弱 fake smoke 覆盖、fake subshell 隔离、真实 CLI opt-in 门禁，也继续保持 `scripts/check-all.sh` 作为聚合门禁。
 - P18 CLI command test split 已完成：剩余的大型混合 CLI tests 已拆分为聚焦的 task CRUD/progress/report/phase/helper 文件，以及 shell/completion/events/sessions/runtime-prune 文件。该阶段只属于维护：不改变 runtime behavior，不改变 product command，不偏向 Web/SaaS/hosted orchestration，也不做 Git automation。
-- P19 planned：为 workspace rename/remove 和非交互式 `adp enter` 增加 runtime acceptance。
+- P19 workspace lifecycle and enter acceptance 已完成：runtime smoke 现在会覆盖 workspace rename/remove，并验证 project-root sentinel 保持存在、completion 不保留 stale workspace names，以及通过 fake `SHELL` 执行受控的非交互式 `adp enter`。enter smoke 会在不启动真实交互 shell 的前提下验证 runtime env/cwd、project symlink、默认 cleanup 与 `--keep-runtime`，以及不会修改 event log。
 - P20 planned：覆盖 `adp plan --file -` stdin intake 路径。
 - P21 planned：按 model、persistence、events、ranking 和 lifecycle responsibilities 拆分 taskstore core 文件。
 - P22 planned：从内容层面对齐 Phase 1 英文默认 roadmap 与简体中文 counterpart。
 - P23 planned：增加非阻断 line pressure audit tooling，在文件接近 700 行硬限制前规划拆分。
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
+- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18/P19 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

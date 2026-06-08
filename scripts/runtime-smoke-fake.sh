@@ -56,6 +56,7 @@ run_fake_smoke() (
   assert_contains "$output" "game-a" "doctor all output"
   assert_contains "$output" "ok" "doctor all output"
 
+  run_fake_workspace_lifecycle_checks
   run_fake_diagnostics_checks
 
   version_output=$(run_adp "$REPO_ROOT" version)
@@ -124,6 +125,7 @@ run_fake_smoke() (
   invalid_output=$(run_adp_expect_fail "$REPO_ROOT" run codex --workspace game-a --task missing-task -- --probe codex-payload)
   assert_contains "$invalid_output" 'load task "missing-task"' "missing task run output"
 
+  run_fake_enter_checks
   run_fake_session_checks
   run_fake_prune_checks
 
