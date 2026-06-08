@@ -3,9 +3,11 @@ package adapters
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/karoc/adp/internal/adapters/claude"
 	"github.com/karoc/adp/internal/adapters/codex"
+	"github.com/karoc/adp/internal/schema"
 )
 
 type Registry struct {
@@ -44,8 +46,11 @@ func (r *Registry) Register(adapter Adapter) error {
 		return fmt.Errorf("adapter is nil")
 	}
 	name := adapter.Name()
-	if name == "" {
+	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("adapter name is required")
+	}
+	if err := schema.ValidateWorkspaceName(name); err != nil {
+		return fmt.Errorf("adapter name is invalid: %w", err)
 	}
 	if _, exists := r.adapters[name]; exists {
 		return fmt.Errorf("adapter %q already registered", name)

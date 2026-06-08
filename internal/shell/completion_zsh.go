@@ -11,6 +11,7 @@ func renderZshCompletion(commandName string) string {
 	workspaceHelperName := functionName + "_selected_workspace"
 	workspaceValuesName := functionName + "_workspace_values"
 	profileValuesName := functionName + "_profile_values"
+	agentValuesName := functionName + "_agent_values"
 
 	var out strings.Builder
 	out.WriteString("#compdef ")
@@ -52,9 +53,17 @@ func renderZshCompletion(commandName string) string {
 	out.WriteString("\tfi\n")
 	out.WriteString("\t_describe -t profiles 'profile' values\n")
 	out.WriteString("}\n\n")
+	out.WriteString(agentValuesName)
+	out.WriteString("() {\n")
+	out.WriteString("\tlocal -a values\n")
+	out.WriteString("\tvalues=( ${(f)\"$(")
+	out.WriteString(commandName)
+	out.WriteString(" completion values agents 2>/dev/null)\"} )\n")
+	out.WriteString("\t_describe -t agents 'agent' values\n")
+	out.WriteString("}\n\n")
 	out.WriteString(functionName)
 	out.WriteString("() {\n")
-	out.WriteString("\tlocal -a commands workspace_commands events_commands sessions_commands runtime_commands tasks_commands plan_commands phase_commands run_agents\n")
+	out.WriteString("\tlocal -a commands workspace_commands events_commands sessions_commands runtime_commands tasks_commands plan_commands phase_commands\n")
 	out.WriteString("\tcommands=(\n")
 	out.WriteString(zshRootCommandEntries())
 	out.WriteString("\t)\n")
@@ -65,7 +74,6 @@ func renderZshCompletion(commandName string) string {
 	out.WriteString(zshArray("tasks_commands", commandmeta.SubcommandNames("tasks")))
 	out.WriteString(zshArray("plan_commands", commandmeta.SubcommandNames("plan")))
 	out.WriteString(zshArray("phase_commands", commandmeta.SubcommandNames("phase")))
-	out.WriteString(zshArray("run_agents", commandmeta.SubcommandNames("run")))
 	out.WriteByte('\n')
 	out.WriteString("\tcase \"${words[CURRENT-1]}\" in\n")
 	out.WriteString("\t\t--workspace|-w)\n")
@@ -227,7 +235,9 @@ func renderZshCompletion(commandName string) string {
 	out.WriteString("\t\t\t;;\n")
 	out.WriteString("\t\trun)\n")
 	out.WriteString("\t\t\tif (( CURRENT == 3 )); then\n")
-	out.WriteString("\t\t\t\t_describe -t agents 'agent' run_agents\n")
+	out.WriteString("\t\t\t\t")
+	out.WriteString(agentValuesName)
+	out.WriteString("\n")
 	out.WriteString("\t\t\telse\n")
 	out.WriteString("\t\t\t\t")
 	out.WriteString(zshValues("run option", commandmeta.Options("run")))

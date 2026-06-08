@@ -22,6 +22,8 @@ The external agent CLI owns its own behavior after launch, including authenticat
 
 ## Shared Runtime Contract
 
+The currently documented real-agent adapter contracts are `codex` and `claude`. Future adapter design notes should use neutral placeholders until an adapter is implemented and validated, and must not describe provider-native resume semantics.
+
 For `adp run <agent> --workspace <name> -- <agent-args>`, ADP builds a runtime root that includes:
 
 - `.adp-runtime.yaml`, the ADP runtime manifest.

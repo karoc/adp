@@ -19,6 +19,7 @@ func TestRenderCompletionDefaultsToBash(t *testing.T) {
 		"_adp_completion() {\n",
 		"completion values workspaces",
 		"completion values profiles",
+		"completion values agents",
 		"init doctor version workspace enter env shell-hook completion events sessions runtime tasks plan phase progress run",
 		"add list show remove rename doctor",
 		"--shell -s --command",
@@ -37,7 +38,6 @@ func TestRenderCompletionDefaultsToBash(t *testing.T) {
 		"markdown json",
 		"text json",
 		"en zh-CN",
-		"codex claude",
 		"complete -F _adp_completion adp\n",
 	} {
 		if !strings.Contains(got, want) {
@@ -46,6 +46,9 @@ func TestRenderCompletionDefaultsToBash(t *testing.T) {
 	}
 	if strings.Contains(got, "eval") {
 		t.Fatalf("bash completion should not contain eval:\n%s", got)
+	}
+	if strings.Contains(got, "codex claude") {
+		t.Fatalf("bash completion should not hard-code run agents:\n%s", got)
 	}
 
 	gotAgain, err := RenderCompletion(CompletionOptions{})
@@ -91,6 +94,7 @@ func TestRenderCompletionSupportsZsh(t *testing.T) {
 		"#compdef adp\n",
 		"completion values workspaces",
 		"completion values profiles",
+		"completion values agents",
 		"_adp_completion() {\n",
 		"'doctor:diagnose registered workspaces'",
 		"'version:print version information'",
@@ -108,6 +112,7 @@ func TestRenderCompletionSupportsZsh(t *testing.T) {
 		"tasks_commands=(add list next show update claim release done block)",
 		"plan_commands=(preview apply doctor)",
 		"phase_commands=(add list show status start accept commit push)",
+		"'run:run an agent inside a runtime'",
 		"'--shell[render for shell]'",
 		"'--command[command name]'",
 		"'--agent[filter by agent]'",
@@ -129,6 +134,9 @@ func TestRenderCompletionSupportsZsh(t *testing.T) {
 	}
 	if strings.Contains(got, "eval") {
 		t.Fatalf("zsh completion should not contain eval:\n%s", got)
+	}
+	if strings.Contains(got, "run_agents=(codex claude)") {
+		t.Fatalf("zsh completion should not hard-code run agents:\n%s", got)
 	}
 }
 

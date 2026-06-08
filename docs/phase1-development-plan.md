@@ -442,7 +442,7 @@ Behavior:
 - Prints deterministic shell completion for supported shells, defaulting to bash when `--shell` is omitted.
 - Covers the current command surface, including nested workspace, event, runtime, session, task, phase, progress, and plan subcommands.
 - Supports packaged binary names or aliases through `--command`.
-- Uses read-only dynamic endpoints for local candidates: `adp completion values workspaces` and `adp completion values profiles [--workspace <name>]`.
+- Uses read-only dynamic endpoints for local candidates: `adp completion values agents`, `adp completion values workspaces`, and `adp completion values profiles [--workspace <name>]`.
 
 P16 adds a local command metadata contract for the command surface. Usage text, dispatch wiring, and bash/zsh completion should be checked against that metadata so a command cannot be reachable in one place and missing from another. The contract is for local drift prevention only; it must not become a CLI framework migration, hosted command registry, Web UI, SaaS tracker, automatic Git path, automatic task or phase closure path, provider-native resume path, or project-root export mechanism.
 
@@ -450,7 +450,7 @@ Acceptance:
 
 - Supports bash and zsh.
 - Shell names and command names are conservatively validated.
-- Dynamic value endpoints read local workspace/profile state only; they do not initialize workspaces, access networks, or mutate planning/runtime state.
+- Dynamic value endpoints read the local adapter registry and workspace/profile state only; they do not initialize workspaces, access networks, or mutate planning/runtime state.
 
 ### `adp version`
 
@@ -769,7 +769,7 @@ adp workspace remove game-renamed
 - `adp workspace remove` and `adp workspace rename` modify only ADP workspace registry data.
 - `adp env` prints shell-safe exports for a kept runtime overlay.
 - `adp shell-hook` prints a deterministic shell function for `sh`, `bash`, and `zsh`.
-- `adp completion` prints deterministic completion for `bash` and `zsh`, and `adp completion values` returns local workspace and profile candidates.
+- `adp completion` prints deterministic completion for `bash` and `zsh`, and `adp completion values` returns local agent, workspace, and profile candidates.
 - The P16 command metadata drift check proves the local command inventory, usage text, dispatch wiring, and bash/zsh completion remain aligned without adopting a new CLI framework.
 - `adp version` reports the CLI build identity.
 - `adp events list` prints filtered run history from JSONL events.
@@ -801,7 +801,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 
 - P0 completed: Task and Progress Manager MVP. Store workspace-scoped task state under `$ADP_HOME/workspaces/<workspace>/planning`, expose `adp tasks` and `adp progress`, and validate it with a task-manager smoke.
 - P1 completed: Runtime task binding. Add `adp run --task <task-id>`, inject task context into runtime env and generated adapter instructions, and connect task IDs to events and sessions.
-- P2 completed: Early preview hardening. Dynamic workspace/profile completion, global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes are covered by the aggregate gate and runtime smoke.
+- P2 completed: Early preview hardening. Dynamic agent/workspace/profile completion, global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes are covered by the aggregate gate and runtime smoke.
 - P3 Phase Gate MVP completed: Project planning and execution progress management now has phase records, task claim and owner records, acceptance or gate records, commit records, push records, and task-manager smoke coverage.
 - P3 planning coordination hardening completed: Mutating planning operations use a local lock, task claims enforce owner conflicts and optional leases, owner-checked release is available, tasks validate phase IDs once a phase ledger exists, and phase lifecycle guards enforce accept-before-commit, commit-before-push, and push-before-next-phase discipline.
 - P4 runtime manifest compatibility completed: runtime manifests now use an explicit manifest version, runtime smoke checks core manifest fields, and pruning skips incompatible or self-inconsistent manifests instead of treating every `generated_by: adp` file as safe deletion evidence.

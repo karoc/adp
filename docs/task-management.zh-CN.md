@@ -147,7 +147,7 @@ $ADP_HOME/workspaces/<workspace>/
     └── progress.jsonl
 ```
 
-ADP 默认不会把这些文件写入真实项目根目录。未来如果要把任务状态导出到仓库文档，也应该通过显式用户命令完成，而不是自动修改 project root。
+ADP 不会把这些文件写入真实项目根目录。Planning 和 report 输出应保留在 stdout 或 `$ADP_HOME` 下；仓库文档可以手工总结已验收行为，但 ADP 不能提供 project-root planning 或 report export path。
 
 Phase Gate MVP 继续使用这个本地 planning 目录，并用结构化 phase 和 gate 记录进行扩展。存储仍然保持 local-first，且便于终端读取：
 
@@ -410,7 +410,7 @@ adp sessions show <session-id>
 
 ## 边界
 
-当前 task manager 尚不支持：
+当前 task manager 有意不提供：
 
 - 自动把用户意图拆成任务。
 - 自动把进度报告写入或导出到仓库文档或 project-root 文件。
@@ -420,4 +420,4 @@ adp sessions show <session-id>
 - 自动运行 Git commit 或 Git push 命令。
 - 从命令输出推断验收结果，或在没有显式 task / phase 命令时自动关闭任务。
 
-这些属于后续切片。第一优先级是提供可靠的本地任务状态，让所有终端 Agent 都能读取。
+这些内容保持在范围之外。后续切片应强化本地 ledger、inspection view、diagnostics 和 runtime binding，而不是增加 hosted sync、automatic Git、provider-native resume 或 project-root export。

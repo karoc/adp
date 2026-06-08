@@ -21,7 +21,7 @@ Implemented Phase 1 foundations:
 - `adp env <workspace> [--cd]`
 - `adp shell-hook [--shell <sh|bash|zsh>]`
 - `adp completion [--shell <bash|zsh>] [--command <name>]`
-- `adp completion values <workspaces|profiles> [--workspace <name>]`
+- `adp completion values <agents|workspaces|profiles> [--workspace <name>]`
 - `adp version`
 - `adp events list [--workspace <name>] [--task <task-id>]`
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
@@ -60,6 +60,7 @@ go run ./cmd/adp doctor game-a
 go run ./cmd/adp env game-a --cd
 go run ./cmd/adp shell-hook --shell bash
 go run ./cmd/adp completion --shell bash
+go run ./cmd/adp completion values agents
 go run ./cmd/adp completion values workspaces
 go run ./cmd/adp completion values profiles --workspace game-a
 go run ./cmd/adp version
@@ -111,7 +112,7 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp shell-hook --shell bash` prints a shell function that calls `adp env <workspace> --cd` and evaluates the result in the parent shell. `sh`, `bash`, and `zsh` are supported.
 
-`adp completion [--shell <bash|zsh>] [--command <name>]` prints deterministic shell completion for the current CLI surface. It defaults to bash when `--shell` is omitted. The optional command name lets packaged binaries or aliases render completion for a command name other than `adp`. Generated completion scripts call the read-only local value endpoints `adp completion values workspaces` and `adp completion values profiles [--workspace <name>]` to complete registered workspace names and workspace profile names.
+`adp completion [--shell <bash|zsh>] [--command <name>]` prints deterministic shell completion for the current CLI surface. It defaults to bash when `--shell` is omitted. The optional command name lets packaged binaries or aliases render completion for a command name other than `adp`. Generated completion scripts call the read-only local value endpoints `adp completion values agents`, `adp completion values workspaces`, and `adp completion values profiles [--workspace <name>]` to complete registered adapter names, workspace names, and workspace profile names.
 
 P16 hardens the command surface with a local metadata contract that keeps usage text, dispatch wiring, and bash/zsh completion from drifting apart. This remains part of the existing hand-written CLI implementation; it does not adopt a new CLI framework or add a Web UI, dashboard, SaaS tracker, hosted orchestration, automatic Git workflow, automatic task closure, or provider-native resume path.
 

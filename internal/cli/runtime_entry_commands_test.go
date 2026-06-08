@@ -12,6 +12,7 @@ import (
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/runner"
 	"github.com/karoc/adp/internal/runtime"
+	"github.com/karoc/adp/internal/schema"
 	"github.com/karoc/adp/internal/shell"
 )
 
@@ -119,6 +120,72 @@ func TestRunCommandCanResolveWorkspaceFromCurrentDirectory(t *testing.T) {
 	}
 }
 
+func TestRunCommandUsesRegistryAdapterWithoutProviderSpecificWiring(t *testing.T) {
+	cfg := testConfig()
+	cfg.Agents = map[string]schema.AgentConfig{
+		"future-agent": {Enabled: true, Profile: "builder", Command: "future-cli"},
+	}
+	store := &fakeStore{cfg: cfg}
+	registry := adapters.NewRegistry()
+	adapter := &extensionAdapter{name: "future-agent"}
+	if err := registry.Register(adapter); err != nil {
+		t.Fatal(err)
+	}
+	var buildReq runtime.BuildRequest
+	var launchSpec adapters.LaunchSpec
+	var logged []events.Event
+
+	deps := Dependencies{
+		Layout:         paths.New("/tmp/adp-home", "/tmp/adp-runtime"),
+		WorkspaceStore: store,
+		Adapters:       registry,
+		BuildRuntime: func(_ context.Context, req runtime.BuildRequest) (*runtime.Handle, error) {
+			buildReq = req
+			env := map[string]string{"ADP_RUNTIME_ROOT": "/tmp/runtime"}
+			for key, value := range req.Env {
+				env[key] = value
+			}
+			return &runtime.Handle{SessionID: "session-future", Root: "/tmp/runtime", Env: env}, nil
+		},
+		CleanupRuntime: func(context.Context, runtime.Handle) error { return nil },
+		RunProcess: func(_ context.Context, spec adapters.LaunchSpec, _ runner.Streams) (*runner.Result, error) {
+			launchSpec = spec
+			return &runner.Result{ExitCode: 0}, nil
+		},
+		EventLogger: eventLoggerFunc(func(_ context.Context, event events.Event) error {
+			logged = append(logged, event)
+			return nil
+		}),
+	}
+
+	code := NewApp(deps, &bytes.Buffer{}, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"run", "future-agent", "--workspace", "game-a", "--profile", "special", "--", "--dry-run"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if adapter.renderCtx.Agent.Command != "future-cli" || adapter.renderCtx.Profile != "special" {
+		t.Fatalf("adapter context = %+v", adapter.renderCtx)
+	}
+	if len(buildReq.Files) != 1 || buildReq.Files[0].Path != "FUTURE.md" {
+		t.Fatalf("generated files = %+v", buildReq.Files)
+	}
+	if buildReq.Env["EXTENSION_ENV"] != "1" {
+		t.Fatalf("adapter render env was not passed to runtime build: %#v", buildReq.Env)
+	}
+	if launchSpec.Command != "future-cli" || !reflect.DeepEqual(launchSpec.Args, []string{"--dry-run"}) {
+		t.Fatalf("launch spec = %+v", launchSpec)
+	}
+	if launchSpec.Env["EXTENSION_LAUNCH_ENV"] != "1" || launchSpec.Env["EXTENSION_ENV"] != "1" {
+		t.Fatalf("launch env = %#v", launchSpec.Env)
+	}
+	if len(logged) != 2 || logged[0].Agent != "future-agent" || logged[1].Agent != "future-agent" {
+		t.Fatalf("events = %+v", logged)
+	}
+}
+
 func TestEnvCommandBuildsKeptRuntimeAndPrintsExports(t *testing.T) {
 	store := &fakeStore{cfg: testConfig()}
 	var buildReq runtime.BuildRequest
@@ -198,4 +265,38 @@ func TestEnterCommandWiresRuntimeAndShell(t *testing.T) {
 	if cleaned.Root != "/tmp/runtime" {
 		t.Fatalf("runtime was not cleaned: %+v", cleaned)
 	}
+}
+
+type extensionAdapter struct {
+	name      string
+	renderCtx adapters.Context
+}
+
+func (a *extensionAdapter) Name() string {
+	return a.name
+}
+
+func (a *extensionAdapter) Validate(context.Context, adapters.Context) error {
+	return nil
+}
+
+func (a *extensionAdapter) Render(_ context.Context, ctx adapters.Context) (*adapters.RenderResult, error) {
+	a.renderCtx = ctx
+	return &adapters.RenderResult{
+		Files: []adapters.GeneratedFile{{Path: "FUTURE.md", Mode: 0o644, Data: []byte("future")}},
+		Env:   map[string]string{"EXTENSION_ENV": "1"},
+	}, nil
+}
+
+func (a *extensionAdapter) Launch(_ context.Context, ctx adapters.Context, runtime adapters.RuntimeHandle, args []string) (*adapters.LaunchSpec, error) {
+	command := ctx.Agent.Command
+	if command == "" {
+		command = a.name
+	}
+	return &adapters.LaunchSpec{
+		Command: command,
+		Args:    append([]string(nil), args...),
+		Dir:     runtime.Root,
+		Env:     map[string]string{"EXTENSION_LAUNCH_ENV": "1"},
+	}, nil
 }

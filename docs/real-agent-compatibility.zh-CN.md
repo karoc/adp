@@ -22,6 +22,8 @@ ADP 负责本地 runtime 边界：
 
 ## 共享 Runtime Contract
 
+当前已文档化的真实 Agent adapter contract 是 `codex` 和 `claude`。未来 adapter design notes 在 adapter 实现并验收前应使用中性 placeholder，并且不得描述 provider-native resume 语义。
+
 对于 `adp run <agent> --workspace <name> -- <agent-args>`，ADP 会构建一个 runtime root，其中包含：
 
 - `.adp-runtime.yaml`，即 ADP runtime manifest。

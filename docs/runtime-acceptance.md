@@ -56,6 +56,7 @@ adp tasks add --workspace game-a --priority high --phase p1 "Bind runtime sessio
 adp env game-a --cd
 adp completion --shell bash
 adp completion --shell zsh
+adp completion values agents
 adp completion values workspaces
 adp completion values profiles --workspace game-a
 adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
@@ -93,6 +94,7 @@ The script also checks the local CLI hardening surface:
 - The fake smoke also checks warning-only agent command/profile diagnostics through both doctor entry points: reserved project-root paths, adapter default command fallback, inline command arguments, missing non-default profiles, escaping profile symlinks, and unknown enabled agent entries. These diagnostics stay local and static; they do not run real provider CLIs.
 - `adp version` and `adp --version` print the CLI build identity without requiring network access or provider CLIs.
 - Bash and zsh completion scripts include dynamic value endpoint calls.
+- `adp completion values agents` returns registered adapter names from the local registry.
 - `adp completion values workspaces` returns registered workspace names from local state.
 - `adp completion values profiles --workspace <name>` returns local profile names from workspace configuration and profile files.
 - `adp workspace rename` and `adp workspace remove` mutate only the ADP workspace registry under the temporary `ADP_HOME`; the lifecycle smoke keeps sentinel project files in place, compares project-root entry snapshots so no new project files appear, verifies the runtime directory entry count stays unchanged after add/rename/remove, and checks completion values do not retain stale workspace names.
@@ -228,7 +230,7 @@ This smoke validates ADP's runtime responsibilities:
 - Read-only session restore planning from non-sensitive invocation snapshots.
 - Shell export rendering for parent-shell workflows.
 - Shell completion rendering for bash and zsh.
-- Dynamic local completion value endpoints for workspaces and profiles.
+- Dynamic local completion value endpoints for agents, workspaces, and profiles.
 - Global workspace diagnostics through `adp doctor`.
 - Runtime parent safety diagnostics through workspace and global doctor commands, covering filesystem root, project-root overlap, symlink warning, and non-directory cases.
 - Agent command/profile diagnostics through workspace and global doctor commands, covering adapter default fallback, inline command arguments, path-like command wrappers, missing or ambiguous profile files, profile path escapes, unknown enabled agents, and reserved project-root paths.

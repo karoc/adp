@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/schema"
 	"github.com/karoc/adp/internal/workspace"
 )
@@ -80,6 +81,28 @@ func TestCompletionValuesProfilesUsesWorkspaceEnvFallback(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
 	if got, want := stdout.String(), "default\n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+}
+
+func TestCompletionValuesAgentsUsesAdapterRegistry(t *testing.T) {
+	registry := adapters.NewRegistry()
+	for _, name := range []string{"future-agent", "codex"} {
+		if err := registry.Register(&fakeAdapter{name: name}); err != nil {
+			t.Fatalf("Register(%q) error = %v", name, err)
+		}
+	}
+	var stdout bytes.Buffer
+
+	code := NewApp(Dependencies{Adapters: registry}, &stdout, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"completion", "values", "agents"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if got, want := stdout.String(), "codex\nfuture-agent\n"; got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 }

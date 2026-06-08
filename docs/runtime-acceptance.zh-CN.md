@@ -56,6 +56,7 @@ adp tasks add --workspace game-a --priority high --phase p1 "Bind runtime sessio
 adp env game-a --cd
 adp completion --shell bash
 adp completion --shell zsh
+adp completion values agents
 adp completion values workspaces
 adp completion values profiles --workspace game-a
 adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
@@ -93,6 +94,7 @@ fake Codex 和 Claude 命令会断言：
 - fake smoke 也会通过两个 doctor 入口检查 warning-only agent command/profile diagnostics：project root 中的保留路径、adapter default command fallback、inline command arguments、缺失的非 default profile、逃逸到 workspace 外部的 profile symlink，以及 enabled 但未知的 agent 配置。这些 diagnostics 只做本地静态检查，不运行真实 provider CLI。
 - `adp version` 和 `adp --version` 可以在不访问网络、不依赖 provider CLI 的情况下输出 CLI build identity。
 - bash 和 zsh completion 脚本包含动态值端点调用。
+- `adp completion values agents` 从本地 registry 返回已注册 adapter 名称。
 - `adp completion values workspaces` 从本地状态返回已注册 workspace 名称。
 - `adp completion values profiles --workspace <name>` 从 workspace 配置和 profile 文件中返回本地 profile 名称。
 - `adp workspace rename` 和 `adp workspace remove` 只修改临时 `ADP_HOME` 下的 ADP workspace registry；lifecycle smoke 会保留 sentinel project 文件，通过 project-root entry snapshot 比对确认不会新增项目文件，验证 add/rename/remove 后 runtime directory entry count 都保持不变，并确认 completion values 不会保留 stale workspace names。
@@ -228,7 +230,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 基于非敏感 invocation snapshot 打印只读 session restore plan。
 - 为 parent-shell workflow 渲染 shell exports。
 - 为 bash 和 zsh 渲染 shell completion。
-- 为 workspace 和 profile 提供动态本地 completion 值端点。
+- 为 agent、workspace 和 profile 提供动态本地 completion 值端点。
 - 通过 `adp doctor` 提供全局 workspace diagnostics。
 - 通过 workspace 和全局 doctor 命令检查 runtime parent 安全性，覆盖文件系统根目录、project-root overlap、symlink warning 和非目录场景。
 - 通过 workspace 和全局 doctor 命令检查 agent command/profile diagnostics，覆盖 adapter default fallback、inline command arguments、路径型 command wrapper、缺失或重复的 profile 文件、profile path escape、未知 enabled agent，以及 project root 中的保留路径。

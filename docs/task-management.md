@@ -147,7 +147,7 @@ $ADP_HOME/workspaces/<workspace>/
     └── progress.jsonl
 ```
 
-ADP does not write these files into the real project root by default. Exporting task state into repository documentation should be an explicit user action in a future command, not automatic project-root mutation.
+ADP does not write these files into the real project root. Planning and report output should stay on stdout or under `$ADP_HOME`; repository documentation may summarize accepted behavior manually, but ADP must not provide project-root planning or report export paths.
 
 The Phase Gate MVP keeps using this local planning directory and extends it with structured phase and gate records. The storage remains local-first and terminal-readable:
 
@@ -410,7 +410,7 @@ This keeps task history, validation evidence, and Git history aligned.
 
 ## Boundary
 
-The current task manager does not yet:
+The current task manager intentionally does not provide:
 
 - Automatically split user intent into tasks.
 - Write or export progress reports into repository documentation or project-root files automatically.
@@ -420,4 +420,4 @@ The current task manager does not yet:
 - Run Git commit or Git push commands automatically.
 - Infer acceptance from command output or close tasks automatically without explicit task or phase commands.
 
-Those are future slices. The first priority is a reliable local task state that all terminal agents can read.
+These remain out of scope. Future slices should strengthen the local ledger, inspection views, diagnostics, and runtime binding without adding hosted sync, automatic Git, provider-native resume, or project-root exports.

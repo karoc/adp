@@ -16,6 +16,8 @@ func (a *App) completionValues(ctx context.Context, args []string) error {
 
 	var values []string
 	switch opts.kind {
+	case "agents":
+		values, err = a.completionAgentValues()
 	case "workspaces":
 		values, err = a.completionWorkspaceValues(ctx)
 	case "profiles":
@@ -30,6 +32,13 @@ func (a *App) completionValues(ctx context.Context, args []string) error {
 		fmt.Fprintln(a.stdout, value)
 	}
 	return nil
+}
+
+func (a *App) completionAgentValues() ([]string, error) {
+	if a.deps.Adapters == nil {
+		return nil, errors.New("adapter registry is not configured")
+	}
+	return a.deps.Adapters.Names(), nil
 }
 
 func (a *App) completionWorkspaceValues(ctx context.Context) ([]string, error) {

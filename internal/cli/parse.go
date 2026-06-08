@@ -181,7 +181,7 @@ func parseCompletionArgs(args []string) (shell.CompletionOptions, error) {
 
 func parseCompletionValuesArgs(args []string) (completionValuesOptions, error) {
 	if len(args) == 0 {
-		return completionValuesOptions{}, errors.New("usage: adp completion values <workspaces|profiles> [--workspace <name>]")
+		return completionValuesOptions{}, errors.New("usage: adp completion values <agents|workspaces|profiles> [--workspace <name>]")
 	}
 	opts := completionValuesOptions{kind: args[0]}
 	for i := 1; i < len(args); i++ {

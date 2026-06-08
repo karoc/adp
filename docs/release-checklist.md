@@ -69,7 +69,7 @@ The fake runtime smoke verifies:
 - Agent command/profile diagnostics: fake smoke covers reserved project-root paths, adapter default command fallback, inline command arguments, missing non-default profiles, escaping profile symlinks, and unknown enabled agent entries; Go tests cover path-like missing or non-executable command wrappers and ambiguous profile files.
 - Shell export rendering.
 - Bash and zsh completion rendering.
-- Dynamic completion value endpoints for local workspaces and profiles.
+- Dynamic completion value endpoints for local agents, workspaces, and profiles.
 - Global `adp doctor [workspace]` diagnostics.
 - `adp version` and `adp --version` output.
 - ADP-owned runtime pruning.
@@ -151,7 +151,7 @@ If a task-bound runtime smoke step fails, inspect workspace resolution, task loo
 
 If a diagnostics step fails, compare `adp doctor [workspace]` with `adp workspace doctor [name]` and inspect the local workspace registry, project root, `ADP_RUNTIME_DIR`, referenced prompts, memory files, MCP files, profile files, and agent command settings. For runtime parent failures, confirm `ADP_RUNTIME_DIR` is not the filesystem root, not equal to the project root, not inside the project root, not a parent directory containing the project root, not a file, and not an unintended symlink. For agent command/profile warnings, check whether the enabled agent has an adapter default, whether `command` contains inline arguments that should be passed after `--` or moved into a wrapper, whether path-like command wrappers exist and are executable, whether non-default profile files are missing or duplicated, and whether profile files escape the workspace through symlinks or path traversal.
 
-If a completion value step fails, inspect local workspace name discovery under `$ADP_HOME/workspaces`, `ADP_WORKSPACE` or `--workspace` resolution, workspace agent profiles, and files under the workspace `profiles/` directory. Completion value endpoints must stay read-only and local.
+If a completion value step fails, inspect the local adapter registry, local workspace name discovery under `$ADP_HOME/workspaces`, `ADP_WORKSPACE` or `--workspace` resolution, workspace agent profiles, and files under the workspace `profiles/` directory. Completion value endpoints must stay read-only and local.
 
 If a version step fails, inspect the CLI build variables in `internal/cli` and the release `-ldflags` described in [release-packaging.md](release-packaging.md). Development builds may print `dev`; packaged preview binaries should inject version, commit, and build date.
 
