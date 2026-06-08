@@ -19,8 +19,10 @@ type fakeTaskStore struct {
 	planReq           taskstore.PlanImportRequest
 	planPreviewResult taskstore.PlanImportResult
 	planApplyResult   taskstore.PlanImportResult
+	planningReport    taskstore.PlanningDiagnosticReport
 	previewCalls      int
 	applyCalls        int
+	doctorCalls       int
 }
 
 func (s *fakeTaskStore) Add(_ context.Context, req taskstore.AddRequest) (taskstore.Task, error) {
@@ -82,6 +84,11 @@ func (s *fakeTaskStore) ApplyPlanImport(_ context.Context, req taskstore.PlanImp
 	s.planReq = req
 	s.applyCalls++
 	return s.planApplyResult, nil
+}
+
+func (s *fakeTaskStore) DiagnosePlanning(context.Context) (taskstore.PlanningDiagnosticReport, error) {
+	s.doctorCalls++
+	return s.planningReport, nil
 }
 
 func (s *fakeTaskStore) AddPhase(_ context.Context, req taskstore.PhaseAddRequest) (taskstore.Phase, error) {

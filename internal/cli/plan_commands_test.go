@@ -178,6 +178,104 @@ func TestPlanApplyCommandReadsStdinAndPrintsJSONSource(t *testing.T) {
 	assertJSONStringField(t, payload, "source", "-")
 }
 
+func TestPlanDoctorCommandPrintsHealthyTextReport(t *testing.T) {
+	store := &fakeTaskStore{
+		planningReport: taskstore.PlanningDiagnosticReport{
+			WorkspaceDir:       "/tmp/adp-home/workspaces/game-a",
+			PlanningDir:        "/tmp/adp-home/workspaces/game-a/planning",
+			TasksPath:          "/tmp/adp-home/workspaces/game-a/planning/tasks.yaml",
+			PhasesPath:         "/tmp/adp-home/workspaces/game-a/planning/phases.yaml",
+			ProgressPath:       "/tmp/adp-home/workspaces/game-a/planning/progress.jsonl",
+			TaskCount:          2,
+			PhaseCount:         1,
+			ProgressEventCount: 4,
+			PhaseGate: taskstore.PhaseGate{
+				CanStartNext: true,
+				NextAction:   taskstore.PhaseGateActionStartNextPhase,
+			},
+		},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{"plan", "doctor", "--workspace", "game-a"})
+
+	if code != 0 {
+		t.Fatalf("plan doctor exit code = %d, stderr = %q", code, stderr.String())
+	}
+	if store.doctorCalls != 1 {
+		t.Fatalf("doctor calls = %d, want 1", store.doctorCalls)
+	}
+	for _, want := range []string{"workspace: game-a", "planning_dir: /tmp/adp-home/workspaces/game-a/planning", "status: ok", "task_count: 2", "phase_count: 1", "progress_event_count: 4", "phase_gate_next_action: start_next_phase", "diagnostics: -"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("plan doctor text missing %q: %q", want, stdout.String())
+		}
+	}
+}
+
+func TestPlanDoctorCommandPrintsJSONAndReturnsTwoForErrors(t *testing.T) {
+	store := &fakeTaskStore{
+		planningReport: taskstore.PlanningDiagnosticReport{
+			WorkspaceDir:       "/tmp/adp-home/workspaces/game-a",
+			PlanningDir:        "/tmp/adp-home/workspaces/game-a/planning",
+			TasksPath:          "/tmp/adp-home/workspaces/game-a/planning/tasks.yaml",
+			PhasesPath:         "/tmp/adp-home/workspaces/game-a/planning/phases.yaml",
+			ProgressPath:       "/tmp/adp-home/workspaces/game-a/planning/progress.jsonl",
+			TaskCount:          1,
+			PhaseCount:         1,
+			ProgressEventCount: 1,
+			PhaseGate: taskstore.PhaseGate{
+				PhaseCount:       1,
+				CanStartNext:     false,
+				NextAction:       taskstore.PhaseGateActionRecordAcceptance,
+				Reason:           "phase p3 is active",
+				OpenPhase:        phasePtr(testPhase("p3", "Phase Gate MVP", taskstore.PhaseStatusActive)),
+				NextPlannedPhase: nil,
+			},
+			Diagnostics: []taskstore.PlanningDiagnostic{{
+				Level:   taskstore.PlanningDiagnosticLevelError,
+				Code:    taskstore.PlanningDiagnosticCodeProgressInvalidJSON,
+				Message: "progress event line 7 is not valid JSON",
+				Path:    "/tmp/adp-home/workspaces/game-a/planning/progress.jsonl",
+				Line:    7,
+			}},
+		},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{"plan", "doctor", "--workspace", "game-a", "--format", "json"})
+
+	if code != 2 {
+		t.Fatalf("plan doctor exit code = %d, want 2; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	assertJSONStringField(t, payload, "workspace", "game-a")
+	assertJSONStringField(t, payload, "status", "error")
+	assertJSONBoolField(t, payload, "has_errors", true)
+	assertJSONNumberField(t, payload, "diagnostic_count", 1)
+	assertJSONNumberField(t, payload, "error_count", 1)
+	assertJSONObjectField(t, payload, "phase_gate")
+	diagnostics := assertJSONObjectListField(t, payload, "diagnostics")
+	if len(diagnostics) != 1 {
+		t.Fatalf("diagnostics length = %d, want 1", len(diagnostics))
+	}
+	assertJSONStringField(t, diagnostics[0], "level", "error")
+	assertJSONStringField(t, diagnostics[0], "code", taskstore.PlanningDiagnosticCodeProgressInvalidJSON)
+	assertJSONNumberField(t, diagnostics[0], "line", 7)
+}
+
 func TestPlanCommandRejectsInvalidArgsAndInput(t *testing.T) {
 	deps := Dependencies{
 		WorkspaceStore:   &fakeStore{cfg: testConfig()},
@@ -227,6 +325,10 @@ func TestPlanCommandRejectsInvalidArgsAndInput(t *testing.T) {
 	if !strings.Contains(stderr.String(), "task[0].title is required") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
+}
+
+func phasePtr(phase taskstore.Phase) *taskstore.Phase {
+	return &phase
 }
 
 func TestPlanImportOutputJSONShape(t *testing.T) {

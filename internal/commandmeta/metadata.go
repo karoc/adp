@@ -143,12 +143,13 @@ var rootCommands = []Command{
 	},
 	{
 		Name:        "plan",
-		Description: "preview or apply structured local planning input",
+		Description: "preview, apply, or diagnose local planning state",
 		Usage: []string{
 			"adp plan preview [--workspace <name>] --file <path|-> [--format <text|json>]",
 			"adp plan apply [--workspace <name>] --file <path|-> [--format <text|json>]",
+			"adp plan doctor [--workspace <name>] [--format <text|json>]",
 		},
-		Subcommands: values("preview", "apply"),
+		Subcommands: values("preview", "apply", "doctor"),
 		Options: describedValues(valueDescriptions{
 			"--workspace": "workspace name",
 			"-w":          "workspace name",

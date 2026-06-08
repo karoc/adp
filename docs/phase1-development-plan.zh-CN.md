@@ -16,7 +16,7 @@ ADP Phase 1 的产品核心是一个 terminal-first 的 Agent Runtime Environmen
 - 注册 workspace，保存真实项目根目录与 ADP runtime 配置的映射。
 - 为 Agent 构建临时 runtime overlay，让 Agent 在不污染真实项目目录的前提下看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等配置文件。
 - 提供 Claude Code CLI 与 Codex CLI 两个 adapter。
-- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show/restore-plan`、`adp runtime prune`、`adp enter`、`adp run`，以及本地 planning 命令 `adp tasks`、`adp phase`、`adp phase status`、`adp progress` 和 `adp plan preview/apply`。
+- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show/restore-plan`、`adp runtime prune`、`adp enter`、`adp run`，以及本地 planning 命令 `adp tasks`、`adp phase`、`adp phase status`、`adp progress` 和 `adp plan preview/apply/doctor`。
 - 记录本地 JSONL event log，为后续 replay、session restore、inspection-only handoff evidence 和 terminal-based 多 Agent 协作预留数据基础。
 
 Phase 1 明确不做：
@@ -747,6 +747,7 @@ adp completion --shell bash
 adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task"
 adp tasks next --workspace game-a --limit 0 --format json
 adp plan preview --workspace game-a --file plan.yaml
+adp plan doctor --workspace game-a --format json
 adp run codex --workspace game-a --task <task-id> -- --version
 cd /srv/game-a && adp run claude -- --version
 adp events list --workspace game-a --task <task-id>
@@ -774,6 +775,7 @@ adp workspace remove game-renamed
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 会向 stdout 打印紧凑的优先级 next-work snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp phase status [--workspace <name>] [--format text|json]` 会向 stdout 打印紧凑的只读 phase gate snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` 接收结构化本地 planning 输入；preview 保持只读，apply 只写 `$ADP_HOME` 下的本地 planning ledger，失败 apply 不留下 partial phase、task 或 progress state。
+- `adp plan doctor [--workspace <name>] [--format text|json]` 会输出只读本地 planning ledger diagnostics，覆盖 task、phase、progress-log、lock 和 phase-gate invariants；存在 error-level diagnostics 时返回退出码 `2`，并保持 planning state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
 - `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
@@ -828,6 +830,7 @@ Phase process gate：
 - P23 line pressure audit tooling 已完成：`scripts/check-file-lines.sh --audit` 会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的文件，默认阈值为 600，并以退出码 0 结束，便于在触及 700 行硬限制前规划拆分阶段。必跑的 `scripts/check-file-lines.sh` 硬门禁和 `scripts/check-all.sh` pass/fail 语义保持不变。
 - P24 phase gate status and ordering hardening 已完成：`adp phase status [--workspace <name>] [--format text|json]` 暴露只读本地 gate snapshot；新 phase 带有显式本地 order；phase start 会拒绝跳过更早 planned 或 unfinished phases；successful push evidence 不能被 failed push evidence 覆盖。
 - P25 shell completion renderer split 已完成：bash 和 zsh completion rendering 已拆到按 shell 区分的文件中，同时 `RenderCompletion`、command-name validation、基于 metadata 的候选项、动态本地 value endpoints 以及公开 `adp completion` 行为保持不变。该阶段只属于维护性的 line-pressure 工作，不新增命令、shell 类型、Web/SaaS 行为、automatic Git execution、hosted orchestration、provider-native resume 或 project-root exports。
+- P26 planning ledger doctor 已完成：`adp plan doctor [--workspace <name>] [--format text|json]` 会报告 task、phase、progress-log、lock 和 phase-gate invariants 的只读本地 diagnostics；error diagnostics 返回退出码 `2`；focused tests 和 task-manager smoke 覆盖健康与坏账本路径，并且不做 automatic repair、Git execution、runtime mutation、hosted tracker sync 或 project-root exports。
 - 已完成的 Phase 1 slices 保持同一组非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
 每个阶段切片必须先完成 validation、acceptance、commit、push 和 evidence record，然后再开始下一阶段。

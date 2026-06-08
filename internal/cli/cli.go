@@ -58,6 +58,7 @@ type TaskStore interface {
 	Progress(context.Context) (taskstore.Progress, error)
 	PreviewPlanImport(context.Context, taskstore.PlanImportRequest) (taskstore.PlanImportResult, error)
 	ApplyPlanImport(context.Context, taskstore.PlanImportRequest) (taskstore.PlanImportResult, error)
+	DiagnosePlanning(context.Context) (taskstore.PlanningDiagnosticReport, error)
 	AddPhase(context.Context, taskstore.PhaseAddRequest) (taskstore.Phase, error)
 	ListPhases(context.Context) ([]taskstore.Phase, error)
 	GetPhase(context.Context, string) (taskstore.Phase, error)

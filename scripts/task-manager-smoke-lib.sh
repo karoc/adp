@@ -197,6 +197,25 @@ run_adp_expect_fail() {
   printf '%s\n' "$output"
 }
 
+run_adp_expect_code() {
+  local want_code="$1"
+  local dir="$2"
+  local output
+  local code
+  shift 2
+
+  set +e
+  output=$(cd "$dir" && "$ADP_BIN" "$@" 2>&1)
+  code=$?
+  set -e
+
+  if [ "$code" != "$want_code" ]; then
+    printf '%s\n' "$output" >&2
+    fail "adp $* exit code $code, want $want_code"
+  fi
+  printf '%s\n' "$output"
+}
+
 assert_progress_report_json() {
   local output="$1"
   local done_task="$2"

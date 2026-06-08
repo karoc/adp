@@ -16,7 +16,7 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Register workspaces that map project roots to ADP runtime configuration.
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
-- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show/restore-plan`, `adp runtime prune`, `adp enter`, `adp run`, and the local planning commands `adp tasks`, `adp phase`, `adp phase status`, `adp progress`, and `adp plan preview/apply`.
+- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show/restore-plan`, `adp runtime prune`, `adp enter`, `adp run`, and the local planning commands `adp tasks`, `adp phase`, `adp phase status`, `adp progress`, and `adp plan preview/apply/doctor`.
 - Write a local JSONL event log for future replay, session restore, inspection-only handoff evidence, and terminal-based multi-agent coordination.
 
 Phase 1 explicitly excludes:
@@ -748,6 +748,7 @@ adp completion --shell bash
 adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task"
 adp tasks next --workspace game-a --limit 0 --format json
 adp plan preview --workspace game-a --file plan.yaml
+adp plan doctor --workspace game-a --format json
 adp run codex --workspace game-a --task <task-id> -- --version
 cd /srv/game-a && adp run claude -- --version
 adp events list --workspace game-a --task <task-id>
@@ -777,6 +778,7 @@ adp workspace remove game-renamed
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` prints a compact prioritized next-work snapshot to stdout, exposes a stable JSON contract for local tools, and leaves task state, phase state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
 - `adp phase status [--workspace <name>] [--format text|json]` prints a compact read-only phase gate snapshot to stdout, exposes a stable JSON contract for local tools, and leaves task state, phase state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
 - `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` accepts structured local planning input; preview stays read-only, apply writes only the local planning ledger under `$ADP_HOME`, and failed apply leaves no partial phase, task, or progress state.
+- `adp plan doctor [--workspace <name>] [--format text|json]` prints read-only local planning ledger diagnostics for task, phase, progress-log, lock, and phase-gate invariants, returns exit code `2` for error-level diagnostics, and leaves planning state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
 - `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
@@ -828,6 +830,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P23 line pressure audit tooling completed: `scripts/check-file-lines.sh --audit` reports files at or above `LINE_PRESSURE_WARN_LINES`, defaulting to 600, and exits zero so split phases can be planned before the hard 700-line cap is breached. The required `scripts/check-file-lines.sh` hard gate and `scripts/check-all.sh` pass/fail semantics remain unchanged.
 - P24 phase gate status and ordering hardening completed: `adp phase status [--workspace <name>] [--format text|json]` exposes a read-only local gate snapshot, new phases carry explicit local order, phase start rejects skipped earlier planned or unfinished phases, and successful push evidence cannot be overwritten by failed push evidence.
 - P25 shell completion renderer split completed: bash and zsh completion rendering are split into shell-specific files while `RenderCompletion`, command-name validation, metadata-backed candidates, dynamic local value endpoints, and public `adp completion` behavior remain unchanged. This is maintenance-only line-pressure work and does not add commands, shell types, Web/SaaS behavior, automatic Git execution, hosted orchestration, provider-native resume, or project-root exports.
+- P26 planning ledger doctor completed: `adp plan doctor [--workspace <name>] [--format text|json]` reports read-only local diagnostics for task, phase, progress-log, lock, and phase-gate invariants; error diagnostics return exit code `2`; healthy and broken ledger paths are covered by focused tests and task-manager smoke without automatic repair, Git execution, runtime mutation, hosted tracker sync, or project-root exports.
 - Completed Phase 1 slices keep the same non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 
 Each phase slice must be validated, accepted, committed, pushed, and recorded before the next slice starts.

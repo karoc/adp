@@ -88,11 +88,11 @@ example workspace smoke 验证：
 - 通过复制后的示例执行 fake local agent 会记录 session history，并支持只读 restore planning。
 - 示例文档和发布声明有可执行路径支撑。
 
-`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口。它会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/next/show/update/claim/release/block/done`、`adp phase add/list/show/status/start/accept/commit/push`、`adp progress` 和 `adp progress report`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，next-work/report 生成保持只读，且没有 planning 或 report artifacts 写入真实项目根目录。
+`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase、planning doctor 和 progress report runtime acceptance 的公开入口。它会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/next/show/update/claim/release/block/done`、`adp phase add/list/show/status/start/accept/commit/push`、`adp plan doctor`、`adp progress` 和 `adp progress report`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，next-work/plan-doctor/report 生成保持只读，error-level planning doctor diagnostics 返回退出码 `2`，且没有 planning 或 report artifacts 写入真实项目根目录。
 
 P9 可以把共享 smoke helpers 和 JSON report validator 移到 `scripts/` 下的 helper files 中。这种拆分只是维护和 hardening 的实现细节；调用者仍然运行 `scripts/task-manager-smoke.sh`，release gate 仍然通过 `scripts/check-all.sh` 运行它。
 
-phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership、带 owner 校验的 release、task phase validation、acceptance 或 gate records、commit records、push records、只读 phase gate status snapshots、lifecycle ordering guards，以及项目根目录污染防护。它会断言 earlier phase 没有 successful pushed evidence 时不能启动 later phase，并在该 evidence 记录后可以启动 later phase。Go 测试还会覆盖 planning lock 行为、claim conflicts、lease expiry、terminal-task claim rejection、failed acceptance、failed push 语义和显式 phase ordering。不要为尚不存在的命令添加 placeholder assertions。
+phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership、带 owner 校验的 release、task phase validation、acceptance 或 gate records、commit records、push records、只读 phase gate status snapshots、只读 planning ledger diagnostics、lifecycle ordering guards，以及项目根目录污染防护。它会断言 earlier phase 没有 successful pushed evidence 时不能启动 later phase，并在该 evidence 记录后可以启动 later phase。Go 测试还会覆盖 planning lock 行为、claim conflicts、lease expiry、terminal-task claim rejection、failed acceptance、failed push 语义、显式 phase ordering 和 planning doctor invariants。不要为尚不存在的命令添加 placeholder assertions。
 
 `scripts/plan-intake-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，并用来自文件以及通过 `--file -` 从 stdin 传入的结构化 YAML 输入验证 `adp plan preview` 和 `adp plan apply`。它证明 preview 保持只读，apply 只写 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地 planning ledger，JSON 输出仍是 inspection format，fresh workspace 上的 invalid input 不会留下 planning 目录，staging failure 不会留下 partial phase/task/progress state，并且不会产生 runtime、Git、event log 或真实 project-root 副作用。
 
@@ -148,7 +148,7 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 `scripts/example-workspace-smoke.sh` 失败，优先检查复制后的 `examples/basic-workspace/workspace.yaml` 是否仍匹配当前 schema，以及 `adp env <workspace> --cd` 是否仍能生成带项目文件 symlink 的 kept runtime。
 
-如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储、next-work JSON selection、helper wiring、JSON report validation、next-work/report read-only 检查，以及项目根目录污染防护。
+如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储、planning doctor diagnostics 和退出码 `2` 行为、next-work JSON selection、helper wiring、JSON report validation、next-work/plan-doctor/report read-only 检查，以及项目根目录污染防护。
 
 如果 `scripts/plan-intake-smoke.sh` 失败，优先检查 plan input 解析、plan preview 只读行为、显式 apply 写入 `$ADP_HOME`、planning batch rollback 行为、JSON 输出结构，以及 project-root/runtime/Git 副作用检查。
 

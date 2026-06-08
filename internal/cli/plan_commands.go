@@ -12,7 +12,7 @@ import (
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
-const planInputUsage = "adp plan <preview|apply> [--workspace <name>] --file <path|-> [--format <text|json>]"
+const planInputUsage = "adp plan <preview|apply|doctor>"
 
 func (a *App) plan(ctx context.Context, args []string) error {
 	if len(args) == 0 {
@@ -23,6 +23,8 @@ func (a *App) plan(ctx context.Context, args []string) error {
 		return a.planPreview(ctx, args[1:])
 	case "apply":
 		return a.planApply(ctx, args[1:])
+	case "doctor":
+		return a.planDoctor(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown plan command %q", args[0])
 	}
@@ -80,6 +82,32 @@ func (a *App) planApply(ctx context.Context, args []string) error {
 	})
 }
 
+func (a *App) planDoctor(ctx context.Context, args []string) error {
+	opts, err := parseWorkspaceOutputArgs(args, "adp plan doctor [--workspace <name>] [--format <text|json>]")
+	if err != nil {
+		return err
+	}
+	store, workspaceName, err := a.loadTaskStore(ctx, opts.workspace)
+	if err != nil {
+		return err
+	}
+	report, err := store.DiagnosePlanning(ctx)
+	if err != nil {
+		return err
+	}
+	if opts.format == outputFormatJSON {
+		if err := writePlanningJSON(a.stdout, planningDoctorOutput(workspaceName, report)); err != nil {
+			return err
+		}
+	} else if err := a.printPlanningDoctorReport(workspaceName, report); err != nil {
+		return err
+	}
+	if report.HasErrors() {
+		return processExitError{code: 2}
+	}
+	return nil
+}
+
 type planImportPrintRequest struct {
 	workspace string
 	mode      string
@@ -111,6 +139,47 @@ func (a *App) printPlanImportResult(req planImportPrintRequest) error {
 		return nil
 	}
 	return a.printTaskTable(req.result.Tasks)
+}
+
+func (a *App) printPlanningDoctorReport(workspaceName string, report taskstore.PlanningDiagnosticReport) error {
+	status := "ok"
+	if report.HasErrors() {
+		status = "error"
+	}
+	fmt.Fprintf(a.stdout, "workspace: %s\n", workspaceName)
+	fmt.Fprintf(a.stdout, "planning_dir: %s\n", valueOrDash(report.PlanningDir))
+	fmt.Fprintf(a.stdout, "status: %s\n", status)
+	fmt.Fprintf(a.stdout, "task_count: %d\n", report.TaskCount)
+	fmt.Fprintf(a.stdout, "phase_count: %d\n", report.PhaseCount)
+	fmt.Fprintf(a.stdout, "progress_event_count: %d\n", report.ProgressEventCount)
+	fmt.Fprintf(a.stdout, "error_count: %d\n", report.ErrorCount())
+	fmt.Fprintf(a.stdout, "warning_count: %d\n", report.WarningCount())
+	fmt.Fprintf(a.stdout, "phase_gate_next_action: %s\n", valueOrDash(report.PhaseGate.NextAction))
+	fmt.Fprintf(a.stdout, "phase_gate_can_start_next: %t\n", report.PhaseGate.CanStartNext)
+	if len(report.Diagnostics) == 0 {
+		fmt.Fprintln(a.stdout, "diagnostics: -")
+		return nil
+	}
+	fmt.Fprintln(a.stdout, "diagnostics:")
+	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(writer, "LEVEL\tCODE\tLINE\tMESSAGE\tPATH")
+	for _, diagnostic := range report.Diagnostics {
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n",
+			diagnostic.Level,
+			valueOrDash(diagnostic.Code),
+			diagnosticLine(diagnostic.Line),
+			valueOrDash(diagnostic.Message),
+			valueOrDash(diagnostic.Path),
+		)
+	}
+	return writer.Flush()
+}
+
+func diagnosticLine(line int) string {
+	if line <= 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d", line)
 }
 
 func readPlanImportRequest(path string) (taskstore.PlanImportRequest, error) {

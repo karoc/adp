@@ -199,6 +199,10 @@ func (s *runTaskStore) ApplyPlanImport(context.Context, taskstore.PlanImportRequ
 	return taskstore.PlanImportResult{}, errors.New("not implemented")
 }
 
+func (s *runTaskStore) DiagnosePlanning(context.Context) (taskstore.PlanningDiagnosticReport, error) {
+	return taskstore.PlanningDiagnosticReport{}, errors.New("not implemented")
+}
+
 func (s *runTaskStore) AddPhase(context.Context, taskstore.PhaseAddRequest) (taskstore.Phase, error) {
 	return taskstore.Phase{}, errors.New("not implemented")
 }

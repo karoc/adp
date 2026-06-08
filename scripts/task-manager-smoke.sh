@@ -135,6 +135,96 @@ assert_text_unchanged "$project_root_before" "$(project_root_state)" "phase stat
 assert_text_unchanged "$git_before" "$(git_state)" "phase status" "Git state"
 assert_project_root_clean
 
+info "checking planning doctor read-only output"
+tasks_before=$(cat "$TASKS_FILE")
+phases_before=$(cat "$PHASES_FILE")
+progress_before=$(cat "$PROGRESS_FILE")
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+
+output=$(run_adp "$REPO_ROOT" plan doctor --workspace game-a)
+assert_contains "$output" "workspace: game-a" "plan doctor output"
+assert_contains "$output" "planning_dir: $ADP_HOME/workspaces/game-a/planning" "plan doctor output"
+assert_contains "$output" "status: ok" "plan doctor output"
+assert_contains "$output" "task_count: 1" "plan doctor output"
+assert_contains "$output" "phase_count: 2" "plan doctor output"
+assert_contains "$output" "progress_event_count:" "plan doctor output"
+assert_contains "$output" "phase_gate_next_action: record_acceptance" "plan doctor output"
+assert_contains "$output" "phase_gate_can_start_next: false" "plan doctor output"
+assert_contains "$output" "diagnostics: -" "plan doctor output"
+
+output=$(run_adp "$REPO_ROOT" plan doctor --workspace game-a --format json)
+assert_json_field "$output" "workspace" "plan doctor json output"
+assert_json_field "$output" "planning_dir" "plan doctor json output"
+assert_json_field "$output" "status" "plan doctor json output"
+assert_json_field "$output" "diagnostics" "plan doctor json output"
+assert_json_field "$output" "phase_gate" "plan doctor json output"
+assert_contains "$output" "\"status\": \"ok\"" "plan doctor json output"
+assert_contains "$output" "\"task_count\": 1" "plan doctor json output"
+assert_contains "$output" "\"phase_count\": 2" "plan doctor json output"
+assert_contains "$output" "\"has_errors\": false" "plan doctor json output"
+assert_contains "$output" "\"diagnostics\": []" "plan doctor json output"
+
+assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "plan doctor"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "plan doctor" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "plan doctor" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "plan doctor" "Git state"
+assert_project_root_clean
+
+info "checking planning doctor broken-ledger diagnostics"
+output=$(run_adp "$REPO_ROOT" workspace add broken "$PROJECT_ROOT")
+assert_contains "$output" 'workspace "broken" added' "workspace add broken output"
+BROKEN_PLANNING_DIR="$ADP_HOME/workspaces/broken/planning"
+BROKEN_TASKS_FILE="$BROKEN_PLANNING_DIR/tasks.yaml"
+BROKEN_PHASES_FILE="$BROKEN_PLANNING_DIR/phases.yaml"
+BROKEN_PROGRESS_FILE="$BROKEN_PLANNING_DIR/progress.jsonl"
+mkdir -p "$BROKEN_PLANNING_DIR"
+printf '%s\n' \
+  'version: 1' \
+  'tasks:' \
+  '  - id: task-broken' \
+  '    title: Broken task' \
+  '    status: ready' \
+  '    priority: critical' \
+  '    phase: missing-phase' \
+  '    created_at: 2026-06-08T12:00:00Z' \
+  '    updated_at: 2026-06-08T12:00:00Z' \
+  > "$BROKEN_TASKS_FILE"
+printf '%s\n' \
+  'version: 1' \
+  'phases:' \
+  '  - id: p-broken' \
+  '    title: Broken phase' \
+  '    status: planned' \
+  '    order: 1' \
+  '    created_at: 2026-06-08T12:00:00Z' \
+  '    updated_at: 2026-06-08T12:00:00Z' \
+  > "$BROKEN_PHASES_FILE"
+printf '%s\n' '{"type":"task_created","task_id":"task-broken"}' > "$BROKEN_PROGRESS_FILE"
+
+broken_tasks_before=$(cat "$BROKEN_TASKS_FILE")
+broken_phases_before=$(cat "$BROKEN_PHASES_FILE")
+broken_progress_before=$(cat "$BROKEN_PROGRESS_FILE")
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+
+output=$(run_adp_expect_code 2 "$REPO_ROOT" plan doctor --workspace broken --format json)
+assert_contains "$output" "\"workspace\": \"broken\"" "broken plan doctor json output"
+assert_contains "$output" "\"status\": \"error\"" "broken plan doctor json output"
+assert_contains "$output" "\"has_errors\": true" "broken plan doctor json output"
+assert_contains "$output" "\"level\": \"error\"" "broken plan doctor json output"
+assert_contains "$output" "planning.task.phase.unknown" "broken plan doctor json output"
+
+assert_text_unchanged "$broken_tasks_before" "$(cat "$BROKEN_TASKS_FILE")" "broken plan doctor" "broken tasks"
+assert_text_unchanged "$broken_phases_before" "$(cat "$BROKEN_PHASES_FILE")" "broken plan doctor" "broken phases"
+assert_text_unchanged "$broken_progress_before" "$(cat "$BROKEN_PROGRESS_FILE")" "broken plan doctor" "broken progress"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "broken plan doctor" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "broken plan doctor" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "broken plan doctor" "Git state"
+assert_project_root_clean
+
 info "inspecting task list and detail"
 output=$(run_adp "$REPO_ROOT" tasks list --workspace game-a)
 assert_contains "$output" "$task_id" "tasks list output"

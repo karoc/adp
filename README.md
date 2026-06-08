@@ -30,6 +30,7 @@ Implemented Phase 1 foundations:
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 - `adp tasks add/list/next/show/update/claim/release/done/block`
 - `adp plan preview/apply --workspace <name> --file <path|->`
+- `adp plan doctor [--workspace <name>] [--format text|json]`
 - `adp phase add/list/show/status/start/accept/commit/push`
 - `adp progress [--workspace <name>]`
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
@@ -69,6 +70,7 @@ go run ./cmd/adp run claude --workspace game-a
 go run ./cmd/adp events list --workspace game-a --task "$TASK_ID"
 go run ./cmd/adp tasks list --workspace game-a --format json
 go run ./cmd/adp tasks next --workspace game-a --limit 0 --format json
+go run ./cmd/adp plan doctor --workspace game-a --format json
 go run ./cmd/adp progress --workspace game-a --format json
 go run ./cmd/adp progress report --workspace game-a
 go run ./cmd/adp progress report --workspace game-a --format json
@@ -129,13 +131,13 @@ P16 hardens the command surface with a local metadata contract that keeps usage 
 
 `adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered pruneable only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp` and a matching `runtime_root`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
-`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; `adp phase status` adds a compact gate snapshot with the open phase, next planned phase, whether the next phase can start, and the next required action. The authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. `adp run --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
+`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; `adp phase status` adds a compact gate snapshot with the open phase, next planned phase, whether the next phase can start, and the next required action. `adp plan doctor` adds read-only local diagnostics for task, phase, progress-log, lock, and phase-gate consistency and returns exit code `2` when error-level diagnostics exist. The authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. `adp run --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
 
 `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a local planning/execution handoff snapshot to stdout. The default output remains English Markdown; `--language zh-CN` applies to Markdown only. `--format json` emits a machine-readable, read-only snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists. JSON output is for cross-tool parsing and must not become a separate state store. The report command is read-only and does not append events, mutate task or phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into the project root.
 
 P3 provides a local phase ledger for project planning and execution progress management. It records task ownership, optional claim leases, acceptance records, commit records, push records, and explicit stage gate discipline under `$ADP_HOME`. This remains terminal-first and local-first; it is not a Web dashboard, SaaS tracker, cloud sync layer, or hosted orchestration service.
 
-`adp plan preview --workspace <name> --file <path|-> [--format text|json]` and `adp plan apply --workspace <name> --file <path|-> [--format text|json]` provide local planning intake for structured YAML/JSON phase and task input. Preview is read-only. Apply explicitly writes only `$ADP_HOME/workspaces/<workspace>/planning` after validation succeeds. JSON output is not a second planning store, and ADP does not provide a Web UI, dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git, automatic claim/done/phase acceptance, provider-native resume, project-root report/planning exports, or free-text natural-language task splitting.
+`adp plan preview --workspace <name> --file <path|-> [--format text|json]` and `adp plan apply --workspace <name> --file <path|-> [--format text|json]` provide local planning intake for structured YAML/JSON phase and task input. `adp plan doctor [--workspace <name>] [--format text|json]` inspects the local planning ledger without repairing or mutating it. Preview and doctor are read-only. Apply explicitly writes only `$ADP_HOME/workspaces/<workspace>/planning` after validation succeeds. JSON output is not a second planning store, and ADP does not provide a Web UI, dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git, automatic claim/done/phase acceptance, provider-native resume, project-root report/planning exports, or free-text natural-language task splitting.
 
 The repository includes `examples/basic-workspace` as a copyable local workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings. Replace its `project.root` before running it against a local project. It is intended as a terminal-first reference for how ADP keeps agent configuration outside the real project tree.
 
