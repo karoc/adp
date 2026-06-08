@@ -37,6 +37,14 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
+## Release Package 内容
+
+发布 preview artifact 前，应先检查 package 内容。Package 应包含目标平台的 `adp` binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`，以及记录 commit、version、target platform、gate result 和 checksum 的 release evidence note 或 release note。
+
+Package 必须保留 PolyForm Noncommercial 和 source-available 定位。非商业再分发必须保留许可证文本、必要声明，以及对 ADP 和版权持有人的署名。任何商业使用都必须取得单独付费授权；不得把 preview package 描述成已经授予商业权利。
+
+Package 必须排除本地或敏感 operator 状态，包括 `.envrc`、`mvp.md`、`$ADP_HOME`、`$ADP_RUNTIME_DIR`、runtime overlay、event log、session log、task 或 phase 状态、凭据、token、账号标识、私有 prompt，以及机器特定的 shell startup file。
+
 ## 阶段切片纪律
 
 对于正常开发 handoff，阶段切片不会因为实现停止就算完成。只有满足以下条件后，阶段才算完成：
@@ -228,7 +236,8 @@ go test -count=1 ./test/e2e
 - `git status --short --branch` 在提交前只显示有意变更，提交后工作区干净。
 - `.envrc` 和 `mvp.md` 仍被忽略且未提交。
 - 仓库本地 Git identity 没有配置 `user.name` 或 `user.email`。
-- license 文件和 PolyForm Noncommercial 定位没有被意外修改。
+- Preview package 包含 `LICENSE`、`COMMERCIAL.md` 和 `COMMERCIAL.zh-CN.md`，保留必要声明和署名，并且不包含 `.envrc`、`mvp.md`、本地 ADP 状态、runtime overlay、日志、任务状态、凭据或机器特定 shell 配置。
+- license 文件和 PolyForm Noncommercial/source-available 定位没有被意外修改，公开文档也没有暗示非商业可访问性会授予商业权利。
 - packaged CLI artifact 使用 version、commit 和 build-date ldflags 构建，且 `adp version` 报告符合预期。
 - README 和 focused docs 描述当前 CLI surface，且没有 Web、UI、SaaS、cloud sync、hosted tracker、hosted orchestration、automatic Git execution、automatic task closure、provider-native resume 或 project-root report export 偏移。
 - 活跃开发阶段在下一阶段开始前，已有 acceptance、commit 和 successful push 的本地证据，并且 `adp phase status --workspace <name> --format json` 同意下一 planned phase 可以启动。

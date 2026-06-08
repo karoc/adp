@@ -2,9 +2,9 @@
 
 English: [COMMERCIAL.md](COMMERCIAL.md)
 
-ADP 在 [PolyForm Noncommercial License 1.0.0](LICENSE) 下公开提供给学习、研究、评估和其他非商业用途。
+ADP 在 [PolyForm Noncommercial License 1.0.0](LICENSE) 下以 source-available 形式公开提供给学习、研究、评估、非商业开放协作和其他非商业用途。
 
-公共许可证不允许商业使用。任何商业使用都必须从版权持有人处取得单独的付费商业授权。
+公共许可证不允许商业使用。公开可访问不代表已经取得商业授权。任何商业使用都必须从版权持有人处取得单独的付费商业授权。
 
 商业使用包括但不限于：
 
@@ -13,6 +13,6 @@ ADP 在 [PolyForm Noncommercial License 1.0.0](LICENSE) 下公开提供给学习
 - 将 ADP 作为付费产品或商业服务的一部分进行分发；
 - 使用 ADP 支撑客户交付、托管服务或付费开发工作流。
 
-非商业使用必须保留许可证文本和 required notices，包括对 ADP 和版权持有人的 attribution。
+非商业复制、再分发、打包、fork 和公开引用必须保留许可证文本和必要声明，包括对 ADP 和版权持有人的署名。不得从再分发副本中移除 `LICENSE`、本商业声明或署名声明，也不得暗示非商业包已经授予商业权利。
 
 商业授权请通过 GitHub 仓库联系仓库所有者。

@@ -37,6 +37,14 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
+## Release Package Contents
+
+For preview artifacts, inspect the package before publishing it. The package should include the target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, and a release evidence note or release note that records the commit, version, target platform, gate result, and checksum.
+
+The package must preserve the PolyForm Noncommercial and source-available positioning. Noncommercial redistribution must keep the license text, required notices, and attribution to ADP and the copyright holder. Any commercial use requires separate paid authorization; do not describe a preview package as granting commercial rights.
+
+The package must exclude local or sensitive operator state, including `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, event logs, session logs, task or phase state, credentials, tokens, account identifiers, private prompts, and machine-specific shell startup files.
+
 ## Phase Slice Discipline
 
 For normal development handoff, a phase slice is not complete when implementation stops. It is complete only after:
@@ -228,7 +236,8 @@ Before a release candidate is announced, an operator should also confirm:
 - `git status --short --branch` shows only intentional changes before commit and a clean tree after commit.
 - `.envrc` and `mvp.md` remain ignored and uncommitted.
 - Repository-local Git identity is not configured with `user.name` or `user.email`.
-- The license files and PolyForm Noncommercial positioning were not changed unintentionally.
+- Preview packages include `LICENSE`, `COMMERCIAL.md`, and `COMMERCIAL.zh-CN.md`, preserve required notices and attribution, and do not include `.envrc`, `mvp.md`, local ADP state, runtime overlays, logs, task state, credentials, or machine-specific shell configuration.
+- The license files and PolyForm Noncommercial/source-available positioning were not changed unintentionally, and public docs do not imply that noncommercial availability grants commercial rights.
 - Packaged CLI artifacts were built with version, commit, and build-date ldflags and `adp version` reports the expected values.
 - README and focused docs describe the current CLI surface without Web, UI, SaaS, cloud sync, hosted tracker, hosted orchestration, automatic Git execution, automatic task closure, provider-native resume, or project-root report export drift.
 - Active development phases have local evidence for acceptance, commit, and successful push before the next phase starts, and `adp phase status --workspace <name> --format json` agrees that the next planned phase can start.

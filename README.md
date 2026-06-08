@@ -190,6 +190,8 @@ Agent execution standards, including multi-agent coordination rules and project 
 
 ## License
 
-ADP is publicly available for noncommercial use under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+ADP is source-available for noncommercial learning, research, evaluation, and open collaboration under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
-Commercial use requires a separate paid license. See [COMMERCIAL.md](COMMERCIAL.md).
+Noncommercial redistribution, forks, public references, and release packages must preserve the license text, required notices, and attribution to ADP and the copyright holder. Commercial use requires separate paid authorization; public availability is not a commercial license grant.
+
+Release packages should keep `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, and `COMMERCIAL.zh-CN.md` with the binary and public docs. They must not include `.envrc`, `mvp.md`, local `$ADP_HOME` state, `$ADP_RUNTIME_DIR` contents, runtime overlays, logs, task state, credentials, or machine-specific shell configuration. See [COMMERCIAL.md](COMMERCIAL.md).
