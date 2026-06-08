@@ -709,3 +709,14 @@ symlink overlay 与真实项目已有配置冲突：
 
 - 所有测试必须通过 `ADP_HOME`。
 - 业务包通过 `internal/paths` 获取路径，不直接调用 `os.UserHomeDir()`。
+
+## 12. 下一步优先级
+
+后续工作按“是否能增强 ADP 的 terminal-first runtime 和 workspace 管理闭环”排序，同时避免偏向 hosted project management 或 dashboard。
+
+- P0：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
+- P1：Runtime task binding。增加 `adp run --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
+- P2：Early preview hardening。补动态 workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明。
+- P3：Extended runtime standards。在本地 task/runtime 闭环稳定后，再扩展 adapter 覆盖、MCP 管理、session restore/replay 和可选 runtime backend。
+
+每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

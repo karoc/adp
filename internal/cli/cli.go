@@ -14,6 +14,7 @@ import (
 	"github.com/karoc/adp/internal/schema"
 	"github.com/karoc/adp/internal/sessions"
 	"github.com/karoc/adp/internal/shell"
+	taskstore "github.com/karoc/adp/internal/tasks"
 	"github.com/karoc/adp/internal/workspace"
 )
 
@@ -32,11 +33,18 @@ Usage:
   adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]
   adp completion [--shell <bash|zsh>] [--command <name>]
   adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]
-  adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]
-  adp sessions show <session-id>
-  adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]
-  adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]
-`
+	  adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]
+	  adp sessions show <session-id>
+	  adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]
+	  adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>
+	  adp tasks list [--workspace <name>]
+	  adp tasks show [--workspace <name>] <task-id>
+	  adp tasks update [--workspace <name>] <task-id> --status <status>
+	  adp tasks done [--workspace <name>] <task-id>
+	  adp tasks block [--workspace <name>] <task-id> --reason <reason>
+	  adp progress [--workspace <name>]
+	  adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]
+	`
 
 type WorkspaceStore interface {
 	Init(context.Context) error
@@ -59,6 +67,15 @@ type EventLogger interface {
 	Log(context.Context, events.Event) error
 }
 
+type TaskStore interface {
+	Add(context.Context, taskstore.AddRequest) (taskstore.Task, error)
+	List(context.Context) ([]taskstore.Task, error)
+	Get(context.Context, string) (taskstore.Task, error)
+	UpdateStatus(context.Context, string, taskstore.Status) (taskstore.Task, error)
+	Block(context.Context, string, string) (taskstore.Task, error)
+	Progress(context.Context) (taskstore.Progress, error)
+}
+
 type Dependencies struct {
 	Layout           paths.Layout
 	WorkspaceStore   WorkspaceStore
@@ -74,6 +91,7 @@ type Dependencies struct {
 	PruneRuntimes    func(context.Context, runtime.PruneRequest) ([]runtime.PruneResult, error)
 	RenderHook       func(shell.HookOptions) (string, error)
 	RenderCompletion func(shell.CompletionOptions) (string, error)
+	TaskStoreFactory func(string) TaskStore
 	InitError        error
 }
 
@@ -117,6 +135,9 @@ func DefaultDependencies() Dependencies {
 	deps.PruneRuntimes = runtime.Prune
 	deps.RenderHook = shell.RenderHook
 	deps.RenderCompletion = shell.RenderCompletion
+	deps.TaskStoreFactory = func(workspaceDir string) TaskStore {
+		return taskstore.NewStore(workspaceDir)
+	}
 	return deps
 }
 
@@ -149,6 +170,10 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		err = a.sessions(ctx, args[1:])
 	case "runtime":
 		err = a.runtime(ctx, args[1:])
+	case "tasks":
+		err = a.tasks(ctx, args[1:])
+	case "progress":
+		err = a.progress(ctx, args[1:])
 	case "run":
 		err = a.run(ctx, args[1:])
 	default:

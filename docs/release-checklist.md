@@ -21,6 +21,7 @@ The required gate runs these checks in order:
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh
@@ -53,6 +54,8 @@ The example workspace smoke verifies:
 - The example workspace schema remains compatible with the current CLI.
 - A temporary project root can be linked into a kept runtime overlay.
 - Example documentation and release claims stay connected to an executable path.
+
+`scripts/task-manager-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/show/update/block/done` and `adp progress`, and verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning` instead of the real project root.
 
 `go test -count=1 ./...` verifies the full Go test suite without using cached test results.
 
@@ -95,6 +98,8 @@ When real CLI evidence is collected, record:
 If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The fake smoke is the highest-signal check for runtime overlay behavior, adapter launch paths, local event history, session aggregation, and project-root pollution.
 
 If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examples/basic-workspace/workspace.yaml` still matches the current schema and whether `adp env <workspace> --cd` still produces a kept runtime with project-file symlinks.
+
+If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, and project-root pollution checks.
 
 If `go test -count=1 ./...` fails, narrow the failing package and rerun that package before making changes:
 

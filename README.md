@@ -24,6 +24,8 @@ Implemented Phase 1 foundations:
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]`
 - `adp sessions show <session-id>`
 - `adp runtime prune [--older-than <duration>] [--dry-run]`
+- `adp tasks add/list/show/update/done/block`
+- `adp progress [--workspace <name>]`
 - `adp run codex --workspace <name>`
 - `adp run claude --workspace <name>`
 - `adp enter <workspace>`
@@ -100,6 +102,8 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered ADP-owned only when it contains `.adp-runtime.yaml` with `generated_by: adp`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
+`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. ADP keeps this task state outside the real project root. See [docs/task-management.md](docs/task-management.md).
+
 The repository includes `examples/basic-workspace` as a copyable local workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings. Replace its `project.root` before running it against a local project. It is intended as a terminal-first reference for how ADP keeps agent configuration outside the real project tree.
 
 ## Development
@@ -110,7 +114,7 @@ Use the aggregate validation gate before handoff:
 scripts/check-all.sh
 ```
 
-The aggregate gate covers deterministic runtime smoke, example workspace smoke, Go test and vet, file length limits, bilingual documentation pairing, and whitespace diff checks. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
+The aggregate gate covers deterministic runtime smoke, example workspace smoke, task manager smoke, Go test and vet, file length limits, bilingual documentation pairing, and whitespace diff checks. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
 
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 

@@ -153,13 +153,14 @@ From the repository root, run the aggregate validation gate:
 scripts/check-all.sh
 ```
 
-The aggregate gate includes fake-agent runtime smoke, example workspace smoke, Go tests, vet, file line checks, bilingual documentation checks, and diff whitespace checks.
+The aggregate gate includes fake-agent runtime smoke, example workspace smoke, task manager smoke, Go tests, vet, file line checks, bilingual documentation checks, and diff whitespace checks.
 
 For targeted bootstrap checks, run:
 
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
 ```
 
 The runtime smoke builds the current `cmd/adp` binary into a temporary directory and uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root. It verifies the runtime overlay path without requiring real Codex or Claude CLIs. The example workspace smoke copies `examples/basic-workspace` into a temporary `ADP_HOME` and verifies that the published example still bootstraps against a temporary project.

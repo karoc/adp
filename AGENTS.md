@@ -68,6 +68,7 @@ Main-thread responsibilities:
 - Do not delegate the exact same file set to multiple agents unless one is read-only review.
 - Review every returned diff before integration.
 - Run full repository gates after integration, not just sub-agent local checks.
+- Close each phase slice before starting the next: validate it, commit it, and push it first.
 - Commit and push only after the integrated tree is validated.
 
 Good sub-agent task boundaries:
@@ -133,6 +134,18 @@ These checks do not replace manual real-agent acceptance for credentials, models
 - Keep README concise and link to focused docs for details.
 - When adding scripts or release gates, document when they should run and what they do not validate.
 - Do not add Web/SaaS positioning.
+
+## Phase Discipline
+
+After a planned phase slice is complete:
+
+1. Run the relevant runtime smoke for that phase.
+2. Run `scripts/check-all.sh`.
+3. Commit the accepted phase.
+4. Push the commit.
+5. Start the next phase only after the push succeeds.
+
+Do not mix later-phase work into the same commit. This keeps planning, execution progress, validation evidence, and Git history aligned.
 
 ## Git Workflow
 

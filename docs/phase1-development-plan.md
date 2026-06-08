@@ -423,7 +423,11 @@ End-to-end expectations:
 
 ## 12. Next Work
 
-Next polishing should stay close to the runtime-manager goal:
+Next work is prioritized by how much it improves ADP's terminal-first runtime and workspace management loop without drifting into hosted project management or a dashboard.
 
-- Extend shell completion with dynamic local workspace and profile values, then add session-restore workflows.
-- Keep adapter formats isolated and update them only after checking current Codex/Claude CLI behavior.
+- P0: Task and Progress Manager MVP. Store workspace-scoped task state under `$ADP_HOME/workspaces/<workspace>/planning`, expose `adp tasks` and `adp progress`, and validate it with a task-manager smoke.
+- P1: Runtime task binding. Add `adp run --task <task-id>`, inject task context into runtime env and generated adapter instructions, and connect task IDs to events and sessions.
+- P2: Early preview hardening. Add dynamic workspace/profile completion, a global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes.
+- P3: Extended runtime standards. Expand adapter coverage, MCP management, session restore/replay, and optional runtime backends only after the local task/runtime loop is stable.
+
+Each phase slice must be validated, committed, and pushed before the next slice starts.

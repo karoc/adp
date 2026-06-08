@@ -21,6 +21,7 @@ scripts/check-all.sh
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
 go test -count=1 ./...
 go vet ./...
 scripts/check-file-lines.sh
@@ -53,6 +54,8 @@ example workspace smoke 验证：
 - 示例 workspace schema 与当前 CLI 保持兼容。
 - 临时项目根目录可以被链接进 kept runtime overlay。
 - 示例文档和发布声明有可执行路径支撑。
+
+`scripts/task-manager-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/show/update/block/done` 和 `adp progress`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，而不是写入真实项目根目录。
 
 `go test -count=1 ./...` 会运行完整 Go 测试套件，并且不使用缓存测试结果。
 
@@ -95,6 +98,8 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 如果 `scripts/runtime-smoke.sh --fake` 失败，优先查看报告的失败步骤。fake smoke 是 runtime overlay 行为、adapter 启动路径、本地 event history、session 聚合和项目根目录污染防护的最高信号检查。
 
 如果 `scripts/example-workspace-smoke.sh` 失败，优先检查复制后的 `examples/basic-workspace/workspace.yaml` 是否仍匹配当前 schema，以及 `adp env <workspace> --cd` 是否仍能生成带项目文件 symlink 的 kept runtime。
+
+如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储，以及项目根目录污染防护。
 
 如果 `go test -count=1 ./...` 失败，先定位失败 package，并在修改前单独重跑该 package：
 

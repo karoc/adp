@@ -153,13 +153,14 @@ adp runtime prune --older-than 24h
 scripts/check-all.sh
 ```
 
-聚合 gate 包含 fake-agent runtime smoke、示例 workspace smoke、Go tests、vet、文件行数检查、双语文档检查和 diff 空白检查。
+聚合 gate 包含 fake-agent runtime smoke、示例 workspace smoke、task manager smoke、Go tests、vet、文件行数检查、双语文档检查和 diff 空白检查。
 
 如需定向 bootstrap 检查，运行：
 
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
 ```
 
 runtime smoke 会把当前 `cmd/adp` 二进制构建到临时目录，并使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时 project root。它可以在不安装真实 Codex 或 Claude CLI 的情况下验证 runtime overlay 路径。example workspace smoke 会把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，并验证发布的示例仍能针对临时项目完成 bootstrap。

@@ -68,6 +68,7 @@ git diff --check
 - 不把同一组文件交给多个写入型子 Agent；只读 review Agent 例外。
 - 每个子 Agent 返回后必须审阅 diff。
 - 集成后跑全仓门禁，不能只依赖子 Agent 的局部检查。
+- 每个阶段切片完成后，先验收、提交并推送，再开始下一阶段。
 - 只有集成树验证通过后才能提交和推送。
 
 适合并行拆分的任务边界：
@@ -133,6 +134,18 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 - README 保持简洁，把细节链接到专题文档。
 - 新增脚本或 release gate 时，必须说明运行时机和不覆盖的验收边界。
 - 不加入 Web/SaaS 定位。
+
+## 阶段纪律
+
+一个规划阶段切片完成后：
+
+1. 运行该阶段对应的 runtime smoke。
+2. 运行 `scripts/check-all.sh`。
+3. 提交已验收的阶段。
+4. 推送该提交。
+5. 推送成功后才开始下一阶段。
+
+不要把后续阶段工作混入同一个提交。这样可以让规划、执行进度、验收证据和 Git 历史保持一致。
 
 ## Git 工作流
 
