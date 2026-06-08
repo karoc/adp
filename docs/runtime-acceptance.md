@@ -169,18 +169,20 @@ Do not add placeholder commands, TODO assertions, Web UI checks, SaaS checks, cl
 
 ## Plan Intake Acceptance
 
-`scripts/plan-intake-smoke.sh` is the focused acceptance path for structured local planning intake. It uses a deterministic temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, and temporary project root, then verifies `adp plan preview` and `adp plan apply` with structured YAML input.
+`scripts/plan-intake-smoke.sh` is the focused acceptance path for structured local planning intake. It uses a deterministic temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, and temporary project root, then verifies `adp plan preview` and `adp plan apply` with structured YAML input from both files and stdin through `--file -`.
 
 The smoke covers:
 
 - `adp plan preview --workspace <name> --file <path>` prints planned phases and tasks without creating the planning directory.
+- `adp plan preview --workspace <name> --file -` accepts piped YAML from stdin and remains read-only.
 - `adp plan apply --workspace <name> --file <path> --format json` explicitly writes only `$ADP_HOME/workspaces/<workspace>/planning`.
+- `adp plan apply --workspace <name> --file - --format json` accepts piped YAML from stdin and still requires explicit apply.
 - JSON output remains an inspection format, not a second planning store.
 - Preview after apply remains read-only.
 - Invalid apply on a fresh workspace leaves no empty `planning` directory.
 - Failed or duplicate apply leaves phase, task, and progress state unchanged.
 - Staging failures leave no partial `phases.yaml`, `tasks.yaml`, or `progress.jsonl` state.
-- Preview and apply do not create runtime event logs, mutate runtime directories, run Git, or write planning artifacts into the real project root.
+- Preview and apply, including stdin intake through `--file -`, do not create runtime event logs, mutate runtime directories, run Git, or write planning artifacts into the real project root.
 
 ## Real CLI Smoke
 

@@ -14,6 +14,19 @@ info() {
   printf '[plan-intake-smoke] %s\n' "$*"
 }
 
+run_adp_stdin() {
+  local dir="$1"
+  local input="$2"
+  shift 2
+  local output
+
+  if ! output=$(printf '%s' "$input" | (cd "$dir" && "$ADP_BIN" "$@" 2>&1)); then
+    printf '%s\n' "$output" >&2
+    fail "adp $* with stdin failed"
+  fi
+  printf '%s\n' "$output"
+}
+
 if ! command -v go >/dev/null 2>&1; then
   fail "Go is required to build cmd/adp"
 fi
@@ -78,6 +91,30 @@ tasks:
     phase: missing-phase
 YAML
 
+STDIN_PREVIEW_PLAN=$(cat <<'YAML'
+version: 1
+phases:
+  - id: p20-stdin-preview
+    title: Preview stdin planning input
+tasks:
+  - title: Preview piped planning input
+    priority: normal
+    phase: p20-stdin-preview
+YAML
+)
+
+STDIN_APPLY_PLAN=$(cat <<'YAML'
+version: 1
+phases:
+  - id: p20-stdin-apply
+    title: Apply stdin planning input
+tasks:
+  - title: Apply piped planning input
+    priority: high
+    phase: p20-stdin-apply
+YAML
+)
+
 info "checking invalid apply on a fresh workspace is side-effect-free"
 runtime_dirs_before=$(runtime_dirs_state)
 project_root_before=$(project_root_state)
@@ -113,6 +150,27 @@ fi
 assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "plan preview" "runtime dirs"
 assert_text_unchanged "$project_root_before" "$(project_root_state)" "plan preview" "project root"
 assert_text_unchanged "$git_before" "$(git_state)" "plan preview" "Git state"
+assert_project_root_clean
+
+info "checking stdin preview read-only behavior"
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+output=$(run_adp_stdin "$REPO_ROOT" "$STDIN_PREVIEW_PLAN" plan preview --workspace game-a --file -)
+assert_contains "$output" "workspace: game-a" "plan stdin preview output"
+assert_contains "$output" "mode: preview" "plan stdin preview output"
+assert_contains "$output" "source: -" "plan stdin preview output"
+assert_contains "$output" "p20-stdin-preview" "plan stdin preview output"
+assert_contains "$output" "Preview piped planning input" "plan stdin preview output"
+if [ -e "$ADP_HOME/workspaces/game-a/planning" ]; then
+  fail "plan stdin preview created planning directory"
+fi
+if [ -e "$EVENTS_FILE" ]; then
+  fail "plan stdin preview created runtime event log"
+fi
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "plan stdin preview" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "plan stdin preview" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "plan stdin preview" "Git state"
 assert_project_root_clean
 
 info "checking explicit apply behavior"
@@ -212,5 +270,32 @@ fi
 output=$(run_adp_expect_fail "$REPO_ROOT" plan apply --workspace game-a --file "$PLAN_FILE")
 assert_contains "$output" "phase already exists" "duplicate plan apply output"
 assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "duplicate plan apply"
+
+info "checking stdin apply behavior"
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+output=$(run_adp_stdin "$REPO_ROOT" "$STDIN_APPLY_PLAN" plan apply --workspace game-a --file - --format json)
+assert_json_field "$output" "workspace" "plan stdin apply json output"
+assert_json_field "$output" "mode" "plan stdin apply json output"
+assert_json_field "$output" "source" "plan stdin apply json output"
+assert_contains "$output" "\"apply\"" "plan stdin apply json output"
+assert_contains "$output" '"source": "-"' "plan stdin apply json output"
+assert_contains "$output" "\"p20-stdin-apply\"" "plan stdin apply json output"
+assert_contains "$output" "\"Apply piped planning input\"" "plan stdin apply json output"
+assert_contains "$(cat "$TASKS_FILE")" "Apply piped planning input" "tasks file after stdin apply"
+assert_contains "$(cat "$PHASES_FILE")" "p20-stdin-apply" "phases file after stdin apply"
+assert_contains "$(cat "$PROGRESS_FILE")" "p20-stdin-apply" "progress file after stdin apply"
+output=$(run_adp "$REPO_ROOT" phase list --workspace game-a)
+assert_contains "$output" "p20-stdin-apply" "phase list after stdin apply"
+output=$(run_adp "$REPO_ROOT" tasks list --workspace game-a)
+assert_contains "$output" "Apply piped planning input" "tasks list after stdin apply"
+if [ -e "$EVENTS_FILE" ]; then
+  fail "plan stdin apply created runtime event log"
+fi
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "plan stdin apply" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "plan stdin apply" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "plan stdin apply" "Git state"
+assert_project_root_clean
 
 info "plan intake smoke passed"

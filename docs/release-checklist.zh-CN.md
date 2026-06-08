@@ -91,7 +91,7 @@ P9 可以把共享 smoke helpers 和 JSON report validator 移到 `scripts/` 下
 
 phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership、带 owner 校验的 release、task phase validation、acceptance 或 gate records、commit records、push records、lifecycle ordering guards，以及项目根目录污染防护。Go 测试还会覆盖 planning lock 行为、claim conflicts、lease expiry、terminal-task claim rejection、failed acceptance 和 failed push 语义。不要为尚不存在的命令添加 placeholder assertions。
 
-`scripts/plan-intake-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，并用结构化 YAML 输入验证 `adp plan preview` 和 `adp plan apply`。它证明 preview 保持只读，apply 只写 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地 planning ledger，JSON 输出仍是 inspection format，fresh workspace 上的 invalid input 不会留下 planning 目录，staging failure 不会留下 partial phase/task/progress state，并且不会产生 runtime、Git、event log 或真实 project-root 副作用。
+`scripts/plan-intake-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，并用来自文件以及通过 `--file -` 从 stdin 传入的结构化 YAML 输入验证 `adp plan preview` 和 `adp plan apply`。它证明 preview 保持只读，apply 只写 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地 planning ledger，JSON 输出仍是 inspection format，fresh workspace 上的 invalid input 不会留下 planning 目录，staging failure 不会留下 partial phase/task/progress state，并且不会产生 runtime、Git、event log 或真实 project-root 副作用。
 
 `go test -count=1 ./...` 会运行完整 Go 测试套件，并且不使用缓存测试结果。
 

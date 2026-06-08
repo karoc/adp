@@ -169,18 +169,20 @@ P9 task-manager smoke modularization 可以把共享 shell helpers 和 JSON repo
 
 ## Plan Intake 验收
 
-`scripts/plan-intake-smoke.sh` 是结构化本地 planning intake 的聚焦验收路径。它使用确定性的临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR` 和临时项目根目录，并用结构化 YAML 输入验证 `adp plan preview` 和 `adp plan apply`。
+`scripts/plan-intake-smoke.sh` 是结构化本地 planning intake 的聚焦验收路径。它使用确定性的临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR` 和临时项目根目录，并用来自文件以及通过 `--file -` 从 stdin 输入的结构化 YAML 验证 `adp plan preview` 和 `adp plan apply`。
 
 该 smoke 覆盖：
 
 - `adp plan preview --workspace <name> --file <path>` 会打印计划中的 phases 和 tasks，但不创建 planning 目录。
+- `adp plan preview --workspace <name> --file -` 接收从 stdin pipe 进来的 YAML，并保持只读。
 - `adp plan apply --workspace <name> --file <path> --format json` 只会显式写入 `$ADP_HOME/workspaces/<workspace>/planning`。
+- `adp plan apply --workspace <name> --file - --format json` 接收从 stdin pipe 进来的 YAML，并且仍然必须显式 apply。
 - JSON 输出保持为 inspection format，不是第二份 planning store。
 - apply 之后再次 preview 仍然保持只读。
 - fresh workspace 上的 invalid apply 不会留下空 `planning` 目录。
 - 失败或重复 apply 会保持 phase、task 和 progress state 不变。
 - staging failure 不会留下 partial `phases.yaml`、`tasks.yaml` 或 `progress.jsonl` state。
-- preview 和 apply 不会创建 runtime event log、修改 runtime directories、运行 Git，或把 planning artifacts 写入真实项目根目录。
+- preview 和 apply，包括通过 `--file -` 进行 stdin intake 的路径，都不会创建 runtime event log、修改 runtime directories、运行 Git，或把 planning artifacts 写入真实项目根目录。
 
 ## 真实 CLI Smoke
 

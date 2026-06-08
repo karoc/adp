@@ -57,6 +57,51 @@ tasks:
 	}
 }
 
+func TestPlanPreviewCommandReadsStdinWithoutApplying(t *testing.T) {
+	store := &fakeTaskStore{
+		planPreviewResult: taskstore.PlanImportResult{
+			Phases: []taskstore.Phase{testPhase("p20", "Plan stdin", taskstore.PhaseStatusPlanned)},
+			Tasks:  []taskstore.Task{testTask("task-stdin", "Preview stdin plan", taskstore.StatusReady)},
+		},
+	}
+	withPlanStdin(t, `
+version: 1
+phases:
+  - id: p20
+    title: Plan stdin
+tasks:
+  - title: Preview stdin plan
+    phase: p20
+    priority: normal
+`)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{"plan", "preview", "--workspace", "game-a", "--file", "-"})
+
+	if code != 0 {
+		t.Fatalf("plan preview stdin exit code = %d, stderr = %q", code, stderr.String())
+	}
+	if store.previewCalls != 1 || store.applyCalls != 0 {
+		t.Fatalf("calls preview=%d apply=%d", store.previewCalls, store.applyCalls)
+	}
+	if len(store.planReq.Phases) != 1 || store.planReq.Phases[0].ID != "p20" {
+		t.Fatalf("plan phases = %+v", store.planReq.Phases)
+	}
+	if len(store.planReq.Tasks) != 1 || store.planReq.Tasks[0].Title != "Preview stdin plan" {
+		t.Fatalf("plan tasks = %+v", store.planReq.Tasks)
+	}
+	for _, want := range []string{"source: -", "mode: preview", "p20", "task-stdin"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("preview stdin output missing %q: %q", want, stdout.String())
+		}
+	}
+}
+
 func TestPlanApplyCommandPrintsJSON(t *testing.T) {
 	store := &fakeTaskStore{
 		planApplyResult: taskstore.PlanImportResult{
@@ -95,6 +140,42 @@ func TestPlanApplyCommandPrintsJSON(t *testing.T) {
 	assertJSONStringField(t, phase, "status", "planned")
 	task := findJSONObject(t, assertJSONObjectListField(t, payload, "tasks"), "id", "task-1")
 	assertJSONStringField(t, task, "status", "review")
+}
+
+func TestPlanApplyCommandReadsStdinAndPrintsJSONSource(t *testing.T) {
+	store := &fakeTaskStore{
+		planApplyResult: taskstore.PlanImportResult{
+			Phases: []taskstore.Phase{testPhase("p20", "Plan stdin", taskstore.PhaseStatusPlanned)},
+			Tasks:  []taskstore.Task{testTask("task-stdin", "Apply stdin plan", taskstore.StatusReview)},
+		},
+	}
+	withPlanStdin(t, `{
+  "version": 1,
+  "phases": [{"id": "p20", "title": "Plan stdin"}],
+  "tasks": [{"title": "Apply stdin plan", "phase": "p20", "status": "review"}]
+}`)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{"plan", "apply", "--workspace", "game-a", "--file", "-", "--format", "json"})
+
+	if code != 0 {
+		t.Fatalf("plan apply stdin exit code = %d, stderr = %q", code, stderr.String())
+	}
+	if store.previewCalls != 0 || store.applyCalls != 1 {
+		t.Fatalf("calls preview=%d apply=%d", store.previewCalls, store.applyCalls)
+	}
+	if len(store.planReq.Tasks) != 1 || store.planReq.Tasks[0].Status != taskstore.StatusReview {
+		t.Fatalf("plan request tasks = %+v", store.planReq.Tasks)
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	assertJSONStringField(t, payload, "workspace", "game-a")
+	assertJSONStringField(t, payload, "mode", "apply")
+	assertJSONStringField(t, payload, "source", "-")
 }
 
 func TestPlanCommandRejectsInvalidArgsAndInput(t *testing.T) {
@@ -169,4 +250,24 @@ func writePlanInput(t *testing.T, content string) string {
 		t.Fatalf("write plan input: %v", err)
 	}
 	return path
+}
+
+func withPlanStdin(t *testing.T, content string) {
+	t.Helper()
+	oldStdin := os.Stdin
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdin pipe: %v", err)
+	}
+	if _, err := writer.WriteString(content); err != nil {
+		t.Fatalf("write stdin pipe: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close stdin writer: %v", err)
+	}
+	os.Stdin = reader
+	t.Cleanup(func() {
+		os.Stdin = oldStdin
+		_ = reader.Close()
+	})
 }
