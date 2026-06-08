@@ -42,6 +42,23 @@ Phase 1 明确不做：
 - adapter 不直接依赖具体 CLI 框架。
 - runtime/overlay 不依赖 adapter 具体实现。
 - 业务包不能读取真实 `~/.adp`，必须通过 path/env abstraction 注入，保证测试可控。
+- 新增第三方依赖前必须确认许可证与 ADP 的非商业源码可用授权策略兼容。
+
+## 2.1 License and Engineering Gates
+
+ADP 采用 source-available non-commercial 授权模式，而不是 OSI 定义下的开源许可证。
+
+- 公共非商业使用：`PolyForm Noncommercial License 1.0.0`。
+- 允许个人和组织为了学习、研究、评估、非商业开源协作等目的免费使用。
+- 必须保留 `LICENSE` 中的 `Required Notice:`，声明 ADP 和版权归属。
+- 任何商业使用都必须取得单独的付费商业授权，详见 `COMMERCIAL.md`。
+
+代码规模约束：
+
+- 项目代码文件必须控制在 700 行以内。
+- 超过 700 行前必须按职责拆分。
+- 生成文件、vendor、lockfile、许可证和长文档不受此限制。
+- 本地检查命令：`scripts/check-file-lines.sh`。
 
 ## 3. 推荐目录结构
 
@@ -71,7 +88,12 @@ adp/
 │   └── codex/
 ├── examples/
 │   └── basic-workspace/
+├── scripts/
+│   └── check-file-lines.sh
 ├── docs/
+│   └── engineering-standards.md
+├── COMMERCIAL.md
+├── LICENSE
 ├── README.md
 └── go.mod
 ```
@@ -380,7 +402,7 @@ $ADP_HOME/logs/events.jsonl
 | D. Adapter Layer | adapter registry、Codex/Claude render、模板 | `internal/adapters/`, `templates/` | schema + adapter contract | `Adapter` 实现注册到 registry | 生成文件 golden tests 通过 |
 | E. Runner/Shell/Events | 外部进程执行、交互 shell、event JSONL | `internal/runner/`, `internal/shell/`, `internal/events/` | paths + runtime handle | `Run(spec)`、`EnterShell(handle)`、`Log(event)` | fake binary 和 event log 测试通过 |
 | F. Docs/Examples | README、CLI reference、example workspace | `README.md`, `docs/`, `examples/` | CLI 行为草案 | 可运行示例和用户文档 | 文档命令与实现保持一致 |
-| G. Integration QA | 端到端测试、fake agents、CI 脚本 | `test/`, `.github/`, 允许少量 test helper | A-F 初版 | `go test ./...` + CLI e2e | 覆盖 init/add/run/enter 基本流 |
+| G. Integration QA | 端到端测试、fake agents、CI 脚本 | `test/`, `.github/`, 允许少量 test helper | A-F 初版 | `go test ./...` + CLI e2e + file-line check | 覆盖 init/add/run/enter 基本流，且代码文件不超过 700 行 |
 
 ### 文件修改规则
 
@@ -390,6 +412,8 @@ $ADP_HOME/logs/events.jsonl
 - `README.md` 由 F 负责；其他子 Agent 可在实现说明中提出文档变更点。
 - `internal/schema` 初版由 Contract Scaffold 创建，B 可以继续完善；其他子 Agent 只消费 schema。
 - `internal/adapters/adapter.go` 初版由 Contract Scaffold 创建，D 可以继续完善；C/E 只消费接口。
+- `LICENSE` 与 `COMMERCIAL.md` 只由项目维护者修改；子 Agent 不应自行更改授权策略。
+- 任何手写代码文件超过 700 行都必须先拆分再交付。
 
 ### 合并顺序
 
@@ -421,9 +445,11 @@ $ADP_HOME/logs/events.jsonl
 
 必须保持：
 - go test ./... 通过。
+- scripts/check-file-lines.sh 通过。
 - 支持 ADP_HOME 指向临时目录。
 - 不读取或污染真实 ~/.adp。
 - 不修改真实项目目录，只写 runtime/temp 和测试目录。
+- 手写项目代码文件不超过 700 行，超过前必须拆分。
 
 交付：
 - 实现代码。
@@ -482,4 +508,3 @@ symlink overlay 与真实项目已有配置冲突：
 
 - 所有测试必须通过 `ADP_HOME`。
 - 业务包通过 `internal/paths` 获取路径，不直接调用 `os.UserHomeDir()`。
-
