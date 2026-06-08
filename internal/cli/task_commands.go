@@ -206,6 +206,10 @@ func (a *App) tasksBlock(ctx context.Context, args []string) error {
 }
 
 func (a *App) progress(ctx context.Context, args []string) error {
+	if len(args) > 0 && args[0] == "report" {
+		return a.progressReport(ctx, args[1:])
+	}
+
 	opts, err := parseWorkspaceOutputArgs(args, "adp progress [--workspace <name>] [--format <text|json>]")
 	if err != nil {
 		return err

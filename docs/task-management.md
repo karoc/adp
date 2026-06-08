@@ -26,6 +26,7 @@ The first task-management slice provides:
 - `adp phase commit`
 - `adp phase push`
 - `adp progress`
+- `adp progress report`
 - Read-only `--format json` output for task, phase, and progress inspection.
 - `adp run --task <task-id>` runtime binding.
 - Workspace-local planning files under `$ADP_HOME/workspaces/<workspace>/planning/`.
@@ -36,6 +37,16 @@ The first task-management slice provides:
 - Phase lifecycle guards for acceptance, commit evidence, push evidence, and next-phase start.
 
 Smoke scripts should assert only the task-management commands that exist in the current tree, and should not add placeholder checks for planned commands.
+
+## Progress Report Scope
+
+P6 adds one read-only reporting command:
+
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
+
+The command prints a local Markdown planning/execution report to stdout. It reads workspace planning data from `$ADP_HOME`, uses English by default, and emits Simplified Chinese only when `--language zh-CN` is provided.
+
+The report is an inspection view, not a state transition. It does not mutate task state, phase state, Git state, runtime state, event logs, or project-root files.
 
 ## Storage
 
@@ -121,6 +132,15 @@ adp progress --workspace adp
 adp progress --workspace adp --format json
 ```
 
+Markdown report output:
+
+```bash
+adp progress report --workspace adp
+adp progress report --workspace adp --language zh-CN
+```
+
+The report command prints Markdown to stdout only. It is an inspection command and does not create or update report files.
+
 When `--workspace` is omitted, ADP uses the same workspace resolution model as other workspace-aware commands: `ADP_WORKSPACE` first, then the current directory if it is inside a registered project root.
 
 ## Machine-Readable Inspection
@@ -145,6 +165,32 @@ Cross-tool consumers should treat JSON output as a local snapshot for selecting 
 - Do not treat JSON output as permission to run Git, push changes, start the next phase, or modify the project root.
 
 The phase discipline is unchanged: a phase is complete only after implementation, acceptance, commit evidence, and push evidence have been recorded through explicit local commands.
+
+## Markdown Progress Reports
+
+`adp progress report [--workspace <name>] [--language <en|zh-CN>]` produces a terminal-friendly Markdown report for humans and cross-tool handoff. The output summarizes the local planning and execution state without becoming a separate source of truth.
+
+Recommended report content:
+
+- Workspace name and local planning source.
+- Phase summary, including active, accepted, committed, and pushed phases.
+- Prioritized next work from the local task ledger.
+- Active owners, leases, blocked tasks, and acceptance evidence when available.
+- Commit and push evidence already recorded in the phase ledger.
+
+Language behavior:
+
+- `--language en` and omitted `--language` both produce English output.
+- `--language zh-CN` produces Simplified Chinese output.
+- Other language values fail clearly.
+
+Read-only boundary:
+
+- Do not update task status, owner, lease, or blocker records.
+- Do not update phase status, acceptance records, commit records, or push records.
+- Do not run Git commands, create commits, push, or infer Git state transitions.
+- Do not build runtimes, start agents, append runtime events, or prune runtime directories.
+- Do not create or update Markdown files in the real project root.
 
 ## Phase Gate Ledger
 
@@ -255,7 +301,7 @@ This keeps task history, validation evidence, and Git history aligned.
 The current task manager does not yet:
 
 - Automatically split user intent into tasks.
-- Export progress reports into repository documentation.
+- Write or export progress reports into repository documentation or project-root files automatically.
 - Sync with GitHub Issues, Linear, Jira, Notion, or any hosted service.
 - Run Git commit or Git push commands automatically.
 - Infer acceptance from command output or close tasks automatically without explicit task or phase commands.

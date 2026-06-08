@@ -24,6 +24,20 @@ assert_contains() {
   esac
 }
 
+assert_starts_with() {
+  local output="$1"
+  local prefix="$2"
+  local label="$3"
+
+  case "$output" in
+    "$prefix"*) ;;
+    *)
+      printf '%s\n' "$output" >&2
+      fail "$label did not start with expected text: $prefix"
+      ;;
+  esac
+}
+
 assert_json_field() {
   local output="$1"
   local field="$2"
@@ -43,6 +57,36 @@ assert_file() {
   local path="$1"
   if [ ! -f "$path" ]; then
     fail "missing file: $path"
+  fi
+}
+
+assert_project_root_clean() {
+  if [ -e "$PROJECT_ROOT/planning" ] || [ -e "$PROJECT_ROOT/tasks.yaml" ] || [ -e "$PROJECT_ROOT/phases.yaml" ] || [ -e "$PROJECT_ROOT/progress.jsonl" ]; then
+    fail "project root was polluted with planning files"
+  fi
+}
+
+assert_planning_state_unchanged() {
+  local tasks_before="$1"
+  local phases_before="$2"
+  local progress_before="$3"
+  local label="$4"
+  local tasks_after
+  local phases_after
+  local progress_after
+
+  tasks_after=$(cat "$TASKS_FILE")
+  phases_after=$(cat "$PHASES_FILE")
+  progress_after=$(cat "$PROGRESS_FILE")
+
+  if [ "$tasks_after" != "$tasks_before" ]; then
+    fail "$label changed task state"
+  fi
+  if [ "$phases_after" != "$phases_before" ]; then
+    fail "$label changed phase state"
+  fi
+  if [ "$progress_after" != "$progress_before" ]; then
+    fail "$label changed progress events"
   fi
 }
 
@@ -229,6 +273,25 @@ assert_json_field "$output" "counts" "progress json output"
 assert_contains "$output" "\"game-a\"" "progress json output"
 assert_contains "$output" "\"done\"" "progress json output"
 
+info "checking progress report output"
+tasks_before=$(cat "$TASKS_FILE")
+phases_before=$(cat "$PHASES_FILE")
+progress_before=$(cat "$PROGRESS_FILE")
+
+output=$(run_adp "$REPO_ROOT" progress report --workspace game-a)
+assert_starts_with "$output" "# ADP Progress Report" "progress report output"
+assert_contains "$output" "Workspace: game-a" "progress report output"
+assert_contains "$output" "p3" "progress report output"
+assert_contains "$output" "$task_id" "progress report output"
+assert_contains "$output" "done" "progress report output"
+
+output=$(run_adp "$REPO_ROOT" progress report --workspace game-a --language zh-CN)
+assert_starts_with "$output" "# ADP 执行进度报告" "progress report zh-CN output"
+assert_contains "$output" "工作区：game-a" "progress report zh-CN output"
+
+assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "progress report"
+assert_project_root_clean
+
 assert_contains "$(cat "$TASKS_FILE")" "$task_id" "tasks file"
 assert_contains "$(cat "$PHASES_FILE")" "p3" "phases file"
 assert_contains "$(cat "$PROGRESS_FILE")" "task_created" "progress file"
@@ -260,8 +323,21 @@ assert_contains "$(cat "$PROGRESS_FILE")" "phase_accepted" "progress file"
 assert_contains "$(cat "$PROGRESS_FILE")" "phase_committed" "progress file"
 assert_contains "$(cat "$PROGRESS_FILE")" "phase_pushed" "progress file"
 
-if [ -e "$PROJECT_ROOT/planning" ] || [ -e "$PROJECT_ROOT/tasks.yaml" ] || [ -e "$PROJECT_ROOT/phases.yaml" ] || [ -e "$PROJECT_ROOT/progress.jsonl" ]; then
-  fail "project root was polluted with planning files"
-fi
+info "checking progress report phase evidence"
+tasks_before=$(cat "$TASKS_FILE")
+phases_before=$(cat "$PHASES_FILE")
+progress_before=$(cat "$PROGRESS_FILE")
+
+output=$(run_adp "$REPO_ROOT" progress report --workspace game-a)
+assert_starts_with "$output" "# ADP Progress Report" "progress report evidence output"
+assert_contains "$output" "p3" "progress report evidence output"
+assert_contains "$output" "abc123" "progress report evidence output"
+assert_contains "$output" "origin" "progress report evidence output"
+assert_contains "$output" "main" "progress report evidence output"
+assert_contains "$output" "pushed" "progress report evidence output"
+assert_contains "$output" "scripts/task-manager-smoke.sh" "progress report evidence output"
+
+assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "progress report evidence"
+assert_project_root_clean
 
 info "task manager smoke passed"

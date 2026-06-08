@@ -215,6 +215,59 @@ func TestProgressCommandPrintsJSON(t *testing.T) {
 	assertJSONStringField(t, next, "status", "ready")
 }
 
+func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
+	task := testTask("task-1", "Add task manager", taskstore.StatusReady)
+	task.Phase = "p6-progress-report"
+	task.Owner = "codex-main"
+	phase := testPhase("p6-progress-report", "Planning progress report output", taskstore.PhaseStatusPushed)
+	phase.Goal = "local Markdown progress report"
+	phase.Acceptance = taskstore.AcceptanceRecord{Commands: []string{"scripts/check-all.sh"}, Result: "passed", At: phase.UpdatedAt}
+	phase.Commit = taskstore.CommitRecord{Hash: "abc123", Message: "Add progress report", At: phase.UpdatedAt}
+	phase.Push = taskstore.PushRecord{Remote: "origin", Branch: "main", Result: "pushed", At: phase.UpdatedAt}
+	store := &fakeTaskStore{
+		tasks:  []taskstore.Task{task},
+		phases: []taskstore.Phase{phase},
+		progress: taskstore.Progress{
+			Total: 1,
+			Counts: map[taskstore.Status]int{
+				taskstore.StatusReady: 1,
+			},
+			Next: []taskstore.Task{task},
+		},
+	}
+	var english bytes.Buffer
+	var chinese bytes.Buffer
+	var invalidErr bytes.Buffer
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+
+	englishCode := NewApp(deps, &english, &bytes.Buffer{}).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a"})
+	chineseCode := NewApp(deps, &chinese, &bytes.Buffer{}).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--language", "zh-CN"})
+	invalidCode := NewApp(deps, &bytes.Buffer{}, &invalidErr).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--language", "fr"})
+
+	if englishCode != 0 || chineseCode != 0 {
+		t.Fatalf("report codes = (%d, %d), want both 0", englishCode, chineseCode)
+	}
+	for _, want := range []string{"# ADP Progress Report", "Workspace: game-a", "Total Tasks: 1", "p6-progress-report", "task-1", "codex-main", "passed: scripts/check-all.sh", "abc123: Add progress report", "pushed: origin/main"} {
+		if !strings.Contains(english.String(), want) {
+			t.Fatalf("English report missing %q: %q", want, english.String())
+		}
+	}
+	for _, want := range []string{"# ADP 执行进度报告", "工作区：game-a", "任务总数：1", "p6-progress-report", "task-1"} {
+		if !strings.Contains(chinese.String(), want) {
+			t.Fatalf("Chinese report missing %q: %q", want, chinese.String())
+		}
+	}
+	if invalidCode != 1 {
+		t.Fatalf("invalid language exit code = %d, want 1", invalidCode)
+	}
+	if !strings.Contains(invalidErr.String(), `unknown progress report language "fr"`) {
+		t.Fatalf("invalid language stderr = %q", invalidErr.String())
+	}
+}
+
 func TestPhaseCommandsRecordGateLifecycle(t *testing.T) {
 	store := &fakeTaskStore{}
 	deps := Dependencies{

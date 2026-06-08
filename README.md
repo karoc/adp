@@ -31,6 +31,7 @@ Implemented Phase 1 foundations:
 - `adp tasks add/list/show/update/claim/release/done/block`
 - `adp phase add/list/show/start/accept/commit/push`
 - `adp progress [--workspace <name>]`
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
 - `adp run codex --workspace <name> [--task <task-id>]`
 - `adp run claude --workspace <name> [--task <task-id>]`
 - `adp enter <workspace>`
@@ -67,6 +68,7 @@ go run ./cmd/adp run claude --workspace game-a
 go run ./cmd/adp events list --workspace game-a --task "$TASK_ID"
 go run ./cmd/adp tasks list --workspace game-a --format json
 go run ./cmd/adp progress --workspace game-a --format json
+go run ./cmd/adp progress report --workspace game-a
 go run ./cmd/adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
 go run ./cmd/adp sessions show <session-id>
 go run ./cmd/adp sessions restore-plan <session-id>
@@ -123,6 +125,8 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 `adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered pruneable only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp` and a matching `runtime_root`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
 `adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; the authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. `adp run --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
+
+`adp progress report [--workspace <name>] [--language <en|zh-CN>]` prints a local Markdown planning/execution report to stdout. English is the default report language; Simplified Chinese output is explicit through `--language zh-CN`. The report command is read-only and does not mutate task state, phase state, Git state, runtime state, event logs, or project-root files.
 
 P3 provides a local phase ledger for project planning and execution progress management. It records task ownership, optional claim leases, acceptance records, commit records, push records, and explicit stage gate discipline under `$ADP_HOME`. This remains terminal-first and local-first; it is not a Web dashboard, SaaS tracker, cloud sync layer, or hosted orchestration service.
 
