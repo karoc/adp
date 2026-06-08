@@ -39,6 +39,6 @@ while IFS= read -r file; do
     printf '%s has %s lines; limit is %s\n' "$file" "$lines" "$limit" >&2
     status=1
   fi
-done < <(git ls-files)
+done < <(git ls-files --cached --others --exclude-standard)
 
 exit "$status"

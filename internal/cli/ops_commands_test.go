@@ -68,6 +68,30 @@ func TestCompletionCommandRendersCompletion(t *testing.T) {
 	}
 }
 
+func TestCompletionCommandDefaultsToBash(t *testing.T) {
+	var stdout bytes.Buffer
+	var gotOpts shell.CompletionOptions
+
+	deps := Dependencies{
+		RenderCompletion: func(opts shell.CompletionOptions) (string, error) {
+			gotOpts = opts
+			return "completion body\n", nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"completion"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if gotOpts.Shell != "bash" {
+		t.Fatalf("completion shell = %q, want bash", gotOpts.Shell)
+	}
+	if stdout.String() != "completion body\n" {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
 func TestEventsListCommandReadsAndPrintsEvents(t *testing.T) {
 	var stdout bytes.Buffer
 	var gotLayout paths.Layout
@@ -111,6 +135,55 @@ func TestEventsListCommandReadsAndPrintsEvents(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("events output missing %q: %q", want, output)
 		}
+	}
+}
+
+func TestEventsCommandReportsUnknownSubcommand(t *testing.T) {
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{}, &bytes.Buffer{}, &stderr).Execute(context.Background(), []string{"events", "bogus"})
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), `adp: unknown events command "bogus"`) {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestEventsListCommandRejectsBadLimits(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "not integer", args: []string{"events", "list", "--limit", "many"}, want: "adp: parse limit:"},
+		{name: "negative", args: []string{"events", "list", "--limit", "-1"}, want: "adp: limit must not be negative"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			readCalled := false
+			deps := Dependencies{
+				ReadEvents: func(context.Context, paths.Layout, events.Query) ([]events.Event, error) {
+					readCalled = true
+					return nil, nil
+				},
+			}
+
+			code := NewApp(deps, &bytes.Buffer{}, &stderr).Execute(context.Background(), tt.args)
+
+			if code != 1 {
+				t.Fatalf("exit code = %d, want 1", code)
+			}
+			if readCalled {
+				t.Fatal("ReadEvents should not be called")
+			}
+			if !strings.Contains(stderr.String(), tt.want) {
+				t.Fatalf("stderr = %q, want to contain %q", stderr.String(), tt.want)
+			}
+		})
 	}
 }
 
@@ -164,6 +237,55 @@ func TestSessionsListCommandReadsAndPrintsSummaries(t *testing.T) {
 	}
 }
 
+func TestSessionsCommandReportsUnknownSubcommand(t *testing.T) {
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{}, &bytes.Buffer{}, &stderr).Execute(context.Background(), []string{"sessions", "bogus"})
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), `adp: unknown sessions command "bogus"`) {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestSessionsListCommandRejectsBadLimits(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "not integer", args: []string{"sessions", "list", "--limit", "many"}, want: "adp: parse limit:"},
+		{name: "negative", args: []string{"sessions", "list", "--limit", "-1"}, want: "adp: limit must not be negative"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			listCalled := false
+			deps := Dependencies{
+				ListSessions: func(context.Context, paths.Layout, sessions.Query) ([]sessions.Summary, error) {
+					listCalled = true
+					return nil, nil
+				},
+			}
+
+			code := NewApp(deps, &bytes.Buffer{}, &stderr).Execute(context.Background(), tt.args)
+
+			if code != 1 {
+				t.Fatalf("exit code = %d, want 1", code)
+			}
+			if listCalled {
+				t.Fatal("ListSessions should not be called")
+			}
+			if !strings.Contains(stderr.String(), tt.want) {
+				t.Fatalf("stderr = %q, want to contain %q", stderr.String(), tt.want)
+			}
+		})
+	}
+}
+
 func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
 	var stdout bytes.Buffer
 	var gotSessionID string
@@ -214,6 +336,34 @@ func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
 	}
 }
 
+func TestSessionsShowCommandReportsMissingSession(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	var gotSessionID string
+
+	deps := Dependencies{
+		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
+			gotSessionID = sessionID
+			return nil, sessions.ErrNotFound
+		},
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{"sessions", "show", "missing"})
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if gotSessionID != "missing" {
+		t.Fatalf("session id = %q", gotSessionID)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "adp: session not found") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func TestRuntimePruneCommandRunsPrunerAndPrintsResults(t *testing.T) {
 	var stdout bytes.Buffer
 	var gotReq runtime.PruneRequest
@@ -250,5 +400,54 @@ func TestRuntimePruneCommandRunsPrunerAndPrintsResults(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("prune output missing %q: %q", want, output)
 		}
+	}
+}
+
+func TestRuntimeCommandReportsUnknownSubcommand(t *testing.T) {
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{}, &bytes.Buffer{}, &stderr).Execute(context.Background(), []string{"runtime", "bogus"})
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), `adp: unknown runtime command "bogus"`) {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRuntimePruneCommandRejectsBadDurations(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "invalid duration", args: []string{"runtime", "prune", "--older-than", "tomorrow"}, want: "adp: parse older-than duration:"},
+		{name: "negative duration", args: []string{"runtime", "prune", "--older-than", "-1h"}, want: "adp: older-than must not be negative"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			pruneCalled := false
+			deps := Dependencies{
+				PruneRuntimes: func(context.Context, runtime.PruneRequest) ([]runtime.PruneResult, error) {
+					pruneCalled = true
+					return nil, nil
+				},
+			}
+
+			code := NewApp(deps, &bytes.Buffer{}, &stderr).Execute(context.Background(), tt.args)
+
+			if code != 1 {
+				t.Fatalf("exit code = %d, want 1", code)
+			}
+			if pruneCalled {
+				t.Fatal("PruneRuntimes should not be called")
+			}
+			if !strings.Contains(stderr.String(), tt.want) {
+				t.Fatalf("stderr = %q, want to contain %q", stderr.String(), tt.want)
+			}
+		})
 	}
 }

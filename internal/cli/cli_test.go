@@ -164,11 +164,15 @@ func TestWorkspaceDoctorCommandReturnsTwoWhenDiagnosticsHaveErrors(t *testing.T)
 		}},
 	}
 	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 
-	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "doctor"})
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &stderr).Execute(context.Background(), []string{"workspace", "doctor"})
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 	if !store.diagnoseAllCalled {
 		t.Fatal("DiagnoseAll was not called")
@@ -178,6 +182,32 @@ func TestWorkspaceDoctorCommandReturnsTwoWhenDiagnosticsHaveErrors(t *testing.T)
 		if !strings.Contains(output, want) {
 			t.Fatalf("doctor output missing %q: %q", want, output)
 		}
+	}
+}
+
+func TestExecuteReportsUnknownCommand(t *testing.T) {
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{}, &bytes.Buffer{}, &stderr).Execute(context.Background(), []string{"bogus"})
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), `adp: unknown command "bogus"`) {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestWorkspaceCommandReportsUnknownSubcommand(t *testing.T) {
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: &fakeStore{}}, &bytes.Buffer{}, &stderr).Execute(context.Background(), []string{"workspace", "bogus"})
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), `adp: unknown workspace command "bogus"`) {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 

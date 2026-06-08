@@ -38,6 +38,8 @@ Implemented Phase 1 foundations:
 
 ## Quick Start
 
+For installation and bootstrap details, see [docs/install.md](docs/install.md).
+
 ```bash
 go run ./cmd/adp init
 go run ./cmd/adp workspace add game-a /srv/game-a
@@ -102,22 +104,23 @@ The repository includes `examples/basic-workspace` as a copyable local workspace
 
 ## Development
 
-Run the standard checks before handoff:
+Use the aggregate validation gate before handoff:
 
 ```bash
-scripts/runtime-smoke.sh --fake
-go test -count=1 ./...
-go vet ./...
-scripts/check-file-lines.sh
-scripts/check-docs-bilingual.sh
-git diff --check
+scripts/check-all.sh
 ```
+
+The aggregate gate covers deterministic runtime smoke, example workspace smoke, Go test and vet, file length limits, bilingual documentation pairing, and whitespace diff checks. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
 
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 
 Documentation defaults to English and must include Simplified Chinese counterparts using `*.zh-CN.md`.
 
 Runtime smoke acceptance is documented in [docs/runtime-acceptance.md](docs/runtime-acceptance.md).
+
+Real agent compatibility boundaries are documented in [docs/real-agent-compatibility.md](docs/real-agent-compatibility.md), and release readiness is tracked in [docs/release-checklist.md](docs/release-checklist.md).
+
+Agent execution standards, including multi-agent coordination rules and project constraints, are documented in [AGENTS.md](AGENTS.md).
 
 ## License
 

@@ -48,6 +48,9 @@ func (a *App) completion(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	if opts.Shell == "" {
+		opts.Shell = "bash"
+	}
 	if a.deps.RenderCompletion == nil {
 		return errors.New("completion renderer is not configured")
 	}
