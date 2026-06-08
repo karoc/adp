@@ -80,7 +80,7 @@ example workspace smoke 验证：
 - 通过复制后的示例执行 fake local agent 会记录 session history，并支持只读 restore planning。
 - 示例文档和发布声明有可执行路径支撑。
 
-`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口。它会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/show/update/claim/release/block/done`、`adp phase add/list/show/start/accept/commit/push`、`adp progress` 和 `adp progress report`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，report 生成保持只读，且没有 planning 或 report artifacts 写入真实项目根目录。
+`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口。它会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/next/show/update/claim/release/block/done`、`adp phase add/list/show/start/accept/commit/push`、`adp progress` 和 `adp progress report`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，next-work/report 生成保持只读，且没有 planning 或 report artifacts 写入真实项目根目录。
 
 P9 可以把共享 smoke helpers 和 JSON report validator 移到 `scripts/` 下的 helper files 中。这种拆分只是维护和 hardening 的实现细节；调用者仍然运行 `scripts/task-manager-smoke.sh`，release gate 仍然通过 `scripts/check-all.sh` 运行它。
 
@@ -136,7 +136,7 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 `scripts/example-workspace-smoke.sh` 失败，优先检查复制后的 `examples/basic-workspace/workspace.yaml` 是否仍匹配当前 schema，以及 `adp env <workspace> --cd` 是否仍能生成带项目文件 symlink 的 kept runtime。
 
-如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储、helper wiring、JSON report validation、report read-only 检查，以及项目根目录污染防护。
+如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储、next-work JSON selection、helper wiring、JSON report validation、next-work/report read-only 检查，以及项目根目录污染防护。
 
 如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、claim lease parsing、owner-checked release、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录来修复失败。
 

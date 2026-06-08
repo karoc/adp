@@ -281,7 +281,7 @@ assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_befo
 assert_event_log_line_count_unchanged "$events_before" "progress report evidence"
 assert_project_root_clean
 
-info "checking progress report JSON handoff snapshot"
+info "creating next-work report candidates"
 output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority low --phase p4 --description "lower priority handoff candidate" "Low priority follow-up")
 assert_contains "$output" "task task-" "low priority task add output"
 assert_contains "$output" "added" "low priority task add output"
@@ -298,6 +298,52 @@ if [ -z "$critical_task_id" ]; then
   fail "could not parse critical priority task id from: $output"
 fi
 
+info "checking tasks next read-only output"
+tasks_before=$(cat "$TASKS_FILE")
+phases_before=$(cat "$PHASES_FILE")
+progress_before=$(cat "$PROGRESS_FILE")
+events_before=$(line_count "$EVENTS_FILE")
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+
+output=$(run_adp "$REPO_ROOT" tasks next --workspace game-a --limit 1)
+assert_contains "$output" "workspace: game-a" "tasks next output"
+assert_contains "$output" "limit: 1" "tasks next output"
+assert_contains "$output" "$critical_task_id" "tasks next output"
+case "$output" in
+  *"$low_task_id"*) fail "tasks next --limit 1 included low priority task" ;;
+esac
+
+output=$(run_adp "$REPO_ROOT" tasks next --workspace game-a --limit 0 --format json)
+assert_json_field "$output" "workspace" "tasks next json output"
+assert_json_field "$output" "planning_source" "tasks next json output"
+assert_json_field "$output" "generated_at" "tasks next json output"
+assert_json_field "$output" "total" "tasks next json output"
+assert_json_field "$output" "eligible_count" "tasks next json output"
+assert_json_field "$output" "counts" "tasks next json output"
+assert_json_field "$output" "limit" "tasks next json output"
+assert_json_field "$output" "candidates" "tasks next json output"
+assert_json_field "$output" "next" "tasks next json output"
+assert_contains "$output" "\"$critical_task_id\"" "tasks next json output"
+assert_contains "$output" "\"$low_task_id\"" "tasks next json output"
+assert_contains "$output" "\"planning_source\": \"$TASKS_FILE\"" "tasks next json output"
+assert_contains "$output" "\"eligible_count\": 2" "tasks next json output"
+critical_line=$(printf '%s\n' "$output" | grep -n "\"$critical_task_id\"" | head -n 1 | cut -d: -f1)
+low_line=$(printf '%s\n' "$output" | grep -n "\"$low_task_id\"" | head -n 1 | cut -d: -f1)
+if [ -z "$critical_line" ] || [ -z "$low_line" ] || [ "$critical_line" -ge "$low_line" ]; then
+  printf '%s\n' "$output" >&2
+  fail "tasks next json did not prioritize critical task before low task"
+fi
+
+assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "tasks next"
+assert_event_log_line_count_unchanged "$events_before" "tasks next"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "tasks next" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "tasks next" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "tasks next" "Git state"
+assert_project_root_clean
+
+info "checking progress report JSON handoff snapshot"
 tasks_before=$(cat "$TASKS_FILE")
 phases_before=$(cat "$PHASES_FILE")
 progress_before=$(cat "$PROGRESS_FILE")

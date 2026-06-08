@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 
 	"github.com/karoc/adp/internal/sessions"
@@ -420,39 +419,7 @@ func writeRuntimeSessionReportChinese(w io.Writer, summaries []sessions.Summary)
 }
 
 func reportableTasks(tasks []taskstore.Task) []taskstore.Task {
-	open := make([]taskstore.Task, 0, len(tasks))
-	for _, task := range tasks {
-		if task.Status == taskstore.StatusReady || task.Status == taskstore.StatusInProgress || task.Status == taskstore.StatusReview {
-			open = append(open, task)
-		}
-	}
-	sort.SliceStable(open, func(i, j int) bool {
-		left := priorityRank(open[i].Priority)
-		right := priorityRank(open[j].Priority)
-		if left != right {
-			return left < right
-		}
-		if open[i].CreatedAt.Equal(open[j].CreatedAt) {
-			return open[i].ID < open[j].ID
-		}
-		return open[i].CreatedAt.Before(open[j].CreatedAt)
-	})
-	return open
-}
-
-func priorityRank(priority string) int {
-	switch strings.ToLower(strings.TrimSpace(priority)) {
-	case "critical", "urgent", "p0":
-		return 0
-	case "high", "p1":
-		return 1
-	case "normal", "medium", "p2", "":
-		return 2
-	case "low", "p3":
-		return 3
-	default:
-		return 2
-	}
+	return taskstore.NextTasks(tasks, 0)
 }
 
 func acceptanceSummary(record taskstore.AcceptanceRecord) string {

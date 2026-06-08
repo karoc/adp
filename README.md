@@ -28,7 +28,7 @@ Implemented Phase 1 foundations:
 - `adp sessions show <session-id>`
 - `adp sessions restore-plan <session-id>`
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
-- `adp tasks add/list/show/update/claim/release/done/block`
+- `adp tasks add/list/next/show/update/claim/release/done/block`
 - `adp phase add/list/show/start/accept/commit/push`
 - `adp progress [--workspace <name>]`
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
@@ -67,6 +67,7 @@ cd /srv/game-a && go run /path/to/adp/cmd/adp run claude
 go run ./cmd/adp run claude --workspace game-a
 go run ./cmd/adp events list --workspace game-a --task "$TASK_ID"
 go run ./cmd/adp tasks list --workspace game-a --format json
+go run ./cmd/adp tasks next --workspace game-a --limit 0 --format json
 go run ./cmd/adp progress --workspace game-a --format json
 go run ./cmd/adp progress report --workspace game-a
 go run ./cmd/adp progress report --workspace game-a --format json

@@ -89,6 +89,49 @@ func TestStoreUpdatesBlocksAndSummarizesProgress(t *testing.T) {
 	assertFileContains(t, filepath.Join(store.WorkspaceDir, "planning", "progress.jsonl"), `"type":"task_blocked"`)
 }
 
+func TestStorePrioritizesNextWork(t *testing.T) {
+	store := testStore(t)
+
+	low, err := store.Add(context.Background(), AddRequest{Title: "Low ready", Priority: "low"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done, err := store.Add(context.Background(), AddRequest{Title: "Done critical", Priority: "critical", Status: StatusDone})
+	if err != nil {
+		t.Fatal(err)
+	}
+	review, err := store.Add(context.Background(), AddRequest{Title: "Review medium", Priority: "medium", Status: StatusReview})
+	if err != nil {
+		t.Fatal(err)
+	}
+	high, err := store.Add(context.Background(), AddRequest{Title: "High ready", Priority: "high"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	progress, err := store.Progress(context.Background())
+	if err != nil {
+		t.Fatalf("Progress returned error: %v", err)
+	}
+	got := []string{}
+	for _, task := range progress.Next {
+		got = append(got, task.ID)
+	}
+	want := []string{high.ID, review.ID, low.ID}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("next ids = %v, want %v; done task was %s", got, want, done.ID)
+	}
+
+	tasks, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List returned error: %v", err)
+	}
+	limited := NextTasks(tasks, 2)
+	if len(limited) != 2 || limited[0].ID != high.ID || limited[1].ID != review.ID {
+		t.Fatalf("limited next tasks = %+v", limited)
+	}
+}
+
 func TestStoreClaimsAndReleasesTasks(t *testing.T) {
 	store := testStore(t)
 	task, err := store.Add(context.Background(), AddRequest{Title: "Phase gate MVP"})

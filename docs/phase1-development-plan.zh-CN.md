@@ -554,6 +554,25 @@ MVP adapter 输出：
 - 命令不能推断验收、关闭任务、运行 Git、push、启动 Agent、创建 runtime 目录、追加 runtime events 或恢复 provider 原生会话。
 - 执行前后 task state、phase state、event log、runtime directories 和真实项目根目录保持不变。
 
+### `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]`
+
+职责：
+
+- 向 stdout 打印紧凑的本地 next-work snapshot。
+- 读取 `$ADP_HOME` 下的 workspace planning ledger。
+- 选择状态为 `ready`、`in_progress` 或 `review` 的任务。
+- 按优先级和稳定的本地 tie-breakers 排序 candidates，方便终端用户和子 Agent 在不解析完整 progress report 的情况下选择后续工作。
+- 默认输出 text，并针对终端快速扫描优化。
+- `--limit <n>` 用于限制 candidates，默认值是 5，`0` 表示输出不截断的 snapshot。
+- `--format json` 输出供本地跨工具解析使用，并提供稳定字段，包括 workspace、planning source、snapshot 生成时间、任务总数、eligible candidate 数量、状态统计、请求的 limit、排序后的 `candidates`，以及存在可执行任务时的 singular `next` first-candidate 值。
+
+验收：
+
+- Text 输出到 stdout，不自动创建或更新文件。
+- JSON 输出字段稳定，足以让本地工具不抓取文本即可选择候选任务。
+- 命令保持只读，不能领取任务、修改 task 状态、修改 owner 或 lease、清理 blocker、修改 phase、追加 events、创建 runtime 目录、启动 Agent、运行 Git、push、推断验收、关闭任务、恢复 provider 原生会话、写入真实项目根目录、同步 hosted tracker，或把 JSON 作为第二份 planning store 维护。
+- 执行前后 task state、phase state、event log、runtime directories、Git state、hosted service state 和真实项目根目录保持不变。
+
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
 职责：
@@ -717,6 +736,7 @@ adp env game-a --cd
 adp shell-hook --shell bash
 adp completion --shell bash
 adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task"
+adp tasks next --workspace game-a --limit 0 --format json
 adp run codex --workspace game-a --task <task-id> -- --version
 cd /srv/game-a && adp run claude -- --version
 adp events list --workspace game-a --task <task-id>
@@ -742,6 +762,7 @@ adp workspace remove game-renamed
 - `adp events list` 能查询 run start/finish 历史。
 - `adp sessions list` / `show` / `restore-plan` 能从 event log 查询 session history 和只读 restore planning。
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` 默认能向 stdout 打印 Markdown 规划/执行报告，传入 `--format json` 时输出只读 JSON handoff snapshot，在 JSONL event/session 数据存在时包含最近本地 runtime session evidence，并保持 planning state、Git state、runtime state、event log 和真实项目根目录不变。
+- `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 会向 stdout 打印紧凑的优先级 next-work snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
 - `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
@@ -800,6 +821,7 @@ symlink overlay 与真实项目已有配置冲突：
 - P8 progress report JSON handoff snapshot 已完成：`adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` 保持默认输出为英文 Markdown，`--language zh-CN` 只作用于 Markdown，并通过 `--format json` 输出机器可读的只读 snapshot。JSON snapshot 包含 workspace、task 总数、phases、task counts、tasks、按优先级排序的 next work、phase evidence，以及在本地 JSONL event/session 数据存在时的最近 runtime session evidence。它用于跨工具解析，不能成为单独的状态存储。
 - P9 task-manager smoke modularization 已完成：oversized task-manager runtime smoke 已在触及 700 行代码文件限制前拆分为更小的公开入口、共享 shell helper library 和专用 JSON report validator。`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口，`scripts/check-all.sh` 仍然是聚合门禁。
 - P9 只属于维护和 hardening。它保留了项目根目录污染防护和只读 progress report 行为的覆盖。
-- P3/P4/P5/P6/P7/P8/P9 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git execution、automatic task closure、provider-native conversation resume、远程 issue-service 集成、project-root report export 或 hosted tracker semantics。
+- P10 task next-work endpoint 已完成：`adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 提供紧凑的只读本地 task-selection snapshot，供终端用户和子 Agent 使用。它把既有 progress-report next-work 数据收窄为专用命令，但不领取任务、不修改状态、不运行 Git、不启动 Agent、不写入 project-root 文件、不同步 hosted tracker，也不创建另一份 planning store。
+- P3/P4/P5/P6/P7/P8/P9/P10 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git execution、automatic task closure、provider-native conversation resume、远程 issue-service 集成、project-root report export 或 hosted tracker semantics。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

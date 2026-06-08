@@ -42,6 +42,7 @@ Usage:
 	  adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]
 	  adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>
 	  adp tasks list [--workspace <name>] [--format <text|json>]
+	  adp tasks next [--workspace <name>] [--limit <n>] [--format <text|json>]
 	  adp tasks show [--workspace <name>] <task-id> [--format <text|json>]
 	  adp tasks update [--workspace <name>] <task-id> --status <status>
 	  adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]

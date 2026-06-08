@@ -80,7 +80,7 @@ The example workspace smoke verifies:
 - Fake local agent execution through the copied example records session history and supports read-only restore planning.
 - Example documentation and release claims stay connected to an executable path.
 
-`scripts/task-manager-smoke.sh` remains the public entry point for workspace-local task, phase, and progress report runtime acceptance. It builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/show/update/claim/release/block/done`, `adp phase add/list/show/start/accept/commit/push`, `adp progress`, and `adp progress report`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning`, report generation is read-only, and no planning or report artifacts are written into the real project root.
+`scripts/task-manager-smoke.sh` remains the public entry point for workspace-local task, phase, and progress report runtime acceptance. It builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/next/show/update/claim/release/block/done`, `adp phase add/list/show/start/accept/commit/push`, `adp progress`, and `adp progress report`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning`, next-work/report generation is read-only, and no planning or report artifacts are written into the real project root.
 
 P9 may move shared smoke helpers and the JSON report validator into helper files under `scripts/`. That split is an implementation detail for maintenance and hardening; callers still run `scripts/task-manager-smoke.sh`, and the release gate still runs it through `scripts/check-all.sh`.
 
@@ -136,7 +136,7 @@ If a version step fails, inspect the CLI build variables in `internal/cli` and t
 
 If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examples/basic-workspace/workspace.yaml` still matches the current schema and whether `adp env <workspace> --cd` still produces a kept runtime with project-file symlinks.
 
-If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, helper wiring, JSON report validation, report read-only checks, and project-root pollution checks.
+If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, next-work JSON selection, helper wiring, JSON report validation, next-work/report read-only checks, and project-root pollution checks.
 
 If a phase-gate smoke step fails, inspect phase record storage, task owner state, claim lease parsing, owner-checked release, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root.
 

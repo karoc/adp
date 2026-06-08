@@ -14,6 +14,18 @@ type taskListJSON struct {
 	Tasks     []taskJSON `json:"tasks"`
 }
 
+type taskNextJSON struct {
+	Workspace      string         `json:"workspace"`
+	PlanningSource string         `json:"planning_source"`
+	GeneratedAt    *string        `json:"generated_at,omitempty"`
+	Total          int            `json:"total"`
+	EligibleCount  int            `json:"eligible_count"`
+	Counts         map[string]int `json:"counts"`
+	Limit          int            `json:"limit"`
+	Candidates     []taskJSON     `json:"candidates"`
+	Next           *taskJSON      `json:"next,omitempty"`
+}
+
 type taskJSON struct {
 	ID             string  `json:"id"`
 	Title          string  `json:"title"`
@@ -119,6 +131,38 @@ func taskListOutput(workspace string, tasks []taskstore.Task) taskListJSON {
 		out.Tasks = append(out.Tasks, taskOutput(task))
 	}
 	return out
+}
+
+func taskNextOutput(workspace string, source string, generatedAt time.Time, limit int, tasks []taskstore.Task, candidates []taskstore.Task) taskNextJSON {
+	out := taskNextJSON{
+		Workspace:      workspace,
+		PlanningSource: source,
+		GeneratedAt:    jsonTime(generatedAt),
+		Total:          len(tasks),
+		EligibleCount:  len(candidates),
+		Counts:         taskCounts(tasks),
+		Limit:          limit,
+		Candidates:     make([]taskJSON, 0, len(candidates)),
+	}
+	for _, task := range candidates {
+		out.Candidates = append(out.Candidates, taskOutput(task))
+	}
+	if len(out.Candidates) > 0 {
+		next := out.Candidates[0]
+		out.Next = &next
+	}
+	return out
+}
+
+func taskCounts(tasks []taskstore.Task) map[string]int {
+	counts := map[string]int{}
+	for _, status := range taskstore.Statuses() {
+		counts[string(status)] = 0
+	}
+	for _, task := range tasks {
+		counts[string(task.Status)]++
+	}
+	return counts
 }
 
 func taskOutput(task taskstore.Task) taskJSON {

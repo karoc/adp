@@ -351,6 +351,14 @@ When local JSONL runtime events and session data exist, Markdown and JSON report
 
 The command is read-only. It must not append events, mutate task state, mutate phase state, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, or write report files into the real project root.
 
+### `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]`
+
+Prints a compact local next-work snapshot to stdout. It reads the workspace planning ledger under `$ADP_HOME`, selects tasks with `ready`, `in_progress`, or `review` status, and sorts candidates by priority plus stable local tie-breakers so terminal users and sub-agents can choose follow-up work without parsing the full progress report.
+
+Text is the default format and should be easy to scan in a terminal. `--limit <n>` caps candidates, defaults to 5, and accepts `0` for an untruncated snapshot. JSON output is for local cross-tool parsing and includes stable fields for workspace, planning source, generated timestamp, total task count, eligible candidate count, status counts, requested limit, ordered `candidates`, and a singular `next` first-candidate value when work is available.
+
+The command is read-only. It must not claim tasks, mutate task status, change owners or leases, clear blockers, mutate phases, append events, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, write files into the real project root, sync with hosted trackers, or maintain JSON as a second planning store.
+
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
 Scans direct child directories under `$ADP_RUNTIME_DIR`. A directory becomes a prune candidate only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp`, non-empty workspace and session IDs, an absolute `project_root`, a matching `runtime_root`, and a valid `created_at`. The command removes ADP-owned runtime directories older than `--older-than`, skips `keep: true` by default unless `--include-kept` is passed, reports candidates without deleting when `--dry-run` is set, skips incompatible or self-inconsistent manifests, and never removes a target derived from the manifest project root.
@@ -441,6 +449,7 @@ End-to-end expectations:
 - `adp events list` prints filtered run history from JSONL events.
 - `adp sessions list`, `adp sessions show`, and `adp sessions restore-plan` expose local session history and read-only restore planning derived from JSONL events.
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a Markdown planning/execution report to stdout by default, emits a read-only JSON handoff snapshot with `--format json`, includes recent local runtime session evidence when JSONL event/session data exists, and leaves planning state, Git state, runtime state, event logs, and the real project root unchanged.
+- `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` prints a compact prioritized next-work snapshot to stdout, exposes a stable JSON contract for local tools, and leaves task state, phase state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
 - `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
@@ -466,6 +475,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P8 progress report JSON handoff snapshot completed: `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` keeps default output as English Markdown, applies `--language zh-CN` to Markdown only, and emits a read-only machine-readable snapshot with `--format json`. The JSON snapshot includes workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists. It is for cross-tool parsing and must not become a separate state store.
 - P9 task-manager smoke modularization completed: the oversized task-manager runtime smoke is split into a smaller public entry point, shared shell helper library, and dedicated JSON report validator before breaching the 700-line code-file limit. `scripts/task-manager-smoke.sh` remains the public entry point for workspace-local task, phase, and progress report runtime acceptance, and `scripts/check-all.sh` remains the aggregate gate.
 - P9 is maintenance and hardening only. It preserves coverage for project-root pollution protection and read-only progress report behavior.
-- P3/P4/P5/P6/P7/P8/P9 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git execution, automatic task closure, provider-native conversation resume, remote issue-service integration, project-root report exports, or hosted tracker semantics.
+- P10 task next-work endpoint completed: `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` provides a compact read-only local task-selection snapshot for terminal users and sub-agents. It narrows the existing progress-report next-work data into a focused command without claiming tasks, changing state, running Git, starting agents, writing project-root files, syncing hosted trackers, or creating another planning store.
+- P3/P4/P5/P6/P7/P8/P9/P10 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git execution, automatic task closure, provider-native conversation resume, remote issue-service integration, project-root report exports, or hosted tracker semantics.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
+const tasksNextUsage = "adp tasks next [--workspace <name>] [--limit <n>] [--format <text|json>]"
+
 func (a *App) tasks(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: adp tasks <add|list|show|update|claim|release|done|block>")
+		return errors.New("usage: adp tasks <add|list|next|show|update|claim|release|done|block>")
 	}
 
 	switch args[0] {
@@ -20,6 +24,8 @@ func (a *App) tasks(ctx context.Context, args []string) error {
 		return a.tasksAdd(ctx, args[1:])
 	case "list":
 		return a.tasksList(ctx, args[1:])
+	case "next":
+		return a.tasksNext(ctx, args[1:])
 	case "show":
 		return a.tasksShow(ctx, args[1:])
 	case "update":
@@ -75,7 +81,38 @@ func (a *App) tasksList(ctx context.Context, args []string) error {
 	if opts.format == outputFormatJSON {
 		return writePlanningJSON(a.stdout, taskListOutput(workspaceName, tasks))
 	}
+	return a.printTaskTable(tasks)
+}
 
+func (a *App) tasksNext(ctx context.Context, args []string) error {
+	opts, err := parseTasksNextArgs(args)
+	if err != nil {
+		return err
+	}
+	store, workspaceName, workspaceDir, err := a.loadTaskStoreWithWorkspaceDir(ctx, opts.workspace)
+	if err != nil {
+		return err
+	}
+	tasks, err := store.List(ctx)
+	if err != nil {
+		return err
+	}
+	next := taskstore.NextTasks(tasks, opts.limit)
+	if opts.format == outputFormatJSON {
+		source := filepath.Join(workspaceDir, "planning", "tasks.yaml")
+		generatedAt := time.Now().UTC().Truncate(time.Second)
+		return writePlanningJSON(a.stdout, taskNextOutput(workspaceName, source, generatedAt, opts.limit, tasks, next))
+	}
+	fmt.Fprintf(a.stdout, "workspace: %s\n", workspaceName)
+	fmt.Fprintf(a.stdout, "limit: %d\n", opts.limit)
+	if len(next) == 0 {
+		fmt.Fprintln(a.stdout, "next: -")
+		return nil
+	}
+	return a.printTaskTable(next)
+}
+
+func (a *App) printTaskTable(tasks []taskstore.Task) error {
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(writer, "ID\tSTATUS\tOWNER\tPRIORITY\tPHASE\tUPDATED\tTITLE")
 	for _, task := range tasks {
@@ -260,14 +297,19 @@ func (a *App) progress(ctx context.Context, args []string) error {
 }
 
 func (a *App) loadTaskStore(ctx context.Context, workspace string) (TaskStore, string, error) {
+	store, workspaceName, _, err := a.loadTaskStoreWithWorkspaceDir(ctx, workspace)
+	return store, workspaceName, err
+}
+
+func (a *App) loadTaskStoreWithWorkspaceDir(ctx context.Context, workspace string) (TaskStore, string, string, error) {
 	cfg, workspaceDir, err := a.loadWorkspace(ctx, workspace)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	if a.deps.TaskStoreFactory == nil {
-		return nil, "", errors.New("task store is not configured")
+		return nil, "", "", errors.New("task store is not configured")
 	}
-	return a.deps.TaskStoreFactory(workspaceDir), cfg.Workspace.Name, nil
+	return a.deps.TaskStoreFactory(workspaceDir), cfg.Workspace.Name, workspaceDir, nil
 }
 
 func (a *App) printTask(task taskstore.Task) {

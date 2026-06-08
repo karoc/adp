@@ -12,6 +12,7 @@ The first task-management slice provides:
 
 - `adp tasks add`
 - `adp tasks list`
+- `adp tasks next`
 - `adp tasks show`
 - `adp tasks update`
 - `adp tasks claim`
@@ -49,6 +50,34 @@ The command prints a local planning/execution handoff snapshot to stdout. It rea
 With `--format json`, the command emits a read-only handoff snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL runtime events and session data exist. The JSON snapshot is an inspection format, not a separate state store. The authoritative state remains the local planning ledger under `$ADP_HOME` plus local JSONL evidence such as `$ADP_HOME/logs/events.jsonl`.
 
 The report is an inspection view, not a state transition. It does not append events, mutate task state, mutate phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into project roots.
+
+## Next Work Endpoint Scope
+
+P10 defines a narrower read-only endpoint for choosing the next local task without parsing the full progress report:
+
+- `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]`
+
+The command reads the workspace planning ledger under `$ADP_HOME`, selects eligible tasks, sorts them by priority and stable local tie-breakers, and prints the best next work candidates to stdout. It is intended for terminal users and local sub-agents that need a small task-selection snapshot before explicitly claiming or updating a task.
+
+Eligible statuses are `ready`, `in_progress`, and `review`. `planned`, `blocked`, `validated`, `done`, and `canceled` tasks stay visible in list, show, progress, and report views, but they are not selected by `adp tasks next`.
+
+Text output is the default and is optimized for terminal scanning. `--limit <n>` caps the candidate list; the default is 5, and `--limit 0` means no truncation. JSON output uses stable machine-readable fields and enum values so cross-tool callers can select a task without scraping text.
+
+The JSON contract includes:
+
+- `workspace`: workspace name.
+- `planning_source`: local planning file path used for the snapshot.
+- `generated_at`: UTC snapshot timestamp.
+- `total`: total task count in the workspace ledger.
+- `eligible_count`: candidate count after status filtering and limit handling.
+- `counts`: task counts by status across the full ledger.
+- `limit`: requested limit.
+- `candidates`: candidate task list in selection order.
+- `next`: the first candidate when at least one task is eligible; omitted when there is no eligible work.
+
+Each candidate uses the same task object shape as `adp tasks list --format json`, including task ID, title, status, priority, phase ID, owner or lease information when present, and blocker summary when relevant.
+
+The endpoint is read-only. It must not claim a task, update status, change owners or leases, clear blockers, mutate phases, append planning or runtime events, create runtime directories, start agents, run Git, infer acceptance, close tasks, write output files into the project root, sync with a hosted service, or maintain JSON output as a second planning store.
 
 ## Storage
 
@@ -100,8 +129,11 @@ List and inspect tasks:
 ```bash
 adp tasks list --workspace adp
 adp tasks show --workspace adp <task-id>
+adp tasks next --workspace adp
+adp tasks next --workspace adp --limit 0
 adp tasks list --workspace adp --format json
 adp tasks show --workspace adp <task-id> --format json
+adp tasks next --workspace adp --format json
 ```
 
 Move a task through execution:
@@ -153,6 +185,7 @@ Read-only task, phase, and progress views support `--format json` so local tools
 ```bash
 adp tasks list --workspace adp --format json
 adp tasks show --workspace adp <task-id> --format json
+adp tasks next --workspace adp --format json
 adp phase list --workspace adp --format json
 adp phase show --workspace adp <phase-id> --format json
 adp progress --workspace adp --format json
@@ -163,6 +196,7 @@ The JSON output is an inspection format, not a separate state store. The authori
 
 Cross-tool consumers should treat JSON output as a local snapshot for selecting work, showing status, or handing context to another terminal agent. They should still call explicit mutating commands when state needs to change:
 
+- Use `adp tasks next --format json` when a local tool needs a compact prioritized task-selection snapshot.
 - Use `adp tasks claim`, `adp tasks update`, `adp tasks done`, `adp tasks block`, or `adp tasks release` for task changes.
 - Use `adp phase start`, `adp phase accept`, `adp phase commit`, and `adp phase push` for phase transitions.
 - Do not infer acceptance from a passing command or close a task automatically without an explicit task or phase command.
@@ -320,6 +354,7 @@ The current task manager does not yet:
 - Automatically split user intent into tasks.
 - Write or export progress reports into repository documentation or project-root files automatically.
 - Maintain JSON report output as a second planning store.
+- Maintain `adp tasks next --format json` output as a second planning store.
 - Sync with GitHub Issues, Linear, Jira, Notion, or any hosted service.
 - Run Git commit or Git push commands automatically.
 - Infer acceptance from command output or close tasks automatically without explicit task or phase commands.

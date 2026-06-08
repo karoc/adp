@@ -20,6 +20,7 @@ const (
 	phasesFile       = "phases.yaml"
 	progressFile     = "progress.jsonl"
 	currentVersion   = 1
+	defaultNextLimit = 5
 	defaultPriority  = "normal"
 	defaultTaskPhase = "unassigned"
 )
@@ -288,13 +289,8 @@ func (s *Store) Progress(ctx context.Context) (Progress, error) {
 	}
 	for _, task := range tasks {
 		progress.Counts[task.Status]++
-		if task.Status == StatusReady || task.Status == StatusInProgress || task.Status == StatusReview {
-			progress.Next = append(progress.Next, task)
-		}
 	}
-	if len(progress.Next) > 5 {
-		progress.Next = progress.Next[:5]
-	}
+	progress.Next = NextTasks(tasks, defaultNextLimit)
 	return progress, nil
 }
 
@@ -476,6 +472,49 @@ func sortTasks(tasks []Task) {
 		}
 		return tasks[i].CreatedAt.Before(tasks[j].CreatedAt)
 	})
+}
+
+func NextTasks(tasks []Task, limit int) []Task {
+	open := make([]Task, 0, len(tasks))
+	for _, task := range tasks {
+		if isNextStatus(task.Status) {
+			open = append(open, task)
+		}
+	}
+	sort.SliceStable(open, func(i, j int) bool {
+		left := priorityRank(open[i].Priority)
+		right := priorityRank(open[j].Priority)
+		if left != right {
+			return left < right
+		}
+		if open[i].CreatedAt.Equal(open[j].CreatedAt) {
+			return open[i].ID < open[j].ID
+		}
+		return open[i].CreatedAt.Before(open[j].CreatedAt)
+	})
+	if limit > 0 && len(open) > limit {
+		open = open[:limit]
+	}
+	return open
+}
+
+func isNextStatus(status Status) bool {
+	return status == StatusReady || status == StatusInProgress || status == StatusReview
+}
+
+func priorityRank(priority string) int {
+	switch strings.ToLower(strings.TrimSpace(priority)) {
+	case "critical", "urgent", "p0":
+		return 0
+	case "high", "p1":
+		return 1
+	case "normal", "medium", "p2", "":
+		return 2
+	case "low", "p3":
+		return 3
+	default:
+		return 2
+	}
 }
 
 func claimLeaseExpired(task Task, now time.Time) bool {
