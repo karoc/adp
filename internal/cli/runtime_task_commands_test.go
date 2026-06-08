@@ -165,8 +165,44 @@ func (s *runTaskStore) Block(context.Context, string, string) (taskstore.Task, e
 	return taskstore.Task{}, errors.New("not implemented")
 }
 
+func (s *runTaskStore) Claim(context.Context, string, string) (taskstore.Task, error) {
+	return taskstore.Task{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) Release(context.Context, string) (taskstore.Task, error) {
+	return taskstore.Task{}, errors.New("not implemented")
+}
+
 func (s *runTaskStore) Progress(context.Context) (taskstore.Progress, error) {
 	return taskstore.Progress{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) AddPhase(context.Context, taskstore.PhaseAddRequest) (taskstore.Phase, error) {
+	return taskstore.Phase{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) ListPhases(context.Context) ([]taskstore.Phase, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *runTaskStore) GetPhase(context.Context, string) (taskstore.Phase, error) {
+	return taskstore.Phase{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) StartPhase(context.Context, string) (taskstore.Phase, error) {
+	return taskstore.Phase{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) AcceptPhase(context.Context, taskstore.PhaseAcceptRequest) (taskstore.Phase, error) {
+	return taskstore.Phase{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) RecordPhaseCommit(context.Context, taskstore.PhaseCommitRequest) (taskstore.Phase, error) {
+	return taskstore.Phase{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) RecordPhasePush(context.Context, taskstore.PhasePushRequest) (taskstore.Phase, error) {
+	return taskstore.Phase{}, errors.New("not implemented")
 }
 
 type runTaskAdapter struct {

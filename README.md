@@ -27,7 +27,8 @@ Implemented Phase 1 foundations:
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 - `adp sessions show <session-id>`
 - `adp runtime prune [--older-than <duration>] [--dry-run]`
-- `adp tasks add/list/show/update/done/block`
+- `adp tasks add/list/show/update/claim/release/done/block`
+- `adp phase add/list/show/start/accept/commit/push`
 - `adp progress [--workspace <name>]`
 - `adp run codex --workspace <name> [--task <task-id>]`
 - `adp run claude --workspace <name> [--task <task-id>]`
@@ -117,6 +118,8 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. `adp run --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
 
+P3 is focused on the Phase Gate MVP for project planning and execution progress management. The target is a local phase ledger with task ownership, acceptance records, commit records, push records, and explicit stage gate discipline. This remains terminal-first and local-first; it is not a Web dashboard, SaaS tracker, cloud sync layer, or hosted orchestration service.
+
 The repository includes `examples/basic-workspace` as a copyable local workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings. Replace its `project.root` before running it against a local project. It is intended as a terminal-first reference for how ADP keeps agent configuration outside the real project tree.
 
 ## Development
@@ -134,6 +137,8 @@ Project code files must stay at or below 700 physical lines. Split files by resp
 Documentation defaults to English and must include Simplified Chinese counterparts using `*.zh-CN.md`.
 
 Runtime smoke acceptance is documented in [docs/runtime-acceptance.md](docs/runtime-acceptance.md).
+
+Task management and P3 phase gate planning are documented in [docs/task-management.md](docs/task-management.md).
 
 Real agent compatibility boundaries are documented in [docs/real-agent-compatibility.md](docs/real-agent-compatibility.md), release readiness is tracked in [docs/release-checklist.md](docs/release-checklist.md), and early preview packaging notes are in [docs/release-packaging.md](docs/release-packaging.md).
 

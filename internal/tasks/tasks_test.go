@@ -89,6 +89,119 @@ func TestStoreUpdatesBlocksAndSummarizesProgress(t *testing.T) {
 	assertFileContains(t, filepath.Join(store.WorkspaceDir, "planning", "progress.jsonl"), `"type":"task_blocked"`)
 }
 
+func TestStoreClaimsAndReleasesTasks(t *testing.T) {
+	store := testStore(t)
+	task, err := store.Add(context.Background(), AddRequest{Title: "Phase gate MVP"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	claimed, err := store.Claim(context.Background(), task.ID, "codex-main")
+	if err != nil {
+		t.Fatalf("Claim returned error: %v", err)
+	}
+	if claimed.Owner != "codex-main" || claimed.Status != StatusInProgress {
+		t.Fatalf("claimed task = %+v", claimed)
+	}
+
+	released, err := store.Release(context.Background(), task.ID)
+	if err != nil {
+		t.Fatalf("Release returned error: %v", err)
+	}
+	if released.Owner != "" || released.Status != StatusReady {
+		t.Fatalf("released task = %+v", released)
+	}
+
+	progressPath := filepath.Join(store.WorkspaceDir, "planning", "progress.jsonl")
+	assertFileContains(t, progressPath, `"type":"task_claimed"`)
+	assertFileContains(t, progressPath, `"type":"task_released"`)
+}
+
+func TestStoreRecordsPhaseGateLifecycle(t *testing.T) {
+	store := testStore(t)
+
+	phase, err := store.AddPhase(context.Background(), PhaseAddRequest{
+		ID:    "p3",
+		Title: "Project planning",
+		Goal:  "phase-aware task gates",
+	})
+	if err != nil {
+		t.Fatalf("AddPhase returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusPlanned || phase.Goal != "phase-aware task gates" {
+		t.Fatalf("phase = %+v", phase)
+	}
+
+	phase, err = store.StartPhase(context.Background(), "p3")
+	if err != nil {
+		t.Fatalf("StartPhase returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusActive {
+		t.Fatalf("phase status = %q, want active", phase.Status)
+	}
+
+	phase, err = store.AcceptPhase(context.Background(), PhaseAcceptRequest{
+		ID:       "p3",
+		Commands: []string{"scripts/task-manager-smoke.sh", "scripts/check-all.sh"},
+		Result:   "passed",
+		Notes:    "runtime smoke accepted",
+	})
+	if err != nil {
+		t.Fatalf("AcceptPhase returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusAccepted || phase.Acceptance.Result != "passed" || len(phase.Acceptance.Commands) != 2 {
+		t.Fatalf("accepted phase = %+v", phase)
+	}
+
+	phase, err = store.RecordPhaseCommit(context.Background(), PhaseCommitRequest{
+		ID:      "p3",
+		Hash:    "abc123",
+		Message: "Add phase gates",
+	})
+	if err != nil {
+		t.Fatalf("RecordPhaseCommit returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusCommitted || phase.Commit.Hash != "abc123" {
+		t.Fatalf("committed phase = %+v", phase)
+	}
+
+	phase, err = store.RecordPhasePush(context.Background(), PhasePushRequest{
+		ID:     "p3",
+		Remote: "origin",
+		Branch: "main",
+		Result: "pushed",
+	})
+	if err != nil {
+		t.Fatalf("RecordPhasePush returned error: %v", err)
+	}
+	if phase.Status != PhaseStatusPushed || phase.Push.Remote != "origin" || phase.Push.Branch != "main" {
+		t.Fatalf("pushed phase = %+v", phase)
+	}
+
+	got, err := store.GetPhase(context.Background(), "p3")
+	if err != nil {
+		t.Fatalf("GetPhase returned error: %v", err)
+	}
+	if got.Commit.Hash != "abc123" || got.Push.Result != "pushed" {
+		t.Fatalf("stored phase evidence = %+v", got)
+	}
+
+	phases, err := store.ListPhases(context.Background())
+	if err != nil {
+		t.Fatalf("ListPhases returned error: %v", err)
+	}
+	if len(phases) != 1 || phases[0].ID != "p3" {
+		t.Fatalf("phases = %+v", phases)
+	}
+
+	phasePath := filepath.Join(store.WorkspaceDir, "planning", "phases.yaml")
+	progressPath := filepath.Join(store.WorkspaceDir, "planning", "progress.jsonl")
+	assertFileContains(t, phasePath, "Project planning")
+	assertFileContains(t, phasePath, "abc123")
+	assertFileContains(t, progressPath, `"type":"phase_accepted"`)
+	assertFileContains(t, progressPath, `"type":"phase_pushed"`)
+}
+
 func TestStoreReportsMissingAndInvalidTasks(t *testing.T) {
 	store := testStore(t)
 
@@ -103,6 +216,9 @@ func TestStoreReportsMissingAndInvalidTasks(t *testing.T) {
 	}
 	if _, err := ParseStatus("bad"); err == nil {
 		t.Fatal("ParseStatus returned nil error for bad status")
+	}
+	if _, err := store.GetPhase(context.Background(), "missing"); !errors.Is(err, ErrPhaseNotFound) {
+		t.Fatalf("GetPhase error = %v, want ErrPhaseNotFound", err)
 	}
 }
 

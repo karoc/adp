@@ -31,6 +31,18 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
+## Phase Slice Discipline
+
+For normal development handoff, a phase slice is not complete when implementation stops. It is complete only after:
+
+- The relevant acceptance commands have passed.
+- The phase has a recorded gate result.
+- The accepted changes have been committed.
+- The commit has been pushed to the configured remote branch.
+- The next phase has not been mixed into the same commit.
+
+P3 Phase Gate MVP work turns this discipline into local records under `$ADP_HOME/workspaces/<workspace>/planning`. Release evidence should distinguish implemented CLI coverage from any stricter lifecycle guard that is still planned.
+
 ## Gate Coverage
 
 `scripts/runtime-smoke.sh --fake` builds the current `cmd/adp` binary into a temporary directory and runs the deterministic fake-agent runtime acceptance path. It uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root.
@@ -61,7 +73,9 @@ The example workspace smoke verifies:
 - A temporary project root can be linked into a kept runtime overlay.
 - Example documentation and release claims stay connected to an executable path.
 
-`scripts/task-manager-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/show/update/block/done` and `adp progress`, and verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning` instead of the real project root.
+`scripts/task-manager-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/show/update/claim/release/block/done`, `adp phase add/list/show/start/accept/commit/push`, and `adp progress`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning` instead of the real project root.
+
+The phase gate smoke path covers phase records, task claim ownership, acceptance or gate records, commit records, push records, and project-root pollution protection. Do not add placeholder assertions for commands that do not exist yet.
 
 `go test -count=1 ./...` verifies the full Go test suite without using cached test results.
 
@@ -115,6 +129,8 @@ If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examp
 
 If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, and project-root pollution checks.
 
+If a phase-gate smoke step fails, inspect phase record storage, task owner state, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root.
+
 If `go test -count=1 ./...` fails, narrow the failing package and rerun that package before making changes:
 
 ```bash
@@ -141,6 +157,7 @@ Before a release candidate is announced, an operator should also confirm:
 - The license files and PolyForm Noncommercial positioning were not changed unintentionally.
 - Packaged CLI artifacts were built with version, commit, and build-date ldflags and `adp version` reports the expected values.
 - README and focused docs describe the current CLI surface without Web, UI, SaaS, cloud sync, or hosted orchestration drift.
+- Active development phases have local evidence for acceptance, commit, and push before the next phase starts.
 - Any claimed real-agent compatibility has matching opt-in real CLI evidence and, when needed, manual interactive acceptance notes.
 
 ## Out Of Scope

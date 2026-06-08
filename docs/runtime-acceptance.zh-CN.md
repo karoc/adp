@@ -96,6 +96,43 @@ fake Codex 和 Claude 命令会断言：
 - `tasks.yaml`。
 - `progress.jsonl`。
 
+## Task Manager 与 Phase Gate 验收
+
+`scripts/task-manager-smoke.sh` 是 task-management 行为的聚焦验收路径。它使用确定性的临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR` 和临时项目根目录。它不能依赖仓库本地用户状态、全局 `adp` 二进制、provider CLI、网络访问，或写入真实项目根目录的文件。
+
+当前 smoke 覆盖已经实现的 task CLI：
+
+- `adp tasks add`
+- `adp tasks list`
+- `adp tasks show`
+- `adp tasks update`
+- `adp tasks claim`
+- `adp tasks release`
+- `adp tasks block`
+- `adp tasks done`
+- `adp phase add`
+- `adp phase list`
+- `adp phase show`
+- `adp phase start`
+- `adp phase accept`
+- `adp phase commit`
+- `adp phase push`
+- `adp progress`
+- `$ADP_HOME/workspaces/<workspace>/planning` 下的 planning 文件。
+- 防止项目根目录出现 `planning/`、`tasks.yaml`、`phases.yaml` 和 `progress.jsonl` 污染。
+
+对于 Phase Gate MVP 行为，该 smoke 只能验证实际存在的 CLI。它应覆盖：
+
+- 可以创建、列出、查看 phase records，并推进其生命周期。
+- task claim 和 release 命令一次只记录一个 owner。
+- acceptance 或 gate records 能记录命令、结果、时间戳和失败证据。
+- commit records 能记录已验收阶段的 commit hash 和 branch。
+- push records 能记录 remote、branch 和 push 结果；commit 证据保存在同一个 phase record 中。
+- happy path 会在阶段被视为 pushed 前记录 acceptance、commit 和 push 证据。
+- 所有状态都留在临时 `$ADP_HOME` 下，不污染项目根目录。
+
+不要向 smoke 脚本添加 placeholder commands、TODO assertions、Web UI 检查、SaaS 检查、cloud sync 检查或 hosted orchestration 检查。
+
 ## 真实 CLI Smoke
 
 真实外部 agent 检查刻意不进入默认路径。必须同时使用 flag 和环境变量 gate 显式启用：
@@ -134,6 +171,8 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 为 workspace 和 profile 提供动态本地 completion 值端点。
 - 通过 `adp doctor` 提供全局 workspace diagnostics。
 - 通过 `adp version` 输出本地 build identity。
+- 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
+- 在对应 CLI 存在后验收 Phase Gate MVP evidence。
 - 清理 ADP-owned runtime。
 - 防止项目根目录污染。
 

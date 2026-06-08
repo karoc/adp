@@ -438,6 +438,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P0 completed: Task and Progress Manager MVP. Store workspace-scoped task state under `$ADP_HOME/workspaces/<workspace>/planning`, expose `adp tasks` and `adp progress`, and validate it with a task-manager smoke.
 - P1 completed: Runtime task binding. Add `adp run --task <task-id>`, inject task context into runtime env and generated adapter instructions, and connect task IDs to events and sessions.
 - P2 completed: Early preview hardening. Dynamic workspace/profile completion, global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes are covered by the aggregate gate and runtime smoke.
-- P3 next: Project planning and execution progress management. Turn the current task/progress MVP into a phase-aware, cross-tool task list manager with explicit stage gates, multi-agent ownership boundaries, acceptance records, commit records, and push records before extending broader runtime standards.
+- P3 Phase Gate MVP completed: Project planning and execution progress management now has phase records, task claim and owner records, acceptance or gate records, commit records, push records, and task-manager smoke coverage. Next P3 hardening should add stricter lifecycle guards, leases, and conflict handling before broader runtime standards.
+- P3 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, or remote issue-service integration.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

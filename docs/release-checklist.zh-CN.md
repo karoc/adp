@@ -31,6 +31,18 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
+## 阶段切片纪律
+
+对于正常开发 handoff，阶段切片不会因为实现停止就算完成。只有满足以下条件后，阶段才算完成：
+
+- 相关验收命令已经通过。
+- 阶段已经记录 gate 结果。
+- 已验收变更已经提交。
+- 该 commit 已推送到配置的远端分支。
+- 下一阶段没有混入同一个 commit。
+
+P3 Phase Gate MVP 会把这条纪律转化为 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地记录。release evidence 应区分已经实现的 CLI 覆盖，以及仍处于计划中的更严格 lifecycle guard。
+
 ## 门禁覆盖范围
 
 `scripts/runtime-smoke.sh --fake` 会把当前 `cmd/adp` 二进制构建到临时目录，并运行确定性的 fake-agent runtime acceptance 路径。它使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时项目根目录。
@@ -61,7 +73,9 @@ example workspace smoke 验证：
 - 临时项目根目录可以被链接进 kept runtime overlay。
 - 示例文档和发布声明有可执行路径支撑。
 
-`scripts/task-manager-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/show/update/block/done` 和 `adp progress`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，而不是写入真实项目根目录。
+`scripts/task-manager-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/show/update/claim/release/block/done`、`adp phase add/list/show/start/accept/commit/push` 和 `adp progress`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，而不是写入真实项目根目录。
+
+phase gate smoke 路径覆盖 phase records、task claim ownership、acceptance 或 gate records、commit records、push records，以及项目根目录污染防护。不要为尚不存在的命令添加 placeholder assertions。
 
 `go test -count=1 ./...` 会运行完整 Go 测试套件，并且不使用缓存测试结果。
 
@@ -115,6 +129,8 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储，以及项目根目录污染防护。
 
+如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录来修复失败。
+
 如果 `go test -count=1 ./...` 失败，先定位失败 package，并在修改前单独重跑该 package：
 
 ```bash
@@ -141,6 +157,7 @@ go test -count=1 ./test/e2e
 - license 文件和 PolyForm Noncommercial 定位没有被意外修改。
 - packaged CLI artifact 使用 version、commit 和 build-date ldflags 构建，且 `adp version` 报告符合预期。
 - README 和 focused docs 描述当前 CLI surface，且没有 Web、UI、SaaS、cloud sync 或 hosted orchestration 偏移。
+- 活跃开发阶段在下一阶段开始前，已有 acceptance、commit 和 push 的本地证据。
 - 任何声明的 real-agent compatibility 都有对应的 opt-in real CLI evidence，必要时还有手工交互式验收记录。
 
 ## 范围之外

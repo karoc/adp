@@ -17,6 +17,7 @@ import (
 const (
 	planningDir      = "planning"
 	tasksFile        = "tasks.yaml"
+	phasesFile       = "phases.yaml"
 	progressFile     = "progress.jsonl"
 	currentVersion   = 1
 	defaultPriority  = "normal"
@@ -47,6 +48,7 @@ type Task struct {
 	Status        Status    `yaml:"status"`
 	Priority      string    `yaml:"priority"`
 	Phase         string    `yaml:"phase"`
+	Owner         string    `yaml:"owner,omitempty"`
 	Description   string    `yaml:"description,omitempty"`
 	BlockedReason string    `yaml:"blocked_reason,omitempty"`
 	CreatedAt     time.Time `yaml:"created_at"`
@@ -81,9 +83,18 @@ type progressEvent struct {
 	Timestamp time.Time `json:"ts"`
 	Type      string    `json:"type"`
 	TaskID    string    `json:"task_id,omitempty"`
-	Status    Status    `json:"status,omitempty"`
+	PhaseID   string    `json:"phase_id,omitempty"`
+	Status    string    `json:"status,omitempty"`
+	Owner     string    `json:"owner,omitempty"`
 	Reason    string    `json:"reason,omitempty"`
 	Title     string    `json:"title,omitempty"`
+	Result    string    `json:"result,omitempty"`
+	Commands  []string  `json:"commands,omitempty"`
+	Commit    string    `json:"commit,omitempty"`
+	Remote    string    `json:"remote,omitempty"`
+	Branch    string    `json:"branch,omitempty"`
+	Message   string    `json:"message,omitempty"`
+	Notes     string    `json:"notes,omitempty"`
 }
 
 func NewStore(workspaceDir string) *Store {
@@ -144,7 +155,7 @@ func (s *Store) Add(ctx context.Context, req AddRequest) (Task, error) {
 	if err := s.save(ctx, data); err != nil {
 		return Task{}, err
 	}
-	if err := s.appendEvent(ctx, progressEvent{Timestamp: now, Type: "task_created", TaskID: task.ID, Status: task.Status, Title: task.Title}); err != nil {
+	if err := s.appendEvent(ctx, progressEvent{Timestamp: now, Type: "task_created", TaskID: task.ID, Status: string(task.Status), Title: task.Title}); err != nil {
 		return Task{}, err
 	}
 	return task, nil
@@ -182,7 +193,7 @@ func (s *Store) UpdateStatus(ctx context.Context, id string, status Status) (Tas
 		if status != StatusBlocked {
 			task.BlockedReason = ""
 		}
-		return progressEvent{Timestamp: now, Type: "task_status_updated", TaskID: task.ID, Status: task.Status}
+		return progressEvent{Timestamp: now, Type: "task_status_updated", TaskID: task.ID, Status: string(task.Status)}
 	})
 }
 
@@ -194,7 +205,30 @@ func (s *Store) Block(ctx context.Context, id string, reason string) (Task, erro
 	return s.update(ctx, id, func(task *Task, now time.Time) progressEvent {
 		task.Status = StatusBlocked
 		task.BlockedReason = reason
-		return progressEvent{Timestamp: now, Type: "task_blocked", TaskID: task.ID, Status: task.Status, Reason: reason}
+		return progressEvent{Timestamp: now, Type: "task_blocked", TaskID: task.ID, Status: string(task.Status), Reason: reason}
+	})
+}
+
+func (s *Store) Claim(ctx context.Context, id string, owner string) (Task, error) {
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return Task{}, errors.New("owner is required")
+	}
+	return s.update(ctx, id, func(task *Task, now time.Time) progressEvent {
+		task.Owner = owner
+		task.Status = StatusInProgress
+		task.BlockedReason = ""
+		return progressEvent{Timestamp: now, Type: "task_claimed", TaskID: task.ID, Status: string(task.Status), Owner: owner}
+	})
+}
+
+func (s *Store) Release(ctx context.Context, id string) (Task, error) {
+	return s.update(ctx, id, func(task *Task, now time.Time) progressEvent {
+		task.Owner = ""
+		if task.Status == StatusInProgress {
+			task.Status = StatusReady
+		}
+		return progressEvent{Timestamp: now, Type: "task_released", TaskID: task.ID, Status: string(task.Status)}
 	})
 }
 
@@ -359,6 +393,10 @@ func (s *Store) planningPath() string {
 
 func (s *Store) tasksPath() string {
 	return filepath.Join(s.planningPath(), tasksFile)
+}
+
+func (s *Store) phasesPath() string {
+	return filepath.Join(s.planningPath(), phasesFile)
 }
 
 func (s *Store) progressPath() string {

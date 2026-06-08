@@ -751,6 +751,7 @@ symlink overlay 与真实项目已有配置冲突：
 - P0 已完成：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
 - P1 已完成：Runtime task binding。增加 `adp run --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
 - P2 已完成：Early preview hardening。动态 workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明已纳入聚合门禁和 runtime smoke。
-- P3 下一步：项目规划与执行进度管理。把当前 task/progress MVP 打磨成 phase-aware、跨工具的 task list manager，明确阶段门禁、多 Agent 任务归属边界、验收记录、commit 记录和 push 记录，然后再扩展更广泛的 runtime standards。
+- P3 Phase Gate MVP 已完成：项目规划与执行进度管理现在具备 phase records、task claim 和 owner records、acceptance 或 gate records、commit records、push records，并已纳入 task-manager smoke。下一段 P3 hardening 应先补更严格的 lifecycle guards、leases 和冲突处理，然后再扩展更广泛的 runtime standards。
+- P3 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration 或远程 issue-service 集成。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

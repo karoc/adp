@@ -43,8 +43,17 @@ Usage:
 	  adp tasks list [--workspace <name>]
 	  adp tasks show [--workspace <name>] <task-id>
 	  adp tasks update [--workspace <name>] <task-id> --status <status>
+	  adp tasks claim [--workspace <name>] <task-id> --owner <owner>
+	  adp tasks release [--workspace <name>] <task-id>
 	  adp tasks done [--workspace <name>] <task-id>
 	  adp tasks block [--workspace <name>] <task-id> --reason <reason>
+	  adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>
+	  adp phase list [--workspace <name>]
+	  adp phase show [--workspace <name>] <phase-id>
+	  adp phase start [--workspace <name>] <phase-id>
+	  adp phase accept [--workspace <name>] <phase-id> [--command <cmd>] [--result <result>] [--notes <text>]
+	  adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]
+	  adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]
 	  adp progress [--workspace <name>]
 	  adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]
 	`
@@ -83,7 +92,16 @@ type TaskStore interface {
 	Get(context.Context, string) (taskstore.Task, error)
 	UpdateStatus(context.Context, string, taskstore.Status) (taskstore.Task, error)
 	Block(context.Context, string, string) (taskstore.Task, error)
+	Claim(context.Context, string, string) (taskstore.Task, error)
+	Release(context.Context, string) (taskstore.Task, error)
 	Progress(context.Context) (taskstore.Progress, error)
+	AddPhase(context.Context, taskstore.PhaseAddRequest) (taskstore.Phase, error)
+	ListPhases(context.Context) ([]taskstore.Phase, error)
+	GetPhase(context.Context, string) (taskstore.Phase, error)
+	StartPhase(context.Context, string) (taskstore.Phase, error)
+	AcceptPhase(context.Context, taskstore.PhaseAcceptRequest) (taskstore.Phase, error)
+	RecordPhaseCommit(context.Context, taskstore.PhaseCommitRequest) (taskstore.Phase, error)
+	RecordPhasePush(context.Context, taskstore.PhasePushRequest) (taskstore.Phase, error)
 }
 
 type Dependencies struct {
@@ -190,6 +208,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		err = a.runtime(ctx, args[1:])
 	case "tasks":
 		err = a.tasks(ctx, args[1:])
+	case "phase":
+		err = a.phase(ctx, args[1:])
 	case "progress":
 		err = a.progress(ctx, args[1:])
 	case "run":

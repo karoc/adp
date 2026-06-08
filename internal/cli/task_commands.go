@@ -12,7 +12,7 @@ import (
 
 func (a *App) tasks(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: adp tasks <add|list|show|update|done|block>")
+		return errors.New("usage: adp tasks <add|list|show|update|claim|release|done|block>")
 	}
 
 	switch args[0] {
@@ -24,6 +24,10 @@ func (a *App) tasks(ctx context.Context, args []string) error {
 		return a.tasksShow(ctx, args[1:])
 	case "update":
 		return a.tasksUpdate(ctx, args[1:])
+	case "claim":
+		return a.tasksClaim(ctx, args[1:])
+	case "release":
+		return a.tasksRelease(ctx, args[1:])
 	case "done":
 		return a.tasksDone(ctx, args[1:])
 	case "block":
@@ -70,11 +74,12 @@ func (a *App) tasksList(ctx context.Context, args []string) error {
 	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(writer, "ID\tSTATUS\tPRIORITY\tPHASE\tUPDATED\tTITLE")
+	fmt.Fprintln(writer, "ID\tSTATUS\tOWNER\tPRIORITY\tPHASE\tUPDATED\tTITLE")
 	for _, task := range tasks {
-		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			task.ID,
 			task.Status,
+			valueOrDash(task.Owner),
 			valueOrDash(task.Priority),
 			valueOrDash(task.Phase),
 			formatEventTime(task.UpdatedAt),
@@ -119,6 +124,40 @@ func (a *App) tasksUpdate(ctx context.Context, args []string) error {
 		return err
 	}
 	fmt.Fprintf(a.stdout, "task %s status: %s\n", task.ID, task.Status)
+	return nil
+}
+
+func (a *App) tasksClaim(ctx context.Context, args []string) error {
+	opts, err := parseTasksClaimArgs(args)
+	if err != nil {
+		return err
+	}
+	store, _, err := a.loadTaskStore(ctx, opts.workspace)
+	if err != nil {
+		return err
+	}
+	task, err := store.Claim(ctx, opts.taskID, opts.owner)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(a.stdout, "task %s claimed by %s\n", task.ID, task.Owner)
+	return nil
+}
+
+func (a *App) tasksRelease(ctx context.Context, args []string) error {
+	workspace, taskID, err := parseTaskIDArgs(args, "adp tasks release [--workspace <name>] <task-id>")
+	if err != nil {
+		return err
+	}
+	store, _, err := a.loadTaskStore(ctx, workspace)
+	if err != nil {
+		return err
+	}
+	task, err := store.Release(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(a.stdout, "task %s released\n", task.ID)
 	return nil
 }
 
@@ -169,8 +208,20 @@ func (a *App) progress(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	phases, err := store.ListPhases(ctx)
+	if err != nil {
+		return err
+	}
 
 	fmt.Fprintf(a.stdout, "workspace: %s\n", workspaceName)
+	if len(phases) == 0 {
+		fmt.Fprintln(a.stdout, "phases: -")
+	} else {
+		fmt.Fprintln(a.stdout, "phases:")
+		for _, phase := range phases {
+			fmt.Fprintf(a.stdout, "- %s [%s] %s\n", phase.ID, phase.Status, phase.Title)
+		}
+	}
 	fmt.Fprintf(a.stdout, "total: %d\n", progress.Total)
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(writer, "STATUS\tCOUNT")
@@ -208,6 +259,7 @@ func (a *App) printTask(task taskstore.Task) {
 	fmt.Fprintf(a.stdout, "status: %s\n", task.Status)
 	fmt.Fprintf(a.stdout, "priority: %s\n", valueOrDash(task.Priority))
 	fmt.Fprintf(a.stdout, "phase: %s\n", valueOrDash(task.Phase))
+	fmt.Fprintf(a.stdout, "owner: %s\n", valueOrDash(task.Owner))
 	fmt.Fprintf(a.stdout, "description: %s\n", valueOrDash(task.Description))
 	fmt.Fprintf(a.stdout, "blocked_reason: %s\n", valueOrDash(task.BlockedReason))
 	fmt.Fprintf(a.stdout, "created_at: %s\n", formatEventTime(task.CreatedAt))

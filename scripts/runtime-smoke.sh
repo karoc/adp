@@ -63,7 +63,7 @@ assert_absent_project_artifacts() {
   local project_root="$1"
   local rel
 
-  for rel in AGENTS.md CLAUDE.md .codex .claude planning tasks.yaml progress.jsonl; do
+  for rel in AGENTS.md CLAUDE.md .codex .claude planning tasks.yaml phases.yaml progress.jsonl; do
     if [ -e "$project_root/$rel" ] || [ -L "$project_root/$rel" ]; then
       fail "project root was polluted with $rel"
     fi

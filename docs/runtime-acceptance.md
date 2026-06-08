@@ -96,6 +96,43 @@ The script also asserts that the real project root is not polluted with ADP runt
 - `tasks.yaml`.
 - `progress.jsonl`.
 
+## Task Manager And Phase Gate Acceptance
+
+`scripts/task-manager-smoke.sh` is the focused acceptance path for task-management behavior. It uses a deterministic temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, and temporary project root. It must not depend on repository-local user state, global `adp` binaries, provider CLIs, network access, or files written into the real project root.
+
+The current smoke covers the implemented task CLI:
+
+- `adp tasks add`
+- `adp tasks list`
+- `adp tasks show`
+- `adp tasks update`
+- `adp tasks claim`
+- `adp tasks release`
+- `adp tasks block`
+- `adp tasks done`
+- `adp phase add`
+- `adp phase list`
+- `adp phase show`
+- `adp phase start`
+- `adp phase accept`
+- `adp phase commit`
+- `adp phase push`
+- `adp progress`
+- Planning files under `$ADP_HOME/workspaces/<workspace>/planning`.
+- Protection against project-root `planning/`, `tasks.yaml`, `phases.yaml`, and `progress.jsonl` pollution.
+
+For Phase Gate MVP behavior, this smoke should verify only CLI that actually exists. It should cover:
+
+- Phase records can be created, listed, inspected, and advanced through their lifecycle.
+- Task claim and release commands record one owner at a time.
+- Acceptance or gate records capture command, result, timestamp, and failure evidence.
+- Commit records capture the accepted phase commit hash and branch.
+- Push records capture the remote, branch, and push result, while commit evidence is stored on the same phase record.
+- The happy path records acceptance, commit, and push evidence before a phase is treated as pushed.
+- All state remains under temporary `$ADP_HOME`, with no project-root pollution.
+
+Do not add placeholder commands, TODO assertions, Web UI checks, SaaS checks, cloud sync checks, or hosted orchestration checks to smoke scripts.
+
 ## Real CLI Smoke
 
 Real external agent checks are intentionally not part of the default path. They must be explicitly enabled with both a flag and an environment gate:
@@ -134,6 +171,8 @@ This smoke validates ADP's runtime responsibilities:
 - Dynamic local completion value endpoints for workspaces and profiles.
 - Global workspace diagnostics through `adp doctor`.
 - Local build identity output through `adp version`.
+- Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
+- Phase Gate MVP evidence once the matching CLI exists.
 - ADP-owned runtime pruning.
 - Protection against project-root pollution.
 
