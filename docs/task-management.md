@@ -26,7 +26,7 @@ The first task-management slice provides:
 - `adp phase commit`
 - `adp phase push`
 - `adp progress`
-- `adp progress report`
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 - Read-only `--format json` output for task, phase, and progress inspection.
 - `adp run --task <task-id>` runtime binding.
 - Workspace-local planning files under `$ADP_HOME/workspaces/<workspace>/planning/`.
@@ -40,11 +40,13 @@ Smoke scripts should assert only the task-management commands that exist in the 
 
 ## Progress Report Scope
 
-P6 adds one read-only reporting command:
+P6 added Markdown reporting, and P8 extends the same read-only command with a JSON handoff snapshot:
 
-- `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 
-The command prints a local Markdown planning/execution report to stdout. It reads workspace planning data from `$ADP_HOME`, uses English by default, and emits Simplified Chinese only when `--language zh-CN` is provided. When local JSONL runtime events and session data exist, it also includes recent runtime session evidence derived from `$ADP_HOME/logs/events.jsonl`.
+The command prints a local planning/execution handoff snapshot to stdout. It reads workspace planning data from `$ADP_HOME`, uses English Markdown by default, and emits Simplified Chinese Markdown only when `--language zh-CN` is provided. `--language` applies to Markdown output only; JSON output keeps stable machine-readable field names and enum values for cross-tool parsing.
+
+With `--format json`, the command emits a read-only handoff snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL runtime events and session data exist. The JSON snapshot is an inspection format, not a separate state store. The authoritative state remains the local planning ledger under `$ADP_HOME` plus local JSONL evidence such as `$ADP_HOME/logs/events.jsonl`.
 
 The report is an inspection view, not a state transition. It does not append events, mutate task state, mutate phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into project roots.
 
@@ -132,14 +134,15 @@ adp progress --workspace adp
 adp progress --workspace adp --format json
 ```
 
-Markdown report output:
+Progress report output:
 
 ```bash
 adp progress report --workspace adp
 adp progress report --workspace adp --language zh-CN
+adp progress report --workspace adp --format json
 ```
 
-The report command prints Markdown to stdout only. It is an inspection command and does not create or update report files.
+The report command prints to stdout only. The default format is Markdown, and it does not create or update report files.
 
 When `--workspace` is omitted, ADP uses the same workspace resolution model as other workspace-aware commands: `ADP_WORKSPACE` first, then the current directory if it is inside a registered project root.
 
@@ -153,9 +156,10 @@ adp tasks show --workspace adp <task-id> --format json
 adp phase list --workspace adp --format json
 adp phase show --workspace adp <phase-id> --format json
 adp progress --workspace adp --format json
+adp progress report --workspace adp --format json
 ```
 
-The JSON output is an inspection format, not a separate state store. The authoritative planning state remains under `$ADP_HOME/workspaces/<workspace>/planning/`, and progress evidence remains in the local `progress.jsonl` ledger. Repository docs may describe the plan, but they do not become the source of truth for execution state.
+The JSON output is an inspection format, not a separate state store. The authoritative planning state remains under `$ADP_HOME/workspaces/<workspace>/planning/`, and progress evidence remains in the local `progress.jsonl` ledger. Runtime session evidence remains derived from local JSONL events when those events exist. Repository docs may describe the plan, but they do not become the source of truth for execution state.
 
 Cross-tool consumers should treat JSON output as a local snapshot for selecting work, showing status, or handing context to another terminal agent. They should still call explicit mutating commands when state needs to change:
 
@@ -166,11 +170,11 @@ Cross-tool consumers should treat JSON output as a local snapshot for selecting 
 
 The phase discipline is unchanged: a phase is complete only after implementation, acceptance, commit evidence, and push evidence have been recorded through explicit local commands.
 
-## Markdown Progress Reports
+## Progress Report Outputs
 
-`adp progress report [--workspace <name>] [--language <en|zh-CN>]` produces a terminal-friendly Markdown report for humans and cross-tool handoff. The output summarizes the local planning and execution state without becoming a separate source of truth.
+`adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` produces a terminal-friendly Markdown report or a machine-readable JSON handoff snapshot. The output summarizes the local planning and execution state without becoming a separate source of truth.
 
-Recommended report content:
+Recommended Markdown report content:
 
 - Workspace name and local planning source.
 - Phase summary, including active, accepted, committed, and pushed phases.
@@ -183,7 +187,16 @@ Language behavior:
 
 - `--language en` and omitted `--language` both produce English output.
 - `--language zh-CN` produces Simplified Chinese output.
+- `--language` applies to Markdown only. JSON output uses stable machine-readable fields and values.
 - Other language values fail clearly.
+
+Format behavior:
+
+- `--format markdown` and omitted `--format` both produce Markdown.
+- `--format json` produces a single read-only handoff snapshot for local tools and terminal agents.
+- The JSON snapshot includes workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists.
+- The `next work` data should be sorted by priority so another local tool can choose likely follow-up work without scraping Markdown.
+- JSON output is for cross-tool parsing and must not be persisted or treated as ADP's state store.
 
 Read-only boundary:
 
@@ -194,6 +207,7 @@ Read-only boundary:
 - Do not build runtimes, create runtime directories, start agents, or prune runtime directories.
 - Do not resume provider-native conversations or infer provider session state beyond local JSONL event evidence.
 - Do not create or update Markdown files in the real project root.
+- Do not create or update JSON report files in the real project root or use JSON output as a synchronized planning ledger.
 
 ## Phase Gate Ledger
 
@@ -305,6 +319,7 @@ The current task manager does not yet:
 
 - Automatically split user intent into tasks.
 - Write or export progress reports into repository documentation or project-root files automatically.
+- Maintain JSON report output as a second planning store.
 - Sync with GitHub Issues, Linear, Jira, Notion, or any hosted service.
 - Run Git commit or Git push commands automatically.
 - Infer acceptance from command output or close tasks automatically without explicit task or phase commands.

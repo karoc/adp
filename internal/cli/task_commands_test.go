@@ -238,8 +238,12 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 		},
 	}
 	var english bytes.Buffer
+	var markdown bytes.Buffer
 	var chinese bytes.Buffer
+	var jsonOut bytes.Buffer
+	var jsonErr bytes.Buffer
 	var invalidErr bytes.Buffer
+	var invalidFormatErr bytes.Buffer
 	exitCode := 0
 	deps := Dependencies{
 		WorkspaceStore:   &fakeStore{cfg: testConfig()},
@@ -264,11 +268,14 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	}
 
 	englishCode := NewApp(deps, &english, &bytes.Buffer{}).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a"})
+	markdownCode := NewApp(deps, &markdown, &bytes.Buffer{}).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--format", "markdown"})
 	chineseCode := NewApp(deps, &chinese, &bytes.Buffer{}).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--language", "zh-CN"})
+	jsonCode := NewApp(deps, &jsonOut, &jsonErr).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--format", "json"})
 	invalidCode := NewApp(deps, &bytes.Buffer{}, &invalidErr).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--language", "fr"})
+	invalidFormatCode := NewApp(deps, &bytes.Buffer{}, &invalidFormatErr).Execute(context.Background(), []string{"progress", "report", "--workspace", "game-a", "--format", "xml"})
 
-	if englishCode != 0 || chineseCode != 0 {
-		t.Fatalf("report codes = (%d, %d), want both 0", englishCode, chineseCode)
+	if englishCode != 0 || markdownCode != 0 || chineseCode != 0 || jsonCode != 0 {
+		t.Fatalf("report codes = (%d, %d, %d, %d), stderr = %q, want all 0", englishCode, markdownCode, chineseCode, jsonCode, jsonErr.String())
 	}
 	for _, want := range []string{"# ADP Progress Report", "Workspace: game-a", "Total Tasks: 1", "p6-progress-report", "task-1", "codex-main", "passed: scripts/check-all.sh", "abc123: Add progress report", "pushed: origin/main", "## Runtime Sessions", "session-1", "codex", "/tmp/adp-runtime/session-1"} {
 		if !strings.Contains(english.String(), want) {
@@ -280,11 +287,43 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 			t.Fatalf("Chinese report missing %q: %q", want, chinese.String())
 		}
 	}
+	if !strings.Contains(markdown.String(), "# ADP Progress Report") {
+		t.Fatalf("explicit Markdown report = %q", markdown.String())
+	}
+	payload := decodeJSONObject(t, jsonOut.Bytes())
+	assertJSONStringField(t, payload, "workspace", "game-a")
+	assertJSONNumberField(t, payload, "total", 1)
+	counts := assertJSONObjectField(t, payload, "counts")
+	assertJSONNumberField(t, counts, "ready", 1)
+	phaseJSON := findJSONObject(t, assertJSONObjectListField(t, payload, "phases"), "id", "p6-progress-report")
+	assertJSONStringField(t, phaseJSON, "status", "pushed")
+	taskJSON := findJSONObject(t, assertJSONObjectListField(t, payload, "tasks"), "id", "task-1")
+	assertJSONStringField(t, taskJSON, "owner", "codex-main")
+	nextJSON := findJSONObject(t, assertJSONObjectListField(t, payload, "next"), "id", "task-1")
+	assertJSONStringField(t, nextJSON, "status", "ready")
+	evidenceJSON := findJSONObject(t, assertJSONObjectListField(t, payload, "phase_evidence"), "id", "p6-progress-report")
+	acceptanceJSON := assertJSONObjectField(t, evidenceJSON, "acceptance")
+	assertJSONStringField(t, acceptanceJSON, "result", "passed")
+	commitJSON := assertJSONObjectField(t, evidenceJSON, "commit")
+	assertJSONStringField(t, commitJSON, "hash", "abc123")
+	pushJSON := assertJSONObjectField(t, evidenceJSON, "push")
+	assertJSONStringField(t, pushJSON, "result", "pushed")
+	sessionJSON := findJSONObject(t, assertJSONObjectListField(t, payload, "runtime_sessions"), "session_id", "session-1")
+	assertJSONStringField(t, sessionJSON, "agent", "codex")
+	assertJSONStringField(t, sessionJSON, "task_id", "task-1")
+	assertJSONStringField(t, sessionJSON, "runtime_path", "/tmp/adp-runtime/session-1")
+	assertJSONNumberField(t, sessionJSON, "event_count", 2)
 	if invalidCode != 1 {
 		t.Fatalf("invalid language exit code = %d, want 1", invalidCode)
 	}
 	if !strings.Contains(invalidErr.String(), `unknown progress report language "fr"`) {
 		t.Fatalf("invalid language stderr = %q", invalidErr.String())
+	}
+	if invalidFormatCode != 1 {
+		t.Fatalf("invalid format exit code = %d, want 1", invalidFormatCode)
+	}
+	if !strings.Contains(invalidFormatErr.String(), `unknown progress report format "xml"`) {
+		t.Fatalf("invalid format stderr = %q", invalidFormatErr.String())
 	}
 }
 

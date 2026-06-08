@@ -127,9 +127,9 @@ The current smoke covers the implemented task CLI:
 - `adp phase commit`
 - `adp phase push`
 - `adp progress`
-- `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 - Planning files under `$ADP_HOME/workspaces/<workspace>/planning`.
-- Read-only recent runtime session evidence in progress reports when local JSONL event/session data exists.
+- Read-only Markdown and JSON progress report output, including recent runtime session evidence when local JSONL event/session data exists.
 - Protection against project-root `planning/`, `tasks.yaml`, `phases.yaml`, and `progress.jsonl` pollution.
 
 For Phase Gate MVP behavior, this smoke should verify only CLI that actually exists. It should cover:
@@ -139,10 +139,12 @@ For Phase Gate MVP behavior, this smoke should verify only CLI that actually exi
 - Acceptance or gate records capture command, result, timestamp, and failure evidence.
 - Commit records capture the accepted phase commit hash and branch.
 - Push records capture the remote, branch, and push result, while commit evidence is stored on the same phase record.
-- Progress reports include runtime session evidence from local JSONL events when that evidence exists, while keeping the report an inspection-only stdout view.
+- Progress reports default to English Markdown, apply `--language zh-CN` to Markdown only, and include runtime session evidence from local JSONL events when that evidence exists.
+- `adp progress report --format json` emits a read-only machine-readable handoff snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists.
+- JSON report output remains a cross-tool parsing snapshot and does not create a separate state store.
 - The happy path records acceptance, commit, and push evidence before a phase is treated as pushed.
 - Lifecycle guard checks reject commit before passed acceptance, reject push before commit evidence, and reject tasks assigned to unknown phases when a phase ledger exists.
-- Report generation does not append events, mutate task or phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into project roots.
+- Report generation does not append events, mutate task or phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write Markdown or JSON report files into project roots.
 - All state remains under temporary `$ADP_HOME`, with no project-root pollution.
 
 Do not add placeholder commands, TODO assertions, Web UI checks, SaaS checks, cloud sync checks, or hosted orchestration checks to smoke scripts.
@@ -190,7 +192,7 @@ This smoke validates ADP's runtime responsibilities:
 - Local build identity output through `adp version`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
 - Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.
-- Progress report runtime session evidence derived from local JSONL events when event/session data exists, with no event-log append or runtime creation.
+- Progress report Markdown and JSON output, including runtime session evidence derived from local JSONL events when event/session data exists, with no event-log append, runtime creation, project-root writes, or separate state store creation.
 - ADP-owned runtime pruning.
 - Runtime prune compatibility checks for current-version ADP manifests.
 - Protection against project-root pollution.

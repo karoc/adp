@@ -14,11 +14,14 @@ import (
 const (
 	reportLanguageEnglish = "en"
 	reportLanguageChinese = "zh-CN"
+	reportFormatMarkdown  = "markdown"
+	reportFormatJSON      = "json"
 )
 
 type progressReportOptions struct {
 	workspace string
 	language  string
+	format    string
 }
 
 func (a *App) progressReport(ctx context.Context, args []string) error {
@@ -46,14 +49,18 @@ func (a *App) progressReport(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	writeProgressReport(a.stdout, progressReportData{
+	data := progressReportData{
 		Workspace:       workspaceName,
 		Tasks:           tasks,
 		Progress:        progress,
 		Phases:          phases,
 		RuntimeSessions: runtimeSessions,
 		Language:        opts.language,
-	})
+	}
+	if opts.format == reportFormatJSON {
+		return writePlanningJSON(a.stdout, progressReportOutput(data))
+	}
+	writeProgressReport(a.stdout, data)
 	return nil
 }
 
@@ -68,7 +75,7 @@ func (a *App) progressReportSessions(ctx context.Context, workspaceName string) 
 }
 
 func parseProgressReportArgs(args []string) (progressReportOptions, error) {
-	opts := progressReportOptions{language: reportLanguageEnglish}
+	opts := progressReportOptions{language: reportLanguageEnglish, format: reportFormatMarkdown}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
@@ -88,6 +95,16 @@ func parseProgressReportArgs(args []string) (progressReportOptions, error) {
 				return progressReportOptions{}, err
 			}
 			opts.language, i = language, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return progressReportOptions{}, err
+			}
+			format, err := parseProgressReportFormat(value)
+			if err != nil {
+				return progressReportOptions{}, err
+			}
+			opts.format, i = format, next
 		default:
 			return progressReportOptions{}, fmt.Errorf("unknown progress report option %q", arg)
 		}
@@ -103,6 +120,17 @@ func parseProgressReportLanguage(value string) (string, error) {
 		return reportLanguageChinese, nil
 	default:
 		return "", fmt.Errorf("unknown progress report language %q", value)
+	}
+}
+
+func parseProgressReportFormat(value string) (string, error) {
+	switch strings.TrimSpace(value) {
+	case "", reportFormatMarkdown, string(outputFormatText):
+		return reportFormatMarkdown, nil
+	case reportFormatJSON:
+		return reportFormatJSON, nil
+	default:
+		return "", fmt.Errorf("unknown progress report format %q", value)
 	}
 }
 

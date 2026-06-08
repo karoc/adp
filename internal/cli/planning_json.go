@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/karoc/adp/internal/sessions"
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
@@ -71,6 +72,39 @@ type progressJSON struct {
 	Total     int            `json:"total"`
 	Counts    map[string]int `json:"counts"`
 	Next      []taskJSON     `json:"next"`
+}
+
+type progressReportJSON struct {
+	Workspace       string               `json:"workspace"`
+	Phases          []phaseJSON          `json:"phases"`
+	Total           int                  `json:"total"`
+	Counts          map[string]int       `json:"counts"`
+	Tasks           []taskJSON           `json:"tasks"`
+	Next            []taskJSON           `json:"next"`
+	PhaseEvidence   []phaseEvidenceJSON  `json:"phase_evidence"`
+	RuntimeSessions []runtimeSessionJSON `json:"runtime_sessions"`
+}
+
+type phaseEvidenceJSON struct {
+	ID         string                `json:"id"`
+	Acceptance *acceptanceRecordJSON `json:"acceptance,omitempty"`
+	Commit     *commitRecordJSON     `json:"commit,omitempty"`
+	Push       *pushRecordJSON       `json:"push,omitempty"`
+}
+
+type runtimeSessionJSON struct {
+	SessionID      string  `json:"session_id"`
+	Workspace      string  `json:"workspace,omitempty"`
+	Agent          string  `json:"agent,omitempty"`
+	Profile        string  `json:"profile,omitempty"`
+	ProjectRoot    string  `json:"project_root,omitempty"`
+	RuntimePath    string  `json:"runtime_path,omitempty"`
+	TaskID         string  `json:"task_id,omitempty"`
+	StartedAt      *string `json:"started_at,omitempty"`
+	FinishedAt     *string `json:"finished_at,omitempty"`
+	ExitCode       *int    `json:"exit_code,omitempty"`
+	DurationMillis *int64  `json:"duration_ms,omitempty"`
+	EventCount     int     `json:"event_count"`
 }
 
 func writePlanningJSON(w io.Writer, value any) error {
@@ -141,6 +175,65 @@ func progressOutput(workspace string, progress taskstore.Progress, phases []task
 		Total:     progress.Total,
 		Counts:    counts,
 		Next:      next,
+	}
+}
+
+func progressReportOutput(data progressReportData) progressReportJSON {
+	counts := map[string]int{}
+	for _, status := range taskstore.Statuses() {
+		counts[string(status)] = data.Progress.Counts[status]
+	}
+	tasks := make([]taskJSON, 0, len(data.Tasks))
+	for _, task := range data.Tasks {
+		tasks = append(tasks, taskOutput(task))
+	}
+	next := make([]taskJSON, 0, len(data.Tasks))
+	for _, task := range reportableTasks(data.Tasks) {
+		next = append(next, taskOutput(task))
+	}
+	evidence := make([]phaseEvidenceJSON, 0, len(data.Phases))
+	for _, phase := range data.Phases {
+		evidence = append(evidence, phaseEvidenceOutput(phase))
+	}
+	runtimeSessions := make([]runtimeSessionJSON, 0, len(data.RuntimeSessions))
+	for _, session := range data.RuntimeSessions {
+		runtimeSessions = append(runtimeSessions, runtimeSessionOutput(session))
+	}
+	return progressReportJSON{
+		Workspace:       data.Workspace,
+		Phases:          phaseListOutput(data.Workspace, data.Phases).Phases,
+		Total:           data.Progress.Total,
+		Counts:          counts,
+		Tasks:           tasks,
+		Next:            next,
+		PhaseEvidence:   evidence,
+		RuntimeSessions: runtimeSessions,
+	}
+}
+
+func phaseEvidenceOutput(phase taskstore.Phase) phaseEvidenceJSON {
+	return phaseEvidenceJSON{
+		ID:         phase.ID,
+		Acceptance: acceptanceOutput(phase.Acceptance),
+		Commit:     commitOutput(phase.Commit),
+		Push:       pushOutput(phase.Push),
+	}
+}
+
+func runtimeSessionOutput(summary sessions.Summary) runtimeSessionJSON {
+	return runtimeSessionJSON{
+		SessionID:      summary.SessionID,
+		Workspace:      summary.Workspace,
+		Agent:          summary.Agent,
+		Profile:        summary.Profile,
+		ProjectRoot:    summary.ProjectRoot,
+		RuntimePath:    summary.RuntimePath,
+		TaskID:         summary.TaskID,
+		StartedAt:      jsonTime(summary.StartedAt),
+		FinishedAt:     jsonTime(summary.FinishedAt),
+		ExitCode:       summary.ExitCode,
+		DurationMillis: summary.DurationMillis,
+		EventCount:     summary.EventCount,
 	}
 }
 

@@ -340,11 +340,13 @@ Prints the ordered events for one session. Missing sessions return a clear not-f
 
 Prints a read-only suggested `adp run ...` command for a previous session when enough non-sensitive invocation snapshot data is available. The command must not execute the suggestion, launch an agent, create runtime state, append events, mutate task state, write to the project root, or resume provider-native conversations.
 
-### `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
+### `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 
-Prints a local Markdown planning/execution report to stdout. It reads the local planning ledger under `$ADP_HOME`, uses English by default, and emits Simplified Chinese only when `--language zh-CN` is provided.
+Prints a local planning/execution handoff snapshot to stdout. It reads the local planning ledger under `$ADP_HOME`. The default output remains English Markdown. `--language zh-CN` emits Simplified Chinese Markdown, and `--language` applies to Markdown only.
 
-When local JSONL runtime events and session data exist, the report includes recent runtime session evidence derived from `$ADP_HOME/logs/events.jsonl`. This evidence is for inspection and handoff only.
+With `--format json`, the command emits a machine-readable, read-only handoff snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL runtime events and session data exist. JSON is for cross-tool parsing and must not become a separate state store.
+
+When local JSONL runtime events and session data exist, Markdown and JSON reports include recent runtime session evidence derived from `$ADP_HOME/logs/events.jsonl`. This evidence is for inspection and handoff only.
 
 The command is read-only. It must not append events, mutate task state, mutate phase state, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, or write report files into the real project root.
 
@@ -437,7 +439,7 @@ End-to-end expectations:
 - `adp version` reports the CLI build identity.
 - `adp events list` prints filtered run history from JSONL events.
 - `adp sessions list`, `adp sessions show`, and `adp sessions restore-plan` expose local session history and read-only restore planning derived from JSONL events.
-- `adp progress report [--workspace <name>] [--language <en|zh-CN>]` prints a Markdown planning/execution report to stdout, includes recent local runtime session evidence when JSONL event/session data exists, and leaves planning state, Git state, runtime state, event logs, and the real project root unchanged.
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a Markdown planning/execution report to stdout by default, emits a read-only JSON handoff snapshot with `--format json`, includes recent local runtime session evidence when JSONL event/session data exists, and leaves planning state, Git state, runtime state, event logs, and the real project root unchanged.
 - `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
@@ -460,7 +462,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P5 planning JSON output completed: read-only `--format json` output for task, phase, and progress views gives local tools and sub-agents machine-readable planning snapshots without scraping terminal text or changing state.
 - P6 progress report output completed: `adp progress report [--workspace <name>] [--language <en|zh-CN>]` prints a read-only local Markdown planning/execution report to stdout. English is the default; Simplified Chinese requires `--language zh-CN`. Task-manager smoke proves the report leaves task, phase, Git, runtime, event log, and project-root state unchanged.
 - P7 progress report runtime session evidence completed: when local JSONL runtime events and session data exist, `adp progress report [--workspace <name>] [--language <en|zh-CN>]` includes recent runtime session evidence for inspection-only handoff. It does not append events, mutate tasks or phases, create runtime directories, run agents, run Git, write report files into project roots, or resume provider-native conversations.
-- After P7, the next priority is report-driven handoff polish that keeps Markdown reports aligned with JSON planning snapshots, phase gate evidence, and local runtime session evidence without adding hosted project-management features.
-- P3/P4/P5/P6/P7 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git execution, automatic task closure, provider-native conversation resume, or remote issue-service integration.
+- P8 progress report JSON handoff snapshot completed: `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` keeps default output as English Markdown, applies `--language zh-CN` to Markdown only, and emits a read-only machine-readable snapshot with `--format json`. The JSON snapshot includes workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists. It is for cross-tool parsing and must not become a separate state store.
+- P3/P4/P5/P6/P7/P8 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git execution, automatic task closure, provider-native conversation resume, remote issue-service integration, project-root report exports, or hosted tracker semantics.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

@@ -31,7 +31,7 @@ Implemented Phase 1 foundations:
 - `adp tasks add/list/show/update/claim/release/done/block`
 - `adp phase add/list/show/start/accept/commit/push`
 - `adp progress [--workspace <name>]`
-- `adp progress report [--workspace <name>] [--language <en|zh-CN>]`
+- `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 - `adp run codex --workspace <name> [--task <task-id>]`
 - `adp run claude --workspace <name> [--task <task-id>]`
 - `adp enter <workspace>`
@@ -69,6 +69,7 @@ go run ./cmd/adp events list --workspace game-a --task "$TASK_ID"
 go run ./cmd/adp tasks list --workspace game-a --format json
 go run ./cmd/adp progress --workspace game-a --format json
 go run ./cmd/adp progress report --workspace game-a
+go run ./cmd/adp progress report --workspace game-a --format json
 go run ./cmd/adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
 go run ./cmd/adp sessions show <session-id>
 go run ./cmd/adp sessions restore-plan <session-id>
@@ -126,7 +127,7 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; the authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. `adp run --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
 
-`adp progress report [--workspace <name>] [--language <en|zh-CN>]` prints a local Markdown planning/execution report to stdout. English is the default report language; Simplified Chinese output is explicit through `--language zh-CN`. When local JSONL runtime events and session data exist, the report includes recent runtime session evidence for inspection. The report command is read-only and does not append events, mutate task or phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into the project root.
+`adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a local planning/execution handoff snapshot to stdout. The default output remains English Markdown; `--language zh-CN` applies to Markdown only. `--format json` emits a machine-readable, read-only snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists. JSON output is for cross-tool parsing and must not become a separate state store. The report command is read-only and does not append events, mutate task or phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into the project root.
 
 P3 provides a local phase ledger for project planning and execution progress management. It records task ownership, optional claim leases, acceptance records, commit records, push records, and explicit stage gate discipline under `$ADP_HOME`. This remains terminal-first and local-first; it is not a Web dashboard, SaaS tracker, cloud sync layer, or hosted orchestration service.
 

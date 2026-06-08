@@ -56,7 +56,7 @@ Usage:
 	  adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]
 	  adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]
 	  adp progress [--workspace <name>] [--format <text|json>]
-	  adp progress report [--workspace <name>] [--language <en|zh-CN>]
+	  adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format <markdown|json>]
 	  adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]
 	`
 

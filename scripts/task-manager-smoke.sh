@@ -130,6 +130,34 @@ assert_event_log_line_count_unchanged() {
   fi
 }
 
+runtime_dirs_state() {
+  find "$ADP_RUNTIME_DIR" -mindepth 1 -maxdepth 1 -type d -print | LC_ALL=C sort
+}
+
+project_root_state() {
+  find "$PROJECT_ROOT" -mindepth 1 -maxdepth 4 -print | LC_ALL=C sort
+}
+
+git_state() {
+  git -C "$REPO_ROOT" status --short --branch --untracked-files=all
+  git -C "$REPO_ROOT" rev-parse --verify HEAD
+}
+
+assert_text_unchanged() {
+  local before="$1"
+  local after="$2"
+  local label="$3"
+  local name="$4"
+
+  if [ "$after" != "$before" ]; then
+    printf '%s\n' "$name before:" >&2
+    printf '%s\n' "$before" >&2
+    printf '%s\n' "$name after:" >&2
+    printf '%s\n' "$after" >&2
+    fail "$label changed $name"
+  fi
+}
+
 session_id_by_agent() {
   local events_file="$1"
   local agent="$2"
@@ -170,6 +198,145 @@ run_adp_expect_fail() {
   printf '%s\n' "$output"
 }
 
+write_json_report_assert() {
+  local path="$1"
+
+  cat > "$path" <<'EOF'
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+)
+
+func fail(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...); os.Exit(1)
+}
+
+func field(root map[string]any, names ...string) any {
+	for _, name := range names {
+		if value, ok := root[name]; ok { return value }
+	}
+	return nil
+}
+
+func stringField(root map[string]any, names ...string) string {
+	value, _ := field(root, names...).(string)
+	return value
+}
+
+func numberField(root map[string]any, names ...string) int {
+	number, ok := field(root, names...).(float64)
+	if !ok { fail("missing numeric field %s", strings.Join(names, " or ")) }
+	return int(number)
+}
+
+func objectField(root map[string]any, names ...string) map[string]any {
+	out, ok := field(root, names...).(map[string]any)
+	if !ok { fail("missing object field %s", strings.Join(names, " or ")) }
+	return out
+}
+
+func arrayField(root map[string]any, names ...string) []any {
+	out, ok := field(root, names...).([]any)
+	if !ok { fail("missing array field %s", strings.Join(names, " or ")) }
+	return out
+}
+
+func text(value any) string {
+	data, _ := json.Marshal(value)
+	return string(data)
+}
+
+func contains(value any, want string) bool {
+	return strings.Contains(text(value), want)
+}
+
+func requireContains(label string, value any, want string) {
+	if !contains(value, want) { fail("%s missing %q", label, want) }
+}
+
+func itemIndex(items []any, want string) int {
+	for i, item := range items {
+		if contains(item, want) { return i }
+	}
+	return -1
+}
+
+func requireItem(label string, items []any, want string) any {
+	index := itemIndex(items, want)
+	if index < 0 { fail("%s missing item containing %q", label, want) }
+	return items[index]
+}
+
+func requireCountAtLeast(counts map[string]any, status string, want int) {
+	number, ok := counts[status].(float64)
+	if !ok || int(number) < want { fail("task count %s = %v, want at least %d", status, counts[status], want) }
+}
+
+func main() {
+	if len(os.Args) != 7 { fail("usage: assert-progress-report-json <file> <done-task> <critical-task> <low-task> <session> <runtime-dir>") }
+	data, err := os.ReadFile(os.Args[1])
+	if err != nil { fail("read JSON report: %v", err) }
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil { fail("progress report is not parseable JSON: %v", err) }
+	if stringField(root, "workspace") != "game-a" { fail("workspace = %q, want game-a", stringField(root, "workspace")) }
+	if total := numberField(root, "total_tasks", "total"); total < 3 { fail("total task count = %d, want at least 3", total) }
+	counts := objectField(root, "task_counts", "counts")
+	requireCountAtLeast(counts, "done", 1)
+	requireCountAtLeast(counts, "ready", 2)
+	phases := arrayField(root, "phases")
+	p3 := requireItem("phases", phases, "p3")
+	requireContains("phase p3", p3, "pushed")
+	tasks := arrayField(root, "tasks")
+	requireItem("tasks", tasks, os.Args[2])
+	requireItem("tasks", tasks, os.Args[3])
+	requireItem("tasks", tasks, os.Args[4])
+	next := arrayField(root, "next_work", "next")
+	criticalIndex := itemIndex(next, os.Args[3])
+	lowIndex := itemIndex(next, os.Args[4])
+	if criticalIndex < 0 || lowIndex < 0 { fail("next work missing critical or low priority task") }
+	if criticalIndex > lowIndex { fail("next work is not priority sorted: critical index %d, low index %d", criticalIndex, lowIndex) }
+	if itemIndex(next, os.Args[2]) >= 0 { fail("next work included completed task %s", os.Args[2]) }
+	evidence := field(root, "phase_evidence", "phaseEvidence", "evidence")
+	if evidence == nil { evidence = p3 }
+	for _, want := range []string{"scripts/task-manager-smoke.sh", "abc123", "origin", "main", "pushed"} {
+		requireContains("phase evidence", evidence, want)
+	}
+	sessions := arrayField(root, "runtime_sessions", "runtimeSessions", "sessions")
+	session := requireItem("runtime sessions", sessions, os.Args[5])
+	for _, want := range []string{"codex", os.Args[2], os.Args[6]} {
+		requireContains("runtime session", session, want)
+	}
+	if !contains(session, "run_finished") && !contains(session, "exit_code") && !contains(session, "0") { fail("runtime session missing finished or exit evidence") }
+	lower := strings.ToLower(string(data))
+	for _, bad := range []string{"dashboard_url", "issue_url", "tracker_url", "http://", "https://", "hosted"} {
+		if strings.Contains(lower, bad) { fail("JSON report contains hosted tracker drift token %q", bad) }
+	}
+}
+EOF
+}
+
+assert_progress_report_json() {
+  local output="$1"
+  local done_task="$2"
+  local critical_task="$3"
+  local low_task="$4"
+  local session="$5"
+  local label="$6"
+  local output_file="$TMP_ROOT/progress-report.json"
+  local validation
+
+  printf '%s\n' "$output" > "$output_file"
+  if ! validation=$(go run "$JSON_REPORT_ASSERT" "$output_file" "$done_task" "$critical_task" "$low_task" "$session" "$ADP_RUNTIME_DIR" 2>&1); then
+    printf '%s\n' "$output" >&2
+    printf '%s\n' "$validation" >&2
+    fail "$label failed JSON handoff contract"
+  fi
+}
+
 write_fake_codex() {
   local path="$1"
 
@@ -207,6 +374,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/adp-task-manager-smoke.XXXXXX")
 ADP_BIN="$TMP_ROOT/adp"
+JSON_REPORT_ASSERT="$TMP_ROOT/assert-progress-report-json.go"
 
 cleanup() {
   rm -rf "$TMP_ROOT"
@@ -225,6 +393,7 @@ PROGRESS_FILE="$ADP_HOME/workspaces/game-a/planning/progress.jsonl"
 mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-task-smoke\n' > "$PROJECT_ROOT/go.mod"
 write_fake_codex "$FAKE_BIN/codex"
+write_json_report_assert "$JSON_REPORT_ASSERT"
 
 export ADP_HOME
 export ADP_RUNTIME_DIR
@@ -474,6 +643,41 @@ assert_contains "$output" "scripts/task-manager-smoke.sh" "progress report evide
 
 assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "progress report evidence"
 assert_event_log_line_count_unchanged "$events_before" "progress report evidence"
+assert_project_root_clean
+
+info "checking progress report JSON handoff snapshot"
+output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority low --phase p4 --description "lower priority handoff candidate" "Low priority follow-up")
+assert_contains "$output" "task task-" "low priority task add output"
+assert_contains "$output" "added" "low priority task add output"
+low_task_id=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+if [ -z "$low_task_id" ]; then
+  fail "could not parse low priority task id from: $output"
+fi
+
+output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority critical --phase p4 --description "critical handoff candidate" "Critical handoff follow-up")
+assert_contains "$output" "task task-" "critical priority task add output"
+assert_contains "$output" "added" "critical priority task add output"
+critical_task_id=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+if [ -z "$critical_task_id" ]; then
+  fail "could not parse critical priority task id from: $output"
+fi
+
+tasks_before=$(cat "$TASKS_FILE")
+phases_before=$(cat "$PHASES_FILE")
+progress_before=$(cat "$PROGRESS_FILE")
+events_before=$(line_count "$EVENTS_FILE")
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+
+output=$(run_adp "$REPO_ROOT" progress report --workspace game-a --format json)
+assert_progress_report_json "$output" "$task_id" "$critical_task_id" "$low_task_id" "$codex_session" "progress report json output"
+
+assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "progress report json"
+assert_event_log_line_count_unchanged "$events_before" "progress report json"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "progress report json" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "progress report json" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "progress report json" "Git state"
 assert_project_root_clean
 
 info "task manager smoke passed"
