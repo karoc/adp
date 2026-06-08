@@ -1,12 +1,12 @@
 # ADP Phase 1 Development Plan
 
-Source: [mvp.md](../mvp.md)
+Historical source: local `mvp.md` input. That file is intentionally ignored and is not a maintained repository document.
 
 Date: 2026-06-08
 
 Simplified Chinese: [phase1-development-plan.zh-CN.md](phase1-development-plan.zh-CN.md)
 
-This document turns the ADP MVP into an implementation plan that can be split across parallel agents without losing ownership boundaries. The goal is to freeze the architecture, contracts, module responsibilities, and validation gates before expanding implementation work.
+This document turns the ADP MVP into the current Phase 1 implementation plan and operating roadmap. It records the product boundary, architecture, module ownership, multi-agent split points, and validation gates that must remain true as implementation continues.
 
 ## 1. MVP Scope
 
@@ -17,14 +17,18 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
 - Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show/restore-plan`, `adp runtime prune`, `adp enter`, `adp run`, and the local planning commands `adp tasks`, `adp phase`, `adp progress`, and `adp plan preview/apply`.
-- Write a local JSONL event log for future replay, session restore, and multi-agent orchestration.
+- Write a local JSONL event log for future replay, session restore, inspection-only handoff evidence, and terminal-based multi-agent coordination.
 
 Phase 1 explicitly excludes:
 
 - Web UI or dashboard.
 - Cloud sync or SaaS features.
-- Hosted trackers or project-root report exports.
-- Graphical multi-agent orchestration.
+- Hosted trackers, hosted tracker semantics, issue-service sync, or SaaS task management.
+- Project-root planning, progress, or report exports.
+- Automatic Git execution, including automatic commits or pushes.
+- Automatic task closure, phase acceptance, commit evidence, or push evidence inference.
+- Provider-native conversation resume.
+- Graphical or hosted multi-agent orchestration.
 - Heavy permission sandboxing.
 - Full Windows support. Interfaces should leave room for it, but Linux/macOS are the first target.
 - Mandatory kernel overlayfs. The MVP defaults to portable symlink materialization, with bind mount and overlayfs reserved for later backends.
@@ -77,6 +81,7 @@ adp/
 │   └── adp/
 │       └── main.go
 ├── internal/
+│   ├── commandmeta/
 │   ├── cli/
 │   ├── paths/
 │   ├── schema/
@@ -93,7 +98,12 @@ adp/
 │   ├── runner/
 │   ├── shell/
 │   ├── sessions/
-│   └── events/
+│   ├── events/
+│   ├── planinput/
+│   └── tasks/
+├── templates/
+│   ├── claude/
+│   └── codex/
 ├── test/
 │   └── e2e/
 ├── scripts/
@@ -111,16 +121,20 @@ adp/
 Package responsibilities:
 
 - `internal/cli`: wire the hand-written command dispatcher, usage text, command metadata contract, and command-focused tests.
+- `internal/commandmeta`: define the local command inventory used for usage, dispatch, completion, and drift tests.
 - `internal/paths`: resolve `ADP_HOME`, runtime temp roots, workspace paths, and log paths.
 - `internal/schema`: define and validate the unified workspace schema.
 - `internal/workspace`: create, load, and manage the workspace registry.
 - `internal/overlay`: materialize project files and generated files into a runtime root.
 - `internal/runtime`: orchestrate workspace config, adapter output, overlay lifecycle, runtime env, manifest handling, and runtime pruning.
-- `internal/adapters`: adapter contracts, registry, concrete Codex/Claude adapters, and shared rendering.
+- `internal/adapters`: adapter contracts, registry, concrete Codex/Claude adapters, compatibility API aliases, and shared rendering.
 - `internal/runner`: execute external commands with controlled cwd, env, and streams.
 - `internal/shell`: implement `adp enter`, shell export rendering, parent-shell hook rendering, and shell completion rendering.
 - `internal/sessions`: aggregate local events into session history summaries, detail views, and read-only restore plans.
 - `internal/events`: append and query JSONL runtime events.
+- `internal/planinput`: parse and validate structured local planning imports for `adp plan preview/apply`.
+- `internal/tasks`: store workspace-scoped tasks, phases, progress events, ranking, owner leases, and phase acceptance/commit/push evidence under `$ADP_HOME`.
+- `templates`: adapter-facing default runtime template material for Codex and Claude.
 - `test/e2e`: end-to-end CLI tests using fake agents.
 
 ## 4. Local Data Layout
@@ -226,6 +240,7 @@ Design choices:
 - Real project children are linked into the runtime root.
 - ADP-generated files are written directly into the runtime root.
 - ADP-generated or reserved paths win over real project paths in the runtime view.
+- Reserved-path conflicts are reported as warnings and runtime evidence.
 - The real project root is never modified.
 - Runtime directories are cleaned after `adp run` and `adp enter` unless `--keep-runtime` is set.
 - Kept or stale runtime directories can be inspected and removed with `adp runtime prune`.
@@ -270,117 +285,373 @@ MVP adapters:
   - Generates `.claude/settings.json`.
   - Defaults to command `claude`, with workspace command override.
 
-Concrete Codex and Claude CLI config formats can change over time. Keep format-specific behavior inside adapter packages.
+Concrete Codex and Claude CLI config formats can change over time. Verify current provider CLI behavior or official documentation before freezing adapter assumptions, and keep format-specific behavior inside adapter packages.
 
-## 8. CLI Behavior
+## 8. CLI Behavior and Acceptance
 
 ### `adp init`
 
-Creates `$ADP_HOME`, `workspaces/`, `logs/`, and default `config.yaml`. It is idempotent and must not destroy existing config.
+Behavior:
+
+- Creates `$ADP_HOME`, `workspaces/`, `logs/`, and default `config.yaml`.
+- Is idempotent and must not destroy existing configuration.
+
+Acceptance:
+
+- Empty temporary `ADP_HOME` initializes successfully.
+- Existing configuration remains intact on repeated runs.
+- Tests use temporary `ADP_HOME`, not the real user home.
 
 ### `adp workspace add <name> <project-root>`
 
-Validates the workspace name and project root, stores the absolute project root, and creates default prompt, memory, MCP, profile, and workspace config files.
+Behavior:
+
+- Validates the workspace name and project root.
+- Stores the project root as an absolute path.
+- Creates default prompt, memory, MCP, profile, and workspace config files.
+- Returns clear errors for duplicate workspaces and invalid names.
+
+Acceptance:
+
+- Relative project roots are converted to absolute paths.
+- Duplicate workspace names fail without modifying the existing workspace.
+- Invalid names fail before writing ADP home data.
 
 ### `adp workspace list`
 
-Prints registered workspace names, project roots, and ADP workspace directories.
+Behavior:
+
+- Prints registered workspace names, project roots, and ADP workspace directories.
+
+Acceptance:
+
+- Empty registries remain readable.
+- Multiple workspaces are listed in stable order.
 
 ### `adp workspace show <name>`
 
-Prints operational details for one workspace, including project root, workspace directory, memory status, and MCP status.
+Behavior:
+
+- Prints operational details for one workspace, including project root, workspace directory, memory status, and MCP status.
+
+Acceptance:
+
+- Missing workspaces return a clear not-found error.
+- Output fields remain stable enough for terminal users and tests.
 
 ### `adp workspace doctor [name]`
 
-Checks one workspace, or all registered workspaces when no name is supplied. Diagnostics cover config loading and validation, project root reachability, runtime parent safety, prompt, memory, MCP, profile file references, path escapes, agent command defaults, inline command arguments, path-like command wrapper readiness, unknown enabled agents, and reserved project-root paths. Error-level diagnostics should be terminal-readable and return a non-zero process exit code; warning-only command/profile diagnostics should keep doctor exit code zero.
+Behavior:
+
+- Checks one workspace, or all registered workspaces when no name is supplied.
+- Covers config loading and validation, project root reachability, runtime parent safety, prompt, memory, MCP, profile file references, path escapes, agent command defaults, inline command arguments, path-like command wrapper readiness, unknown enabled agents, and reserved project-root paths.
+- Reports diagnostics in a stable terminal format.
+
+Acceptance:
+
+- Healthy workspaces report `ok - no issues`.
+- Error-level diagnostics return a non-zero exit code.
+- Warning-only command/profile diagnostics keep exit code zero.
+- A bad workspace does not prevent reporting diagnostics for other workspaces.
 
 ### `adp doctor [workspace]`
 
-Provides the same local workspace diagnostics as a global command. It should accept one optional workspace name, fall back to all registered workspaces when omitted, and stay equivalent to the workspace command group for diagnostic behavior and exit codes.
+Behavior:
+
+- Provides the same local workspace diagnostics as a global command.
+- Accepts one optional workspace name; checks all registered workspaces when omitted.
+
+Acceptance:
+
+- `adp doctor game-a` and `adp workspace doctor game-a` have equivalent diagnostic semantics.
+- The command does not access the network or require provider CLIs.
 
 ### `adp workspace remove <name>`
 
-Removes the ADP workspace directory without touching the real project root.
+Behavior:
+
+- Removes the ADP workspace directory without touching the real project root.
+
+Acceptance:
+
+- Missing workspaces return clear errors.
+- Invalid names do not mutate ADP home or the project root.
 
 ### `adp workspace rename <old-name> <new-name>`
 
-Renames the ADP workspace directory and updates `workspace.yaml` while preserving project root, prompt, memory, MCP, and profile files.
+Behavior:
+
+- Renames the ADP workspace directory.
+- Updates `workspace.yaml` with the new workspace name.
+- Preserves project root, prompt, memory, MCP, and profile files.
+
+Acceptance:
+
+- Missing old names and existing new names fail clearly.
+- `workspace show` can read the renamed workspace.
+- The old name disappears from local completion candidates.
 
 ### `adp enter <workspace> [--keep-runtime]`
 
-Builds a runtime overlay and starts a child shell in the runtime root. A CLI process cannot change the parent shell cwd, so Phase 1 intentionally starts a child shell. Later shell-hook integration can be added separately.
+Behavior:
+
+- Builds a runtime overlay.
+- Sets `ADP_HOME`, `ADP_WORKSPACE`, `ADP_PROJECT_ROOT`, `ADP_RUNTIME_ROOT`, and `ADP_SESSION_ID`.
+- Starts a child shell in the runtime root. A CLI process cannot change the parent shell cwd, so this command intentionally starts a child shell.
+- Cleans the runtime on shell exit unless `--keep-runtime` is set.
+
+Acceptance:
+
+- Shell cwd is the runtime root.
+- `pwd`, env values, generated files, and project symlinks are visible from the child shell.
+- Runtime cleanup and `--keep-runtime` preservation are both covered without requiring a real interactive shell in default smoke.
 
 ### `adp env <workspace> [--cd]`
 
-Builds a kept runtime overlay and prints POSIX shell exports for the ADP runtime env. With `--cd`, it also prints a quoted `cd` command for the runtime root.
+Behavior:
+
+- Builds a kept runtime overlay.
+- Prints POSIX-compatible shell exports for the ADP runtime environment.
+- With `--cd`, also prints a quoted `cd` command for the runtime root.
+
+Acceptance:
+
+- Output order is deterministic.
+- Shell quoting handles spaces, single quotes, and special characters.
+- The runtime root contains `.adp-runtime.yaml`.
 
 ### `adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]`
 
-Prints a shell function that calls `adp env <workspace> --cd` and evaluates the result in the parent shell. This provides a parent-shell workflow without changing the behavior of `adp enter`, which still starts a child shell.
+Behavior:
+
+- Prints a shell function that calls `adp env <workspace> --cd`.
+- Lets users evaluate exports and `cd` in the parent shell.
+- Does not change `adp enter`; `enter` still starts a child shell.
+
+Acceptance:
+
+- Supports `sh`, `bash`, and `zsh`.
+- Function names are conservatively validated to avoid shell injection.
+- Output remains deterministic for tests and shell configuration.
 
 ### `adp completion [--shell <bash|zsh>] [--command <name>]`
 
-Prints deterministic shell completion for supported shells, defaulting to bash when `--shell` is omitted. The completion script should cover the current command surface, including nested workspace, event, runtime, and session subcommands. The optional command name supports packaged binaries or aliases without hard-coding `adp`. Dynamic suggestions should be provided through read-only local endpoints: `adp completion values workspaces` and `adp completion values profiles [--workspace <name>]`.
+Behavior:
+
+- Prints deterministic shell completion for supported shells, defaulting to bash when `--shell` is omitted.
+- Covers the current command surface, including nested workspace, event, runtime, session, task, phase, progress, and plan subcommands.
+- Supports packaged binary names or aliases through `--command`.
+- Uses read-only dynamic endpoints for local candidates: `adp completion values workspaces` and `adp completion values profiles [--workspace <name>]`.
 
 P16 adds a local command metadata contract for the command surface. Usage text, dispatch wiring, and bash/zsh completion should be checked against that metadata so a command cannot be reachable in one place and missing from another. The contract is for local drift prevention only; it must not become a CLI framework migration, hosted command registry, Web UI, SaaS tracker, automatic Git path, automatic task or phase closure path, provider-native resume path, or project-root export mechanism.
 
+Acceptance:
+
+- Supports bash and zsh.
+- Shell names and command names are conservatively validated.
+- Dynamic value endpoints read local workspace/profile state only; they do not initialize workspaces, access networks, or mutate planning/runtime state.
+
 ### `adp version`
 
-Prints the local CLI build identity. Development builds may report `dev`; preview release binaries should inject version, commit, and build-date values with Go linker flags.
+Behavior:
 
-### `adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]`
+- Prints the local CLI build identity.
+- Development builds may report `dev`.
+- Preview release binaries should inject version, commit, and build-date values with Go linker flags.
 
-Reads `$ADP_HOME/logs/events.jsonl`, filters JSONL events, and prints recent matching events in a stable terminal table. Corrupted event log lines are reported with line numbers instead of being ignored.
+Acceptance:
+
+- `adp version` and `adp --version` output remain stable.
+- Missing linker flags still produce a usable development identity.
+- Release packaging docs describe the linker flag fields.
+
+### `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]`
+
+Behavior:
+
+- Reads `$ADP_HOME/logs/events.jsonl`.
+- Filters JSONL events by workspace, session, task, event type, and limit.
+- Prints recent matching events in a stable terminal table.
+- Reports corrupted event log lines with line numbers instead of silently ignoring them.
+
+Acceptance:
+
+- Missing event logs produce an empty result.
+- `--limit` returns the most recent matching records while preserving chronological output order.
+- The command remains read-only.
 
 ### `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 
-Groups local event log records by `session_id` and prints recent session summaries. Empty session IDs are ignored. Workspace and agent filters should be applied before limiting, and the selected sessions should remain in chronological session-start order for terminal readability.
+Behavior:
+
+- Groups local event log records by `session_id`.
+- Supports workspace, agent, task, and limit filters.
+- Ignores events with empty session IDs.
+
+Acceptance:
+
+- Filters are applied before limiting.
+- Selected sessions remain in chronological session-start order for terminal readability.
+- Missing event logs produce an empty result without creating runtime state.
 
 ### `adp sessions show <session-id>`
 
-Prints the ordered events for one session. Missing sessions return a clear not-found error. The command is read-only and derives its data from the local JSONL event log.
+Behavior:
+
+- Prints ordered events for one session.
+- Derives data from the local JSONL event log.
+
+Acceptance:
+
+- Missing sessions return a clear not-found error.
+- The command is read-only and does not create, mutate, or delete runtime state.
 
 ### `adp sessions restore-plan <session-id>`
 
-Prints a read-only suggested `adp run ...` command for a previous session when enough non-sensitive invocation snapshot data is available. The command must not execute the suggestion, launch an agent, create runtime state, append events, mutate task state, write to the project root, or resume provider-native conversations.
+Behavior:
+
+- Prints a read-only suggested `adp run ...` command for a previous session when enough non-sensitive invocation snapshot data is available.
+- Emits partial plans with missing fields and reasons when historical data is incomplete.
+
+Acceptance:
+
+- The command does not execute the suggestion, launch an agent, create runtime state, append events, mutate task state, write to the project root, or resume provider-native conversations.
+- Output event ordering follows the source log ordering.
 
 ### `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 
-Prints a local planning/execution handoff snapshot to stdout. It reads the local planning ledger under `$ADP_HOME`. The default output remains English Markdown. `--language zh-CN` emits Simplified Chinese Markdown, and `--language` applies to Markdown only.
+Behavior:
+
+- Prints a local planning/execution handoff snapshot to stdout.
+- Reads the local planning ledger under `$ADP_HOME`.
+- Defaults to English Markdown.
+- Emits Simplified Chinese Markdown only when `--language zh-CN` is passed.
+- Applies `--language` to Markdown only.
 
 With `--format json`, the command emits a machine-readable, read-only handoff snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL runtime events and session data exist. JSON is for cross-tool parsing and must not become a separate state store.
 
 When local JSONL runtime events and session data exist, Markdown and JSON reports include recent runtime session evidence derived from `$ADP_HOME/logs/events.jsonl`. This evidence is for inspection and handoff only.
 
-The command is read-only. It must not append events, mutate task state, mutate phase state, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, or write report files into the real project root.
+Acceptance:
+
+- Output goes to stdout; the command never auto-creates or updates report files.
+- It must not append events, mutate task state, mutate phase state, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, or write report files into the real project root.
+- Task state, phase state, event log, runtime directories, Git state, and the real project root remain unchanged.
+
+### `adp progress [--workspace <name>] [--format text|json]`
+
+Behavior:
+
+- Prints current workspace planning progress.
+- Counts task statuses and exposes priority-sorted next work.
+- Supports text for terminal scanning and JSON for local cross-tool parsing.
+
+Acceptance:
+
+- The command is read-only.
+- JSON output is a snapshot, not a second planning store.
+- It does not mutate task, phase, event, runtime, Git, hosted service, or project-root state.
+
+### `adp tasks add|list|show|update|claim|release|done|block`
+
+Behavior:
+
+- Stores workspace-scoped tasks under `$ADP_HOME/workspaces/<workspace>/planning`.
+- Supports local task creation, listing, showing, status updates, owner claims with optional leases, owner-checked release, done transitions, and blocker recording.
+- Uses local file locking around mutating planning operations.
+- Validates task phase IDs once the phase ledger exists.
+
+Acceptance:
+
+- Mutations affect only the local planning ledger under `$ADP_HOME`.
+- Owner conflicts and non-expired leases are enforced.
+- Read-only task views support stable JSON output for local tools.
+- Task commands do not run Git, start agents, write project-root planning files, or sync hosted trackers.
 
 ### `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]`
 
-Prints a compact local next-work snapshot to stdout. It reads the workspace planning ledger under `$ADP_HOME`, selects tasks with `ready`, `in_progress`, or `review` status, and sorts candidates by priority plus stable local tie-breakers so terminal users and sub-agents can choose follow-up work without parsing the full progress report.
+Behavior:
+
+- Prints a compact local next-work snapshot to stdout.
+- Reads the workspace planning ledger under `$ADP_HOME`.
+- Selects tasks with `ready`, `in_progress`, or `review` status.
+- Sorts candidates by priority and stable local tie-breakers so terminal users and sub-agents can choose follow-up work without parsing the full progress report.
 
 Text is the default format and should be easy to scan in a terminal. `--limit <n>` caps candidates, defaults to 5, and accepts `0` for an untruncated snapshot. JSON output is for local cross-tool parsing and includes stable fields for workspace, planning source, generated timestamp, total task count, eligible candidate count, status counts, requested limit, ordered `candidates`, and a singular `next` first-candidate value when work is available.
 
-The command is read-only. It must not claim tasks, mutate task status, change owners or leases, clear blockers, mutate phases, append events, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, write files into the real project root, sync with hosted trackers, or maintain JSON as a second planning store.
+Acceptance:
+
+- The command is read-only.
+- It must not claim tasks, mutate task status, change owners or leases, clear blockers, mutate phases, append events, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, write files into the real project root, sync with hosted trackers, or maintain JSON as a second planning store.
+
+### `adp phase add|list|show|start|accept|commit|push`
+
+Behavior:
+
+- Stores workspace-scoped phase records under `$ADP_HOME/workspaces/<workspace>/planning`.
+- Tracks phase status, goal, acceptance command evidence, commit evidence, and push evidence.
+- Enforces phase lifecycle ordering: planned, active, accepted, committed, pushed.
+- Guards the phase process: acceptance before commit evidence, commit before push evidence, and pushed phase before starting the next phase.
+
+Acceptance:
+
+- Phase evidence is local ledger data, not Git automation.
+- `phase commit` records a commit hash and message but does not create the commit.
+- `phase push` records remote, branch, and result but does not run `git push`.
+- Later phases must not start until the current phase is accepted, committed, pushed, and recorded.
 
 ### `adp plan preview|apply [--workspace <name>] --file <path|-> [--format text|json]`
 
-Accepts structured local YAML/JSON planning input with phases and tasks. `preview` renders the proposed import to stdout without creating planning files or directories. `apply` explicitly writes the validated batch to `$ADP_HOME/workspaces/<workspace>/planning`.
+Behavior:
+
+- Accepts structured local YAML/JSON planning input with phases and tasks.
+- Supports regular files and stdin through `--file -`.
+- `preview` renders the proposed import to stdout without creating planning files or directories.
+- `apply` explicitly writes the validated batch to `$ADP_HOME/workspaces/<workspace>/planning`.
 
 JSON output is for inspection and local cross-tool parsing only. It must not become a second planning store. Plan intake must not split free-text natural language into tasks, sync hosted trackers, run Git, start agents, infer acceptance, claim or close tasks automatically, write planning files into the real project root, or mutate runtime state.
 
+Acceptance:
+
+- Preview is read-only.
+- Apply writes only the local planning ledger under `$ADP_HOME`.
+- Failed apply leaves no partial phase, task, or progress state.
+- Stdin intake preserves the same preview/apply mutation boundaries as file intake.
+
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
-Scans direct child directories under `$ADP_RUNTIME_DIR`. A directory becomes a prune candidate only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp`, non-empty workspace and session IDs, an absolute `project_root`, a matching `runtime_root`, and a valid `created_at`. The command removes ADP-owned runtime directories older than `--older-than`, skips `keep: true` by default unless `--include-kept` is passed, reports candidates without deleting when `--dry-run` is set, skips incompatible or self-inconsistent manifests, and never removes a target derived from the manifest project root.
+Behavior:
 
-### `adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]`
+- Scans direct child directories under `$ADP_RUNTIME_DIR`.
+- Treats a directory as a prune candidate only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp`, non-empty workspace and session IDs, an absolute `project_root`, a matching `runtime_root`, and a valid `created_at`.
+- Removes ADP-owned runtime directories older than `--older-than`.
+- Skips `keep: true` by default unless `--include-kept` is passed.
+- Reports candidates without deleting when `--dry-run` is set.
 
-Resolves the workspace, renders adapter files, builds the runtime overlay, launches the agent, logs start/finish events, passes through streams, and returns the agent exit code.
+Acceptance:
+
+- Incompatible, malformed, externally generated, or self-inconsistent manifests are skipped.
+- Delete targets are scanned runtime child directories, never paths derived from manifest project roots.
+- Kept runtime behavior is covered for default and `--include-kept` modes.
+
+### `adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]`
+
+Behavior:
+
+- Resolves the workspace, renders adapter files, builds the runtime overlay, launches the agent, logs start/finish events, passes through streams, and returns the agent exit code.
+- With `--task`, binds runtime sessions to local task state and injects task context into runtime env and generated adapter instructions.
 
 Workspace resolution order:
 
 - Explicit `--workspace`.
 - `ADP_WORKSPACE`.
 - Match the current directory to a registered project root, using the longest matching project root when workspaces are nested.
+
+Acceptance:
+
+- Fake Codex and Claude binaries verify cwd, env, generated files, project symlinks, args, exit code, events, sessions, task binding, and cleanup.
+- Agent cwd is the runtime root.
+- The real project root is not modified.
 
 ## 9. Event Log
 
@@ -409,27 +680,30 @@ Constraints:
 
 ## 10. Parallel Development Boundaries
 
-The repository started with a serial Contract Scaffold, then parallel work was split by disjoint paths.
+Parallel work is allowed only when ownership boundaries are explicit and the phase gate can still be closed as one integrated slice.
 
-Parallel slices:
+Current parallel slices:
 
-- CLI/Foundation: `cmd/`, `internal/cli/`, root wiring.
-- Workspace Registry: `internal/workspace/`, `internal/schema/`.
-- Workspace Diagnostics: `internal/workspace/diagnostics*`, with CLI wiring in `internal/cli/`.
-- Runtime Overlay: `internal/runtime/`, `internal/overlay/`.
-- Adapter Layer: `internal/adapters/`.
-- Runner/Shell/Events: `internal/runner/`, `internal/shell/`, `internal/events/`.
-- Session History: `internal/sessions/`, with CLI wiring in `internal/cli/`.
-- Docs/Examples: `README*`, `docs/`, `examples/`.
-- Integration QA: `test/`, CI workflows, quality checks.
+- CLI command surface: `cmd/`, `internal/cli/`, `internal/commandmeta/`, and command-focused tests.
+- Workspace registry and diagnostics: `internal/workspace/`, `internal/schema/`, and related CLI wiring.
+- Runtime and overlay: `internal/runtime/`, `internal/overlay/`, manifest handling, lifecycle smoke, and runtime acceptance docs.
+- Adapter layer: `internal/adapters/`, `templates/`, adapter tests, and provider compatibility docs.
+- Runner, shell, events, and sessions: `internal/runner/`, `internal/shell/`, `internal/events/`, `internal/sessions/`.
+- Local planning manager: `internal/tasks/`, `internal/planinput/`, task/phase/progress CLI wiring, and planning smoke.
+- Docs and examples: `README*`, `AGENTS*`, `docs/`, and `examples/`.
+- Integration QA and gates: `scripts/`, `test/e2e/`, `.github/`, and release checklist docs.
 
 Rules:
 
-- Each worker owns its path slice by default.
+- Main-thread integration owns the immediate blocking path.
+- Sub-agents get disjoint write scopes; overlapping file sets should be read-only review unless there is an explicit handoff.
 - Public contract changes must be explicit and validated across dependent packages.
 - `LICENSE` and `COMMERCIAL*` are maintained by project maintainers.
-- Hand-written code files must stay below 700 lines.
+- Hand-written code files must stay at or below 700 lines.
 - Documentation must keep English default files and Simplified Chinese counterparts aligned.
+- Each phase slice is validated, accepted, committed, pushed, and recorded before the next phase starts.
+
+Sub-agent task prompts should state objective, allowed write paths, disallowed paths, constraints, validation commands, and expected final report. Read-only review agents must be told not to edit files.
 
 ## 11. Validation Gates
 
@@ -455,6 +729,33 @@ git diff --check
 
 End-to-end expectations:
 
+```bash
+export ADP_HOME="$(mktemp -d)"
+export ADP_RUNTIME_DIR="$(mktemp -d)"
+
+adp init
+adp workspace add game-a /srv/game-a
+adp workspace list
+adp workspace show game-a
+adp workspace doctor game-a
+adp env game-a --cd
+adp shell-hook --shell bash
+adp completion --shell bash
+adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task"
+adp tasks next --workspace game-a --limit 0 --format json
+adp plan preview --workspace game-a --file plan.yaml
+adp run codex --workspace game-a --task <task-id> -- --version
+cd /srv/game-a && adp run claude -- --version
+adp events list --workspace game-a --task <task-id>
+adp sessions list --workspace game-a --agent codex --task <task-id>
+adp sessions show <session-id>
+adp sessions restore-plan <session-id>
+adp runtime prune --older-than 24h --dry-run
+adp enter game-a
+adp workspace rename game-a game-renamed
+adp workspace remove game-renamed
+```
+
 - `adp init` creates local ADP home.
 - `adp workspace add` creates a workspace config without touching the project root.
 - `adp workspace list` and `adp workspace show` expose registered workspace details.
@@ -476,6 +777,16 @@ End-to-end expectations:
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
 - Fake agent tests can assert cwd, env, generated files, symlinks, args, exit code, logs, and cleanup.
 - The real project directory must not gain `AGENTS.md`, `CLAUDE.md`, `.codex/`, `.claude/`, `planning/`, `tasks.yaml`, `phases.yaml`, `progress.jsonl`, or report export files.
+
+Phase process gate:
+
+1. Complete one planned phase slice.
+2. Run focused validation and the required aggregate gate.
+3. Record phase acceptance only when validation passes.
+4. Commit the accepted phase.
+5. Push the commit.
+6. Record commit and push evidence in the local phase ledger.
+7. Start the next phase only after the push succeeds and the phase record is updated.
 
 ## 12. Next Work
 
@@ -512,4 +823,4 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P23 planned: add non-blocking line pressure audit tooling before files approach the hard 700-line cap.
 - P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18/P19/P20/P21 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 
-Each phase slice must be validated, committed, and pushed before the next slice starts.
+Each phase slice must be validated, accepted, committed, pushed, and recorded before the next slice starts.

@@ -1,12 +1,12 @@
 # ADP Phase 1 Development Plan
 
-来源：[mvp.md](../mvp.md)
+历史来源：本地 `mvp.md` 输入。该文件被有意忽略，不是仓库维护文档。
 
 日期：2026-06-08
 
 English: [phase1-development-plan.md](phase1-development-plan.md)
 
-本文档把 ADP MVP 转换为可并行推进、可验收、可维护的工程计划，并持续记录已完成阶段、公共契约、目录所有权和验收标准。
+本文档把 ADP MVP 转换为当前 Phase 1 实施计划和运行 roadmap。它记录产品边界、架构、模块所有权、多 Agent 拆分点，以及后续实现必须继续遵守的验收门禁。
 
 ## 1. MVP 结论
 
@@ -17,14 +17,18 @@ ADP Phase 1 的产品核心是一个 terminal-first 的 Agent Runtime Environmen
 - 为 Agent 构建临时 runtime overlay，让 Agent 在不污染真实项目目录的前提下看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等配置文件。
 - 提供 Claude Code CLI 与 Codex CLI 两个 adapter。
 - 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show/restore-plan`、`adp runtime prune`、`adp enter`、`adp run`，以及本地 planning 命令 `adp tasks`、`adp phase`、`adp progress` 和 `adp plan preview/apply`。
-- 记录本地 JSONL event log，为后续 replay、session restore、多 Agent 编排预留数据基础。
+- 记录本地 JSONL event log，为后续 replay、session restore、inspection-only handoff evidence 和 terminal-based 多 Agent 协作预留数据基础。
 
 Phase 1 明确不做：
 
 - Web UI / Dashboard。
 - 云同步 / SaaS。
-- hosted tracker 或 project-root report export。
-- 多 Agent 图形编排。
+- hosted tracker、hosted tracker semantics、issue-service sync 或 SaaS task management。
+- project-root planning、progress 或 report export。
+- automatic Git execution，包括自动 commit 或 push。
+- automatic task closure、phase acceptance、commit evidence 或 push evidence 推断。
+- provider-native conversation resume。
+- graphical 或 hosted multi-agent orchestration。
 - 复杂权限沙箱。
 - Windows 完整支持。保留接口，优先实现 Linux/macOS 可用路径。
 - 真正的内核级 overlayfs 强依赖。MVP 默认使用可移植 symlink materialization，后续扩展 bind mount / overlayfs backend。
@@ -77,6 +81,7 @@ adp/
 │   └── adp/
 │       └── main.go
 ├── internal/
+│   ├── commandmeta/
 │   ├── cli/
 │   ├── paths/
 │   ├── schema/
@@ -84,45 +89,53 @@ adp/
 │   ├── runtime/
 │   ├── overlay/
 │   ├── adapters/
-│   │   ├── registry.go
 │   │   ├── adapter.go
+│   │   ├── registry.go
+│   │   ├── api/
 │   │   ├── claude/
 │   │   ├── codex/
 │   │   └── shared/
 │   ├── runner/
 │   ├── shell/
 │   ├── sessions/
-│   └── events/
+│   ├── events/
+│   ├── planinput/
+│   └── tasks/
 ├── templates/
 │   ├── claude/
 │   └── codex/
+├── test/
+│   └── e2e/
+├── scripts/
+├── docs/
 ├── examples/
 │   └── basic-workspace/
-├── scripts/
-│   └── check-file-lines.sh
-├── docs/
-│   └── engineering-standards.md
-├── COMMERCIAL.md
-├── LICENSE
 ├── README.md
+├── README.zh-CN.md
+├── COMMERCIAL.md
+├── COMMERCIAL.zh-CN.md
+├── LICENSE
 └── go.mod
 ```
 
 关键包职责：
 
 - `internal/cli`：维护手写 command dispatcher、usage text、command metadata contract 和命令聚焦测试。
+- `internal/commandmeta`：定义本地 command inventory，供 usage、dispatch、completion 和 drift tests 共同使用。
 - `internal/paths`：解析 `ADP_HOME`、runtime tmp dir、workspace 路径、日志路径。
 - `internal/schema`：统一 YAML schema，仅定义数据结构和校验。
 - `internal/workspace`：workspace registry 的创建、查询、列表、读写。
 - `internal/overlay`：把 project root 和 generated files materialize 到 runtime dir。
 - `internal/runtime`：编排 workspace config、adapter output、overlay lifecycle、runtime env、manifest 和 runtime pruning。
-- `internal/adapters`：adapter interface、registry、公共渲染 helper。
-- `internal/adapters/codex`：Codex runtime 文件、环境变量、启动命令。
-- `internal/adapters/claude`：Claude runtime 文件、环境变量、启动命令。
+- `internal/adapters`：adapter contracts、registry、具体 Codex/Claude adapters、兼容 API aliases 和公共渲染 helper。
 - `internal/runner`：执行外部命令，处理 stdin/stdout/stderr、exit code、signal。
 - `internal/shell`：实现 `adp enter`、shell exports 渲染、parent-shell hook 渲染和 shell completion 渲染。
 - `internal/sessions`：把本地事件聚合为 session history summary、detail 视图和只读 restore plan。
 - `internal/events`：JSONL event log 的写入和查询。
+- `internal/planinput`：解析和校验 `adp plan preview/apply` 的结构化本地 planning import。
+- `internal/tasks`：在 `$ADP_HOME` 下保存 workspace-scoped tasks、phases、progress events、ranking、owner leases，以及 phase acceptance/commit/push evidence。
+- `templates`：面向 Codex 和 Claude adapter 的默认 runtime template material。
+- `test/e2e`：使用 fake agents 的端到端 CLI 测试。
 
 ## 4. 本地数据布局
 
@@ -228,8 +241,7 @@ ${ADP_RUNTIME_DIR:-/tmp/adp-runtime}/
 - 真实项目根目录下的文件和目录通过 symlink 镜像到 runtime root。
 - ADP 生成的 Agent 配置文件直接写入 runtime root。
 - 如果真实项目已有 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等保留路径，runtime 中以 ADP 生成内容为准，并把冲突写入 warning/event log。真实项目不被修改。
-- 默认在 `adp run` 结束后清理 runtime 目录。
-- 提供 `--keep-runtime` 便于调试。
+- `adp run` 和 `adp enter` 结束后默认清理 runtime 目录，除非传入 `--keep-runtime`。
 - 保留或过期的 runtime 目录可通过 `adp runtime prune` 检查和清理。
 - runtime prune 只删除包含当前版本且结构自洽的 `.adp-runtime.yaml` 的直接子目录；manifest 必须包含 `generated_by: adp`、非空 workspace 和 session ID、绝对 `project_root`、与目录一致的 `runtime_root`，以及有效的 `created_at`。
 - 默认保留 `keep: true` 的 runtime，只有传入 `--include-kept` 才会纳入清理候选。
@@ -242,389 +254,403 @@ ${ADP_RUNTIME_DIR:-/tmp/adp-runtime}/
 
 ## 7. Adapter Contract
 
-建议先冻结一个最小 adapter contract，再并行开发具体 adapter。
-
-概念接口：
+Adapters 把 unified schema 转换成 agent-specific runtime files 和 launch specs。
 
 ```go
 type Adapter interface {
     Name() string
-    Validate(ctx AdapterContext) error
-    Render(ctx AdapterContext) (*RenderResult, error)
-    Launch(ctx AdapterContext, runtime RuntimeHandle, extraArgs []string) (*LaunchSpec, error)
-}
-
-type RenderResult struct {
-    Files []GeneratedFile
-    Env   map[string]string
-}
-
-type GeneratedFile struct {
-    Path string
-    Mode fs.FileMode
-    Data []byte
-}
-
-type LaunchSpec struct {
-    Command string
-    Args    []string
-    Env     map[string]string
-    Dir     string
+    Validate(context.Context, Context) error
+    Render(context.Context, Context) (*RenderResult, error)
+    Launch(context.Context, Context, RuntimeHandle, []string) (*LaunchSpec, error)
 }
 ```
 
 边界原则：
 
-- adapter 只负责“生成哪些文件、注入哪些环境变量、如何启动 Agent”。
+- adapter 只负责生成 files、env 和 launch specs。
 - adapter 不创建 runtime dir。
 - adapter 不读写 event log。
 - adapter 不解析 CLI flags。
-- adapter 不直接读取 `$HOME`。需要的路径由 `AdapterContext` 提供。
+- adapter 不直接读取真实 home directory。需要的路径由 context 提供。
 
 MVP adapter 输出：
 
 - Codex：
   - 生成 `AGENTS.md`。
-  - 生成 `.codex/config.toml` 或 `.codex/` 下的最小 runtime 配置，具体格式由实现阶段结合 Codex CLI 当前约定确认。
-  - 默认命令 `codex`。
+  - 生成 `.codex/config.toml`。
+  - 默认命令 `codex`，支持 workspace command override。
 - Claude：
   - 生成 `CLAUDE.md`。
-  - 生成 `.claude/` 下的最小 runtime 配置，具体格式由实现阶段结合 Claude Code CLI 当前约定确认。
-  - 默认命令 `claude`。
+  - 生成 `.claude/settings.json`。
+  - 默认命令 `claude`，支持 workspace command override。
 
-需要注意：Codex CLI、Claude Code CLI 的配置格式可能随版本变化。实现 adapter 时要优先读取官方当前文档或本机 CLI 行为，避免凭记忆固化格式。
+Codex CLI 和 Claude Code CLI 的具体配置格式可能随版本变化。冻结 adapter 假设前必须验证当前 provider CLI 行为或官方文档，并把格式细节限制在 adapter package 内。
 
-## 8. CLI 行为设计
+## 8. CLI 行为与验收
 
 ### `adp init`
 
-职责：
+行为：
 
-- 创建 `$ADP_HOME`。
-- 创建 `workspaces/`、`logs/`。
-- 创建默认 `config.yaml`。
-- 幂等执行，多次运行不破坏已有配置。
+- 创建 `$ADP_HOME`、`workspaces/`、`logs/` 和默认 `config.yaml`。
+- 幂等执行，不能破坏已有配置。
 
 验收：
 
-- 空环境运行成功。
-- 已存在环境运行成功。
-- 支持 `ADP_HOME` 临时目录测试。
+- 空的临时 `ADP_HOME` 可以初始化成功。
+- 重复执行时已有配置保持不变。
+- 测试使用临时 `ADP_HOME`，不使用真实用户 home。
 
 ### `adp workspace add <name> <project-root>`
 
-职责：
+行为：
 
-- 校验 workspace name。
-- 校验 project root 存在且是目录。
-- 写入 `$ADP_HOME/workspaces/<name>/workspace.yaml`。
-- 初始化 prompts、memory、mcp、profiles 默认文件。
-- 如果 workspace 已存在，默认报错；后续可加 `--force`。
+- 校验 workspace name 和 project root。
+- 将 project root 存为绝对路径。
+- 创建默认 prompt、memory、MCP、profile 和 workspace config 文件。
+- 对重复 workspace 和无效 name 返回明确错误。
 
 验收：
 
 - 相对 project root 会转换为绝对路径。
-- 重名 workspace 有明确错误。
-- 无效 name 有明确错误。
+- 重名 workspace 失败且不修改已有 workspace。
+- 无效 name 在写入 ADP home 前失败。
 
 ### `adp workspace list`
 
-职责：
+行为：
 
-- 列出已注册 workspace 的名称、project root 和 ADP workspace dir。
+- 输出已注册 workspace 的名称、project roots 和 ADP workspace directories。
 
 验收：
 
-- 空 registry 输出表头。
-- 多个 workspace 按名称排序。
+- 空 registry 仍然可读。
+- 多个 workspace 以稳定顺序输出。
 
 ### `adp workspace show <name>`
 
-职责：
+行为：
 
-- 输出单个 workspace 的 project root、workspace dir、memory 状态和 MCP 状态。
+- 输出单个 workspace 的 project root、workspace directory、memory status 和 MCP status。
 
 验收：
 
-- workspace 不存在时有明确错误。
-- 输出字段稳定，便于终端阅读。
+- workspace 不存在时返回明确 not-found 错误。
+- 输出字段足够稳定，便于终端用户和测试使用。
 
 ### `adp workspace doctor [name]`
 
-职责：
+行为：
 
-- 不传 name 时检查全部已注册 workspace；传 name 时只检查指定 workspace。
-- 检查 config load/validation、project root 是否可访问、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、路径逃逸、agent command 默认值、inline command arguments、路径型 command wrapper readiness、未知 enabled agent，以及 project root 中的保留路径。
-- 以稳定终端表格输出 diagnostics。
+- 不传 name 时检查全部已注册 workspace；传 name 时检查指定 workspace。
+- 覆盖 config load/validation、project root reachability、runtime parent safety、prompt、memory、MCP、profile 文件引用、路径逃逸、agent command 默认值、inline command arguments、路径型 command wrapper readiness、unknown enabled agents 和 reserved project-root paths。
+- 以稳定的终端格式输出 diagnostics。
 
 验收：
 
 - 健康 workspace 输出 `ok - no issues`。
 - error 级 diagnostics 返回非零退出码。
-- `DiagnoseAll` 对单个异常 workspace 给出报告，不阻断其它 workspace 的检查。
+- warning-only command/profile diagnostics 保持退出码为零。
+- 单个坏 workspace 不阻断其它 workspace 的 diagnostics。
 
 ### `adp doctor [workspace]`
 
-职责：
+行为：
 
 - 作为全局命令提供同一组本地 workspace diagnostics。
-- 接受一个可选 workspace 名称；省略时检查全部已注册 workspace。
-- 与 workspace 命令组保持相同 diagnostics 行为和退出码。
+- 接受一个可选 workspace name；省略时检查全部已注册 workspace。
 
 验收：
 
-- `adp doctor game-a` 与 `adp workspace doctor game-a` 的报告语义一致。
-- `adp doctor` 能检查全部已注册 workspace。
-- 不访问网络，不依赖 provider CLI。
+- `adp doctor game-a` 与 `adp workspace doctor game-a` 具有等价诊断语义。
+- 命令不访问网络，也不要求 provider CLI 存在。
 
 ### `adp workspace remove <name>`
 
-职责：
+行为：
 
-- 删除 ADP workspace 目录，不触碰真实 project root。
+- 删除 ADP workspace directory，不触碰真实 project root。
 
 验收：
 
 - workspace 不存在时返回明确错误。
-- invalid name 不触碰 ADP home。
+- 无效 name 不修改 ADP home 或 project root。
 
 ### `adp workspace rename <old-name> <new-name>`
 
-职责：
+行为：
 
-- 重命名 ADP workspace 目录。
-- 更新 `workspace.yaml` 中的 `workspace.name`。
+- 重命名 ADP workspace directory。
+- 更新 `workspace.yaml` 中的 workspace name。
 - 保留 project root、prompt、memory、MCP 和 profile 文件。
 
 验收：
 
-- old 不存在时返回明确错误。
-- new 已存在时返回明确错误。
-- 重命名后 `workspace show` 能读取新名称。
+- old name 不存在和 new name 已存在都会明确失败。
+- `workspace show` 可以读取重命名后的 workspace。
+- local completion candidates 中不再出现旧名称。
 
-### `adp enter <workspace>`
+### `adp enter <workspace> [--keep-runtime]`
 
-职责：
+行为：
 
-- 解析 workspace。
 - 构建 runtime overlay。
-- 设置 `ADP_HOME`、`ADP_WORKSPACE`、`ADP_PROJECT_ROOT`、`ADP_RUNTIME_ROOT`、`ADP_SESSION_ID`。
-- 在 runtime root 启动交互 shell。
-
-限制：
-
-- CLI 进程不能改变父 shell 的 cwd，所以 MVP 行为是启动一个子 shell。
-- 需要改变父 shell cwd 时，使用 `adp shell-hook` 生成的 shell 函数。
+- 设置 `ADP_HOME`、`ADP_WORKSPACE`、`ADP_PROJECT_ROOT`、`ADP_RUNTIME_ROOT` 和 `ADP_SESSION_ID`。
+- 在 runtime root 启动子 shell。CLI 进程不能改变父 shell 的 cwd，因此该命令有意启动 child shell。
+- shell 退出后默认清理 runtime，除非传入 `--keep-runtime`。
 
 验收：
 
 - shell cwd 是 runtime root。
-- `pwd`、env、runtime 文件可见。
-- shell 退出后默认清理 runtime，`--keep-runtime` 保留。
+- `pwd`、env values、generated files 和 project symlinks 在 child shell 中可见。
+- 默认 smoke 不需要真实交互 shell，也能覆盖 runtime cleanup 和 `--keep-runtime` preservation。
 
 ### `adp env <workspace> [--cd]`
 
-职责：
+行为：
 
 - 构建保留的 runtime overlay。
-- 输出 POSIX shell 兼容的 `export ADP_*` 内容。
-- `--cd` 时额外输出进入 runtime root 的 `cd` 命令。
+- 输出 POSIX-compatible shell exports。
+- 传入 `--cd` 时额外输出进入 runtime root 的 quoted `cd` command。
 
 验收：
 
-- 输出顺序稳定。
-- shell quote 能处理空格、单引号和特殊字符。
+- 输出顺序确定。
+- shell quoting 能处理空格、单引号和特殊字符。
 - runtime root 中存在 `.adp-runtime.yaml`。
 
 ### `adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]`
 
-职责：
+行为：
 
-- 输出一个 shell 函数。
-- 函数内部调用 `adp env <workspace> --cd`。
-- 在父 shell 中 `eval` 返回的 exports 和 `cd` 命令。
+- 输出一个调用 `adp env <workspace> --cd` 的 shell function。
+- 让用户在 parent shell 中 evaluate exports 和 `cd`。
+- 不改变 `adp enter`；`enter` 仍然启动 child shell。
 
 验收：
 
-- 支持 `sh`、`bash`、`zsh`。
-- 函数名做保守校验，避免 shell injection。
-- 输出稳定，便于写入 shell 配置或被测试断言。
+- 支持 `sh`、`bash` 和 `zsh`。
+- 函数名保守校验，避免 shell injection。
+- 输出稳定，便于测试和 shell 配置。
 
 ### `adp completion [--shell <bash|zsh>] [--command <name>]`
 
-职责：
+行为：
 
-- 为支持的 shell 输出确定性的 completion 脚本；省略 `--shell` 时默认输出 bash completion。
-- 覆盖当前 CLI 命令面，包括 workspace、events、runtime、sessions 等嵌套子命令。
-- 可选 command name 支持打包后的二进制名或别名，不把 `adp` 写死为唯一命令名。
-- 通过只读本地端点提供动态候选值：`adp completion values workspaces` 和 `adp completion values profiles [--workspace <name>]`。
-- P16 增加一份面向命令面的本地 command metadata contract。Usage text、dispatch wiring 和 bash/zsh completion 都应对照这份 metadata 检查，避免某个命令在一处可达、在另一处缺失。该 contract 只用于本地 drift prevention；不能变成 CLI framework migration、hosted command registry、Web UI、SaaS tracker、automatic Git path、automatic task 或 phase closure path、provider-native resume path，或 project-root export mechanism。
+- 为支持的 shell 输出确定性的 completion，省略 `--shell` 时默认 bash。
+- 覆盖当前 command surface，包括 nested workspace、event、runtime、session、task、phase、progress 和 plan subcommands。
+- 通过 `--command` 支持打包二进制名或 alias。
+- 使用只读动态端点提供本地候选值：`adp completion values workspaces` 和 `adp completion values profiles [--workspace <name>]`。
+
+P16 增加本地 command metadata contract。Usage text、dispatch wiring 和 bash/zsh completion 都应对照该 metadata 检查，避免命令在一处可达而在另一处缺失。该 contract 只用于本地 drift prevention；不能变成 CLI framework migration、hosted command registry、Web UI、SaaS tracker、automatic Git path、automatic task 或 phase closure path、provider-native resume path，或 project-root export mechanism。
 
 验收：
 
-- 支持 `bash` 和 `zsh`。
-- 对 shell 名称和 command name 做保守校验。
-- 输出稳定，便于测试断言和写入 shell 配置。
-- 动态值端点只读取本地 workspace/profile 状态，不初始化 workspace，不访问网络。
+- 支持 bash 和 zsh。
+- shell name 和 command name 做保守校验。
+- 动态值端点只读取本地 workspace/profile 状态；不初始化 workspace、不访问网络、不修改 planning/runtime state。
 
 ### `adp version`
 
-职责：
+行为：
 
 - 输出本地 CLI build identity。
-- 开发构建可输出 `dev`。
-- preview release binary 通过 Go linker flags 注入 version、commit 和 build-date。
+- 开发构建可以输出 `dev`。
+- preview release binary 应通过 Go linker flags 注入 version、commit 和 build-date。
 
 验收：
 
 - `adp version` 和 `adp --version` 输出稳定。
-- 缺少 ldflags 时仍能输出开发构建标识。
-- 打包说明记录 `internal/cli` 中 `Version`、`Commit`、`BuildDate` 的注入方式。
+- 缺少 linker flags 时仍能输出可用的 development identity。
+- release packaging docs 记录 linker flag 字段。
 
-### `adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]`
+### `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]`
 
-职责：
+行为：
 
 - 读取 `$ADP_HOME/logs/events.jsonl`。
-- 按 workspace、session、event type 和 limit 过滤。
-- 以稳定表格输出最近匹配事件。
+- 按 workspace、session、task、event type 和 limit 过滤 JSONL events。
+- 以稳定终端表格输出最近匹配事件。
+- 损坏 event log 行必须带行号报告，不能静默忽略。
 
 验收：
 
-- event log 不存在时输出空表。
-- 损坏 JSON 行返回带行号的明确错误。
-- `--limit` 返回最近 N 条匹配事件，并保持输出顺序为时间顺序。
+- event log 不存在时输出空结果。
+- `--limit` 返回最近匹配记录，同时保持输出为时间顺序。
+- 命令保持只读。
 
 ### `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 
-职责：
+行为：
 
-- 读取 `$ADP_HOME/logs/events.jsonl`。
-- 按 `session_id` 聚合本地事件。
-- 支持 workspace、agent 和 limit 过滤。
-- 忽略空 `session_id` 的事件。
+- 按 `session_id` 聚合本地 event log records。
+- 支持 workspace、agent、task 和 limit filters。
+- 忽略空 `session_id` 的 events。
 
 验收：
 
-- 先应用 workspace/agent 过滤，再按最近 session 限制数量。
-- 输出保持 session start 的时间顺序，便于终端阅读。
-- event log 不存在时输出空结果，不创建 runtime 状态。
+- 先应用 filters，再执行 limit。
+- 选中的 sessions 保持 session-start 时间顺序，便于终端阅读。
+- event log 不存在时输出空结果且不创建 runtime state。
 
 ### `adp sessions show <session-id>`
 
-职责：
+行为：
 
-- 输出一个 session 的有序事件。
-- 展示事件中已有的 workspace、agent、runtime path、exit code、duration 等信息。
-- 只读取本地 JSONL event log，不修改 runtime 或 workspace。
+- 输出一个 session 的有序 events。
+- 数据来源是本地 JSONL event log。
 
 验收：
 
 - session 不存在时返回明确 not-found 错误。
+- 命令只读，不创建、修改或删除 runtime state。
 
 ### `adp sessions restore-plan <session-id>`
 
-职责：
+行为：
 
-- 当历史 session 中有足够的非敏感 invocation snapshot 数据时，打印只读的建议 `adp run ...` 命令。
-- 不执行建议命令、不启动 Agent、不创建 runtime 状态、不追加 events、不修改 task 状态、不写入项目根目录，也不恢复 provider 原生会话。
+- 当历史 session 中有足够的非敏感 invocation snapshot 数据时，打印只读建议 `adp run ...` command。
+- 历史数据不完整时输出 partial plan、missing fields 和 reasons。
 
 验收：
 
-- invocation snapshot 足够时输出 ready plan 和 suggested command。
-- 旧 session 或不完整 event 数据输出 partial plan、missing fields 和 reasons。
-- 命令本身保持只读，不改变 event log、task state、runtime directories 或真实项目根目录。
-- 输出事件顺序与 log 中记录顺序一致。
-- 损坏 JSON 行与 `adp events list` 保持一致的错误行为。
+- 命令不执行建议、不启动 Agent、不创建 runtime state、不追加 events、不修改 task state、不写入 project root，也不恢复 provider-native conversations。
+- 输出事件顺序遵循 source log 顺序。
 
 ### `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 
-职责：
+行为：
 
 - 向 stdout 打印本地 planning/execution handoff snapshot。
-- 只读取 `$ADP_HOME` 下的本地 planning ledger。
-- 默认输出仍然是英文 Markdown；只有显式传入 `--language zh-CN` 时才输出简体中文 Markdown。
-- `--language` 只作用于 Markdown 输出。
-- `--format json` 会输出机器可读的只读 handoff snapshot，包含 workspace、task 总数、phases、task counts、tasks、按优先级排序的 next work、phase evidence，以及在本地 JSONL runtime events 和 session 数据存在时的最近 runtime session evidence。
-- JSON 输出用于跨工具解析，不能成为单独的状态存储。
-- 当本地 JSONL runtime events 和 session 数据存在时，Markdown 和 JSON 报告都会包含从 `$ADP_HOME/logs/events.jsonl` 派生的最近 runtime session evidence。
-- 保持只读，不能追加 events、修改 task 状态、修改 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、恢复 provider 原生会话或写入 project-root 文件。
+- 读取 `$ADP_HOME` 下的本地 planning ledger。
+- 默认输出英文 Markdown。
+- 只有传入 `--language zh-CN` 时输出简体中文 Markdown。
+- `--language` 只作用于 Markdown。
+
+传入 `--format json` 时，命令输出机器可读、只读的 handoff snapshot，包含 workspace、task 总数、phases、task counts、tasks、按优先级排序的 next work、phase evidence，以及本地 JSONL runtime events 和 session 数据存在时的 recent runtime session evidence。JSON 用于本地跨工具解析，不能成为第二份状态存储。
+
+当本地 JSONL runtime events 和 session 数据存在时，Markdown 和 JSON report 都会包含从 `$ADP_HOME/logs/events.jsonl` 派生的 recent runtime session evidence。该 evidence 只用于 inspection 和 handoff。
 
 验收：
 
-- 报告输出到 stdout，不自动创建或更新 Markdown 文件。
-- 命令不能推断验收、关闭任务、运行 Git、push、启动 Agent、创建 runtime 目录、追加 runtime events 或恢复 provider 原生会话。
-- 执行前后 task state、phase state、event log、runtime directories 和真实项目根目录保持不变。
+- 输出到 stdout；命令永远不自动创建或更新 report files。
+- 不能追加 events、修改 task state、修改 phase state、创建 runtime directories、启动 agents、运行 Git、push、推断 acceptance、关闭 tasks、恢复 provider-native conversations，或把 report files 写入真实 project root。
+- task state、phase state、event log、runtime directories、Git state 和真实 project root 保持不变。
+
+### `adp progress [--workspace <name>] [--format text|json]`
+
+行为：
+
+- 输出当前 workspace planning progress。
+- 统计 task statuses，并暴露按优先级排序的 next work。
+- 支持 text 供终端扫描，支持 JSON 供本地跨工具解析。
+
+验收：
+
+- 命令只读。
+- JSON 输出是 snapshot，不是第二份 planning store。
+- 不修改 task、phase、event、runtime、Git、hosted service 或 project-root state。
+
+### `adp tasks add|list|show|update|claim|release|done|block`
+
+行为：
+
+- 在 `$ADP_HOME/workspaces/<workspace>/planning` 下保存 workspace-scoped tasks。
+- 支持本地 task creation、listing、showing、status updates、带可选 lease 的 owner claims、owner-checked release、done transitions 和 blocker recording。
+- 对 mutating planning operations 使用本地文件锁。
+- phase ledger 存在后校验 task phase IDs。
+
+验收：
+
+- mutations 只影响 `$ADP_HOME` 下的本地 planning ledger。
+- owner conflicts 和未过期 leases 会被强制执行。
+- read-only task views 提供稳定 JSON 输出给本地工具。
+- task commands 不运行 Git、不启动 agents、不写入 project-root planning files、不同步 hosted trackers。
 
 ### `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]`
 
-职责：
+行为：
 
-- 向 stdout 打印紧凑的本地 next-work snapshot。
+- 向 stdout 输出紧凑的本地 next-work snapshot。
 - 读取 `$ADP_HOME` 下的 workspace planning ledger。
-- 选择状态为 `ready`、`in_progress` 或 `review` 的任务。
-- 按优先级和稳定的本地 tie-breakers 排序 candidates，方便终端用户和子 Agent 在不解析完整 progress report 的情况下选择后续工作。
-- 默认输出 text，并针对终端快速扫描优化。
-- `--limit <n>` 用于限制 candidates，默认值是 5，`0` 表示输出不截断的 snapshot。
-- `--format json` 输出供本地跨工具解析使用，并提供稳定字段，包括 workspace、planning source、snapshot 生成时间、任务总数、eligible candidate 数量、状态统计、请求的 limit、排序后的 `candidates`，以及存在可执行任务时的 singular `next` first-candidate 值。
+- 选择状态为 `ready`、`in_progress` 或 `review` 的 tasks。
+- 按 priority 和稳定本地 tie-breakers 排序 candidates，便于终端用户和子 Agent 不解析完整 progress report 也能选择后续工作。
+
+Text 是默认格式，面向终端快速扫描。`--limit <n>` 限制 candidates，默认 5，`0` 表示不截断。JSON 输出用于本地跨工具解析，包含 workspace、planning source、generated timestamp、total task count、eligible candidate count、status counts、requested limit、排序后的 `candidates`，以及存在可执行任务时的 singular `next` first-candidate value。
 
 验收：
 
-- Text 输出到 stdout，不自动创建或更新文件。
-- JSON 输出字段稳定，足以让本地工具不抓取文本即可选择候选任务。
-- 命令保持只读，不能领取任务、修改 task 状态、修改 owner 或 lease、清理 blocker、修改 phase、追加 events、创建 runtime 目录、启动 Agent、运行 Git、push、推断验收、关闭任务、恢复 provider 原生会话、写入真实项目根目录、同步 hosted tracker，或把 JSON 作为第二份 planning store 维护。
-- 执行前后 task state、phase state、event log、runtime directories、Git state、hosted service state 和真实项目根目录保持不变。
+- 命令只读。
+- 不能 claim tasks、修改 task status、改变 owners 或 leases、清理 blockers、修改 phases、追加 events、创建 runtime directories、启动 agents、运行 Git、push、推断 acceptance、关闭 tasks、恢复 provider-native conversations、写入真实 project root、同步 hosted trackers，或把 JSON 维护成第二份 planning store。
+
+### `adp phase add|list|show|start|accept|commit|push`
+
+行为：
+
+- 在 `$ADP_HOME/workspaces/<workspace>/planning` 下保存 workspace-scoped phase records。
+- 跟踪 phase status、goal、acceptance command evidence、commit evidence 和 push evidence。
+- 强制 phase lifecycle 顺序：planned、active、accepted、committed、pushed。
+- 强制阶段流程：acceptance 先于 commit evidence，commit 先于 push evidence，且下一阶段开始前上一阶段必须已 pushed。
+
+验收：
+
+- phase evidence 是本地 ledger 数据，不是 Git automation。
+- `phase commit` 记录 commit hash 和 message，但不创建 commit。
+- `phase push` 记录 remote、branch 和 result，但不运行 `git push`。
+- 后续 phase 必须等当前 phase accepted、committed、pushed 并完成记录后才能开始。
 
 ### `adp plan preview|apply [--workspace <name>] --file <path|-> [--format text|json]`
 
-职责：
+行为：
 
-- 接收结构化本地 YAML/JSON planning 输入，包含 phases 和 tasks。
-- `preview` 只把拟导入内容输出到 stdout，不创建 planning 文件或目录。
-- `apply` 必须显式执行，并把校验后的批次写入 `$ADP_HOME/workspaces/<workspace>/planning`。
-- JSON 输出只用于 inspection 和本地跨工具解析，不能成为第二份 planning store。
+- 接收包含 phases 和 tasks 的结构化本地 YAML/JSON planning input。
+- 支持普通文件和通过 `--file -` 读取 stdin。
+- `preview` 只把拟导入内容输出到 stdout，不创建 planning files 或 directories。
+- `apply` 必须显式执行，并把校验后的 batch 写入 `$ADP_HOME/workspaces/<workspace>/planning`。
+
+JSON 输出只用于 inspection 和本地跨工具解析，不能成为第二份 planning store。Plan intake 不能把自由文本自然语言拆成任务、同步 hosted trackers、运行 Git、启动 agents、推断 acceptance、自动 claim 或 close tasks、把 planning files 写入真实 project root，或修改 runtime state。
 
 验收：
 
-- `preview` 保持只读。
-- `apply` 只写本地 planning ledger，不写真实项目根目录。
+- Preview 保持只读。
+- Apply 只写 `$ADP_HOME` 下的本地 planning ledger。
 - 失败的 apply 不留下 partial phase、task 或 progress state。
-- 命令不能把自由文本自然语言拆成任务、同步 hosted tracker、运行 Git、启动 Agent、推断验收、自动领取或关闭任务，或修改 runtime state。
+- stdin intake 与 file intake 保持相同 preview/apply mutation boundaries。
 
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
-职责：
+行为：
 
-- 扫描 `$ADP_RUNTIME_DIR` 的直接子目录。
-- 只把包含当前版本且结构自洽的 `.adp-runtime.yaml`，并且其中 `generated_by: adp`、非空 workspace 和 session ID、绝对 `project_root`、`runtime_root` 与目录一致、`created_at` 有效的目录视为 prune 候选。
-- 清理超过 `--older-than` 的 ADP-owned runtime 目录，默认跳过 `keep: true`，只有传入 `--include-kept` 才纳入候选。
-
-验收：
-
-- 默认跳过 `keep: true` 的 runtime。
-- `--include-kept` 会将 `keep: true` runtime 纳入候选。
-- `--dry-run` 只报告候选项，不删除。
-- 不兼容、格式错误、外部系统生成或自相矛盾的 manifest 会被跳过。
-- 删除目标只能是扫描到的 runtime 子目录，不能来自 manifest 中的 project root。
-
-### `adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]`
-
-职责：
-
-- 解析 workspace：优先 `--workspace`，其次 `ADP_WORKSPACE`，再考虑通过当前目录匹配已注册 project root。
-- 查找 adapter。
-- 构建 runtime overlay。
-- 调用 adapter render。
-- 执行 agent command。
-- 透传 stdin/stdout/stderr 和 exit code。
-- 记录 event log。
+- 扫描 `$ADP_RUNTIME_DIR` 下的直接子目录。
+- 只有目录包含 current-version 且 self-consistent 的 `.adp-runtime.yaml`，并且 manifest 中包含 `generated_by: adp`、非空 workspace 和 session IDs、绝对 `project_root`、与目录匹配的 `runtime_root`、有效 `created_at` 时，才把它视为 prune candidate。
+- 删除超过 `--older-than` 的 ADP-owned runtime directories。
+- 默认跳过 `keep: true`，除非传入 `--include-kept`。
+- 传入 `--dry-run` 时只报告 candidates，不删除。
 
 验收：
 
-- 支持 fake `codex` / fake `claude` binary 集成测试。
-- agent cwd 是 runtime root。
-- agent 能看到 ADP 生成的配置文件。
-- exit code 与 Agent 进程一致。
+- 不兼容、格式错误、外部系统生成或自相矛盾的 manifests 会被跳过。
+- 删除目标只能是扫描到的 runtime child directories，不能来自 manifest project roots。
+- 默认和 `--include-kept` 模式都覆盖 kept runtime 行为。
+
+### `adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]`
+
+行为：
+
+- 解析 workspace、渲染 adapter files、构建 runtime overlay、启动 agent、记录 start/finish events、透传 streams，并返回 agent exit code。
+- 传入 `--task` 时，把 runtime sessions 绑定到本地 task state，并把 task context 注入 runtime env 和生成的 adapter instructions。
+
+Workspace 解析顺序：
+
+- 显式 `--workspace`。
+- `ADP_WORKSPACE`。
+- 将当前目录匹配到已注册 project root；嵌套 workspaces 时选择最长匹配的 project root。
+
+验收：
+
+- fake Codex 和 Claude binaries 会验证 cwd、env、generated files、project symlinks、args、exit code、events、sessions、task binding 和 cleanup。
+- Agent cwd 是 runtime root。
+- 真实 project root 不被修改。
 
 ## 9. Event Log
 
@@ -653,93 +679,54 @@ $ADP_HOME/logs/events.jsonl
 
 ## 10. 并行开发边界
 
-### 串行前置：Contract Scaffold
+只有在 ownership boundaries 明确，且 phase gate 仍然能作为一个 integrated slice 关闭时，才允许并行工作。
 
-从空仓库开始，不建议直接启动所有子 Agent 同时写代码。必须先完成一个很短的前置任务，冻结公共目录和接口。
+当前并行切片：
 
-负责人：Foundation Agent。
+- CLI command surface：`cmd/`、`internal/cli/`、`internal/commandmeta/` 和 command-focused tests。
+- Workspace registry and diagnostics：`internal/workspace/`、`internal/schema/` 和相关 CLI wiring。
+- Runtime and overlay：`internal/runtime/`、`internal/overlay/`、manifest handling、lifecycle smoke 和 runtime acceptance docs。
+- Adapter layer：`internal/adapters/`、`templates/`、adapter tests 和 provider compatibility docs。
+- Runner、shell、events、sessions：`internal/runner/`、`internal/shell/`、`internal/events/`、`internal/sessions/`。
+- Local planning manager：`internal/tasks/`、`internal/planinput/`、task/phase/progress CLI wiring 和 planning smoke。
+- Docs and examples：`README*`、`AGENTS*`、`docs/` 和 `examples/`。
+- Integration QA and gates：`scripts/`、`test/e2e/`、`.github/` 和 release checklist docs。
 
-只做：
+规则：
 
-- 初始化 Go module。
-- 建立目录结构。
-- 定义 `internal/schema` 核心 struct。
-- 定义 `internal/adapters` interface。
-- 定义 `internal/overlay` input/output type。
-- 定义 `internal/paths` layout type。
-- 放置 TODO/stub，保证包可编译。
+- 主线程 integration 负责 immediate blocking path。
+- 子 Agent 必须拿到 disjoint write scopes；重叠文件集默认只做 read-only review，除非存在明确 handoff。
+- Public contract changes 必须明确说明，并跨 dependent packages 验证。
+- `LICENSE` 和 `COMMERCIAL*` 由项目维护者维护。
+- 手写代码文件必须保持在 700 行以内。
+- 文档必须保持英文默认文件和简体中文 counterpart 对齐。
+- 每个 phase slice 都必须先 validation、acceptance、commit、push 并完成记录，然后才能开始下一阶段。
 
-完成后才能大规模并行。
+子 Agent 任务说明必须写明 objective、allowed write paths、disallowed paths、constraints、validation commands 和 expected final report。Read-only review agents 必须明确告知不得编辑文件。
 
-### 并行任务矩阵
+## 11. Validation Gates
 
-| 子 Agent | 负责范围 | 独占路径 | 依赖 | 输出契约 | 验收 |
-| --- | --- | --- | --- | --- | --- |
-| A. CLI/Foundation | Cobra 命令骨架、全局 flag、错误格式、main wiring | `cmd/`, `internal/cli/`, `go.mod` | Contract Scaffold | 调用 workspace/runtime/runner 接口，不实现业务细节 | `adp --help`、命令参数解析测试通过 |
-| B. Workspace Registry | `adp init`、workspace add/list/show/doctor 的底层能力、schema load/save、workspace diagnostics | `internal/workspace/`, `internal/schema/` | `internal/paths` | `Registry` API、workspace config 文件、diagnostic report | temp `ADP_HOME` 单测通过 |
-| C. Runtime Overlay | runtime session、symlink materialization、冲突策略、cleanup | `internal/runtime/`, `internal/overlay/` | schema + adapter `GeneratedFile` | `BuildRuntime(workspace, generatedFiles)` 返回 `RuntimeHandle` | temp project 集成测试通过 |
-| D. Adapter Layer | adapter registry、Codex/Claude render、模板 | `internal/adapters/`, `templates/` | schema + adapter contract | `Adapter` 实现注册到 registry | 生成文件 golden tests 通过 |
-| E. Runner/Shell/Events | 外部进程执行、交互 shell、shell completion、event JSONL、session history | `internal/runner/`, `internal/shell/`, `internal/events/`, `internal/sessions/` | paths + runtime handle | `Run(spec)`、`EnterShell(handle)`、`RenderCompletion()`、`Log(event)`、`ListSessions()` | fake binary、completion 和 event/session log 测试通过 |
-| F. Docs/Examples | README、CLI reference、example workspace、双语文档配对 | `README.md`, `README.zh-CN.md`, `docs/`, `examples/` | CLI 行为草案 | 可运行示例和用户文档 | 文档命令与实现保持一致，双语检查通过 |
-| G. Integration QA | 端到端测试、fake agents、CI 脚本 | `test/`, `.github/`, 允许少量 test helper | A-F 初版 | `go test ./...` + CLI e2e + file-line check | 覆盖 init/add/run/enter 基本流，且代码文件不超过 700 行 |
+必跑本地检查：
 
-### 文件修改规则
-
-- 每个子 Agent 默认只能修改自己的独占路径。
-- 修改公共 contract 时必须先声明原因，并同步更新依赖方测试。
-- `go.mod` 由 A 负责；其他子 Agent 如需新增依赖，先在任务说明里列出，不直接引入大依赖。
-- `README.md` 由 F 负责；其他子 Agent 可在实现说明中提出文档变更点。
-- 默认文档为英文，F 负责同步维护 `.zh-CN.md` 简体中文 counterpart。
-- `internal/schema` 初版由 Contract Scaffold 创建，B 可以继续完善；其他子 Agent 只消费 schema。
-- `internal/adapters/adapter.go` 初版由 Contract Scaffold 创建，D 可以继续完善；C/E 只消费接口。
-- `LICENSE` 与 `COMMERCIAL.md` 只由项目维护者修改；子 Agent 不应自行更改授权策略。
-- 任何手写代码文件超过 700 行都必须先拆分再交付。
-
-### 合并顺序
-
-推荐合并顺序：
-
-1. Contract Scaffold。
-2. A + B，可以先合并，形成可运行 CLI 与 workspace registry。
-3. C + D，可以并行开发，随后由 A 或 Integration Agent 做 wiring。
-4. E 合并 runner/events/shell。
-5. G 做端到端修正。
-6. F 最后校正文档，或与实现并行但最终以实现为准。
-
-## 11. 子 Agent 任务说明模板
-
-后续启动子 Agent 时，建议把下面模板填入任务：
-
-```txt
-你负责 ADP Phase 1 的 <任务名>。
-
-背景文档：
-- mvp.md
-- docs/phase1-development-plan.md
-
-你的独占路径：
-- <paths>
-
-你可以读取全仓库，但默认不要修改独占路径之外的文件。
-如果必须修改公共接口，先在回复中说明原因和影响面。
-
-必须保持：
-- go test ./... 通过。
-- scripts/check-file-lines.sh 通过。
-- 支持 ADP_HOME 指向临时目录。
-- 不读取或污染真实 ~/.adp。
-- 不修改真实项目目录，只写 runtime/temp 和测试目录。
-- 手写项目代码文件不超过 700 行，超过前必须拆分。
-
-交付：
-- 实现代码。
-- 对应单测或集成测试。
-- 简短说明已覆盖的命令/行为。
+```bash
+scripts/check-all.sh
 ```
 
-## 12. 端到端验收场景
+聚合门禁会运行 deterministic smoke 和仓库检查：
 
-Phase 1 完成时，至少满足以下场景：
+```bash
+scripts/runtime-smoke.sh --fake
+scripts/example-workspace-smoke.sh
+scripts/task-manager-smoke.sh
+scripts/plan-intake-smoke.sh
+go test -count=1 ./...
+go vet ./...
+scripts/check-file-lines.sh
+scripts/check-docs-bilingual.sh
+git diff --check
+```
+
+端到端期望：
 
 ```bash
 export ADP_HOME="$(mktemp -d)"
@@ -768,8 +755,6 @@ adp workspace rename game-a game-renamed
 adp workspace remove game-renamed
 ```
 
-验收点：
-
 - `$ADP_HOME/workspaces/game-a/workspace.yaml` 存在且 project root 正确。
 - `adp workspace list` / `show` 能输出已注册 workspace。
 - `adp workspace doctor` 能报告健康 workspace，并对 error 级 diagnostics 返回非零退出码。
@@ -793,35 +778,15 @@ adp workspace remove game-renamed
 - event log 记录 run start/finish。
 - fake agent e2e 能断言 cwd、env、参数透传、exit code。
 
-## 13. 主要风险和处理策略
+Phase process gate：
 
-Codex/Claude 配置格式变化：
-
-- adapter 实现阶段必须验证当前 CLI 或官方文档。
-- 把格式细节限制在 adapter 包内，不泄漏到 runtime/workspace。
-
-symlink overlay 与真实项目已有配置冲突：
-
-- 保留路径由 ADP 生成内容覆盖 runtime 视图。
-- 真实项目不修改。
-- event log 记录冲突 warning。
-
-`adp enter` 改变父 shell cwd 的误解：
-
-- MVP 明确启动子 shell。
-- `adp shell-hook` 提供基础 parent-shell workflow。
-- 动态 completion value endpoints 属于 P2 hardening；更完整的 session restore 留到后续阶段。
-
-并行开发接口漂移：
-
-- 先做 Contract Scaffold。
-- 公共接口变更集中在短窗口内处理。
-- G 负责端到端测试把漂移暴露出来。
-
-真实 HOME 污染：
-
-- 所有测试必须通过 `ADP_HOME`。
-- 业务包通过 `internal/paths` 获取路径，不直接调用 `os.UserHomeDir()`。
+1. 完成一个 planned phase slice。
+2. 运行 focused validation 和 required aggregate gate。
+3. 只有 validation 通过后，才能记录 phase acceptance。
+4. 提交已验收的 phase。
+5. 推送 commit。
+6. 在本地 phase ledger 中记录 commit 和 push evidence。
+7. 只有 push 成功且 phase record 更新后，才能开始下一阶段。
 
 ## 12. 下一步优先级
 
@@ -858,4 +823,4 @@ symlink overlay 与真实项目已有配置冲突：
 - P23 planned：增加非阻断 line pressure audit tooling，在文件接近 700 行硬限制前规划拆分。
 - P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18/P19/P20/P21 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
-每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。
+每个阶段切片必须先完成 validation、acceptance、commit、push 和 evidence record，然后再开始下一阶段。
