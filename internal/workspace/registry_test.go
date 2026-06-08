@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/karoc/adp/internal/paths"
@@ -292,6 +293,47 @@ func TestRegistryListSortsWorkspaces(t *testing.T) {
 	}
 	if records[1].Name != "z-game" || records[1].ProjectRoot != zRoot {
 		t.Fatalf("second record = %+v, want z-game", records[1])
+	}
+}
+
+func TestRegistryNamesReadsWorkspaceDirsWithoutLoadingConfigs(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+	if err := registry.Init(context.Background()); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	for _, name := range []string{"z-game", "a-game", "broken", ".hidden", "bad name"} {
+		if err := os.MkdirAll(layout.WorkspaceDir(name), 0o755); err != nil {
+			t.Fatalf("create workspace dir %s: %v", name, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(layout.WorkspaceDir("broken"), "workspace.yaml"), []byte("version: [broken\n"), 0o644); err != nil {
+		t.Fatalf("write broken workspace config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(layout.WorkspacesDir, "file-workspace"), []byte("not a dir\n"), 0o644); err != nil {
+		t.Fatalf("write non-dir workspace entry: %v", err)
+	}
+
+	names, err := registry.Names(context.Background())
+	if err != nil {
+		t.Fatalf("Names() error = %v", err)
+	}
+
+	want := []string{"a-game", "broken", "z-game"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("Names() = %#v, want %#v", names, want)
+	}
+}
+
+func TestRegistryNamesReturnsEmptyWhenWorkspacesDirIsMissing(t *testing.T) {
+	registry, _ := newTestRegistry(t)
+
+	names, err := registry.Names(context.Background())
+	if err != nil {
+		t.Fatalf("Names() error = %v", err)
+	}
+	if len(names) != 0 {
+		t.Fatalf("Names() = %#v, want empty", names)
 	}
 }
 

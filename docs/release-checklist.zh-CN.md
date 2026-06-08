@@ -6,6 +6,8 @@ English: [release-checklist.md](release-checklist.md)
 
 发布门禁验证 ADP 自身的 runtime、CLI、workspace、diagnostics、文档和仓库卫生。它不会把发布验证扩展为 hosted service 检查、Web UI 检查、SaaS deployment 检查或远程 provider certification 流程。
 
+early preview artifact 布局和 CLI 构建命令见 [release-packaging.zh-CN.md](release-packaging.zh-CN.md)。
+
 ## 必跑门禁
 
 在 handoff、commit、push 或 release candidate tag 前运行统一门禁：
@@ -14,7 +16,7 @@ English: [release-checklist.md](release-checklist.md)
 scripts/check-all.sh
 ```
 
-该脚本可以从任意当前目录调用。它会根据自身位置解析仓库根目录，然后再运行检查。
+该脚本可以从任意当前目录调用。它会根据自身位置解析仓库根目录，然后再运行检查。CI 应调用同一个脚本，而不是维护一条独立的 release gate 路径。
 
 必跑门禁按以下顺序执行：
 
@@ -44,6 +46,9 @@ fake runtime smoke 验证：
 - workspace diagnostics。
 - shell export 渲染。
 - bash 和 zsh completion 渲染。
+- 本地 workspace 和 profile 的动态 completion 值端点。
+- 全局 `adp doctor [workspace]` diagnostics。
+- `adp version` 和 `adp --version` 输出。
 - ADP-owned runtime 清理。
 - 防止 runtime artifact 或 planning 文件污染真实项目根目录。
 
@@ -100,6 +105,12 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 task-bound runtime smoke 步骤失败，优先检查 workspace 解析、`$ADP_HOME/workspaces/<workspace>/planning` 下的 task lookup、`AGENTS.md` 或 `CLAUDE.md` 中生成的 task context、runtime 环境变量中的 `ADP_TASK_ID`，以及 events 和 sessions 中的 task ID。
 
+如果 diagnostics 步骤失败，对比 `adp doctor [workspace]` 和 `adp workspace doctor [name]`，并检查本地 workspace registry、project root、引用的 prompt、memory、MCP、profile 文件和 agent command 设置。
+
+如果 completion value 步骤失败，检查 `$ADP_HOME/workspaces` 下的本地 workspace 名称发现、`ADP_WORKSPACE` 或 `--workspace` 解析、workspace agent profiles，以及 workspace `profiles/` 目录下的文件。completion value endpoints 必须保持只读和本地化。
+
+如果 version 步骤失败，检查 `internal/cli` 中的 CLI build variables，以及 [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 中记录的 release `-ldflags`。开发构建可以输出 `dev`；packaged preview binary 应注入 version、commit 和 build date。
+
 如果 `scripts/example-workspace-smoke.sh` 失败，优先检查复制后的 `examples/basic-workspace/workspace.yaml` 是否仍匹配当前 schema，以及 `adp env <workspace> --cd` 是否仍能生成带项目文件 symlink 的 kept runtime。
 
 如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储，以及项目根目录污染防护。
@@ -128,6 +139,7 @@ go test -count=1 ./test/e2e
 - `.envrc` 和 `mvp.md` 仍被忽略且未提交。
 - 仓库本地 Git identity 没有配置 `user.name` 或 `user.email`。
 - license 文件和 PolyForm Noncommercial 定位没有被意外修改。
+- packaged CLI artifact 使用 version、commit 和 build-date ldflags 构建，且 `adp version` 报告符合预期。
 - README 和 focused docs 描述当前 CLI surface，且没有 Web、UI、SaaS、cloud sync 或 hosted orchestration 偏移。
 - 任何声明的 real-agent compatibility 都有对应的 opt-in real CLI evidence，必要时还有手工交互式验收记录。
 

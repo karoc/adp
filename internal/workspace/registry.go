@@ -225,6 +225,37 @@ func (r *Registry) List(ctx context.Context) ([]Record, error) {
 	return records, nil
 }
 
+func (r *Registry) Names(ctx context.Context) ([]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(r.Layout.WorkspacesDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read workspaces directory: %w", err)
+	}
+
+	names := []string{}
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if schema.ValidateWorkspaceName(name) != nil {
+			continue
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
 func (r *Registry) FindByProjectPath(ctx context.Context, path string) (*schema.Config, string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, "", err

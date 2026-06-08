@@ -22,6 +22,8 @@ const usage = `adp - Agent Development Platform
 
 Usage:
   adp init
+  adp doctor [workspace]
+  adp version
   adp workspace add <name> <project-root>
   adp workspace list
   adp workspace show <name>
@@ -32,6 +34,7 @@ Usage:
   adp env <workspace> [--cd]
   adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]
   adp completion [--shell <bash|zsh>] [--command <name>]
+  adp completion values <workspaces|profiles> [--workspace <name>]
   adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]
 	  adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]
 	  adp sessions show <session-id>
@@ -46,11 +49,18 @@ Usage:
 	  adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]
 	`
 
+var (
+	Version   = "dev"
+	Commit    = ""
+	BuildDate = ""
+)
+
 type WorkspaceStore interface {
 	Init(context.Context) error
 	Add(context.Context, string, string) (*schema.Config, error)
 	Get(context.Context, string) (*schema.Config, string, error)
 	List(context.Context) ([]workspace.Record, error)
+	Names(context.Context) ([]string, error)
 	FindByProjectPath(context.Context, string) (*schema.Config, string, error)
 	Remove(context.Context, string) error
 	Rename(context.Context, string, string) (*schema.Config, error)
@@ -146,6 +156,10 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		fmt.Fprint(a.stdout, usage)
 		return 0
 	}
+	if args[0] == "--version" || args[0] == "-v" {
+		fmt.Fprint(a.stdout, versionString())
+		return 0
+	}
 	if a.deps.InitError != nil {
 		return a.fail(a.deps.InitError)
 	}
@@ -154,6 +168,10 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 	switch args[0] {
 	case "init":
 		err = a.init(ctx, args[1:])
+	case "doctor":
+		err = a.doctor(ctx, args[1:])
+	case "version":
+		err = a.version(ctx, args[1:])
 	case "workspace":
 		err = a.workspace(ctx, args[1:])
 	case "enter":

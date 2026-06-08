@@ -16,7 +16,7 @@ ADP Phase 1 的产品核心是一个 terminal-first 的 Agent Runtime Environmen
 - 注册 workspace，保存真实项目根目录与 ADP runtime 配置的映射。
 - 为 Agent 构建临时 runtime overlay，让 Agent 在不污染真实项目目录的前提下看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等配置文件。
 - 提供 Claude Code CLI 与 Codex CLI 两个 adapter。
-- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp env`、`adp shell-hook`、`adp completion`、`adp events list`、`adp sessions list/show`、`adp runtime prune`、`adp enter`、`adp run`。
+- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show`、`adp runtime prune`、`adp enter`、`adp run`。
 - 记录本地 JSONL event log，为后续 replay、session restore、多 Agent 编排预留数据基础。
 
 Phase 1 明确不做：
@@ -361,6 +361,20 @@ MVP adapter 输出：
 - error 级 diagnostics 返回非零退出码。
 - `DiagnoseAll` 对单个异常 workspace 给出报告，不阻断其它 workspace 的检查。
 
+### `adp doctor [workspace]`
+
+职责：
+
+- 作为全局命令提供同一组本地 workspace diagnostics。
+- 接受一个可选 workspace 名称；省略时检查全部已注册 workspace。
+- 与 workspace 命令组保持相同 diagnostics 行为和退出码。
+
+验收：
+
+- `adp doctor game-a` 与 `adp workspace doctor game-a` 的报告语义一致。
+- `adp doctor` 能检查全部已注册 workspace。
+- 不访问网络，不依赖 provider CLI。
+
 ### `adp workspace remove <name>`
 
 职责：
@@ -441,12 +455,28 @@ MVP adapter 输出：
 - 为支持的 shell 输出确定性的 completion 脚本；省略 `--shell` 时默认输出 bash completion。
 - 覆盖当前 CLI 命令面，包括 workspace、events、runtime、sessions 等嵌套子命令。
 - 可选 command name 支持打包后的二进制名或别名，不把 `adp` 写死为唯一命令名。
+- 通过只读本地端点提供动态候选值：`adp completion values workspaces` 和 `adp completion values profiles [--workspace <name>]`。
 
 验收：
 
 - 支持 `bash` 和 `zsh`。
 - 对 shell 名称和 command name 做保守校验。
 - 输出稳定，便于测试断言和写入 shell 配置。
+- 动态值端点只读取本地 workspace/profile 状态，不初始化 workspace，不访问网络。
+
+### `adp version`
+
+职责：
+
+- 输出本地 CLI build identity。
+- 开发构建可输出 `dev`。
+- preview release binary 通过 Go linker flags 注入 version、commit 和 build-date。
+
+验收：
+
+- `adp version` 和 `adp --version` 输出稳定。
+- 缺少 ldflags 时仍能输出开发构建标识。
+- 打包说明记录 `internal/cli` 中 `Version`、`Commit`、`BuildDate` 的注入方式。
 
 ### `adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]`
 
@@ -668,9 +698,11 @@ adp workspace remove game-renamed
 - `$ADP_HOME/workspaces/game-a/workspace.yaml` 存在且 project root 正确。
 - `adp workspace list` / `show` 能输出已注册 workspace。
 - `adp workspace doctor` 能报告健康 workspace，并对 error 级 diagnostics 返回非零退出码。
+- `adp doctor` 能作为全局入口输出同一组 workspace diagnostics。
 - `adp env` 能输出 shell-safe exports，并保留 runtime manifest。
 - `adp shell-hook` 能输出稳定 shell 函数。
-- `adp completion` 能输出 `bash` 和 `zsh` 的稳定 completion。
+- `adp completion` 能输出 `bash` 和 `zsh` 的稳定 completion，`adp completion values` 能返回本地 workspace 和 profile 候选值。
+- `adp version` 能输出 CLI build identity。
 - `adp events list` 能查询 run start/finish 历史。
 - `adp sessions list` / `show` 能从 event log 查询 session history。
 - `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
@@ -699,7 +731,7 @@ symlink overlay 与真实项目已有配置冲突：
 
 - MVP 明确启动子 shell。
 - `adp shell-hook` 提供基础 parent-shell workflow。
-- 后续继续补动态 completion 和更完整的 session restore。
+- 动态 completion value endpoints 属于 P2 hardening；更完整的 session restore 留到后续阶段。
 
 并行开发接口漂移：
 
@@ -718,7 +750,7 @@ symlink overlay 与真实项目已有配置冲突：
 
 - P0 已完成：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
 - P1 已完成：Runtime task binding。增加 `adp run --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
-- P2 下一步：Early preview hardening。补动态 workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明。
-- P3：Extended runtime standards。在本地 task/runtime 闭环稳定后，再扩展 adapter 覆盖、MCP 管理、session restore/replay 和可选 runtime backend。
+- P2 已完成：Early preview hardening。动态 workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明已纳入聚合门禁和 runtime smoke。
+- P3 下一步：项目规划与执行进度管理。把当前 task/progress MVP 打磨成 phase-aware、跨工具的 task list manager，明确阶段门禁、多 Agent 任务归属边界、验收记录、commit 记录和 push 记录，然后再扩展更广泛的 runtime standards。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

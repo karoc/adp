@@ -341,14 +341,6 @@ func checkProfileFile(report *DiagnosticReport, agentName string, profile string
 	report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileMissing, fmt.Sprintf("non-default profile %q for agent %q has no profile file", profile, agentName), profilePatternPath(report.WorkspaceDir, profile))
 }
 
-func profileCandidatePaths(profile string) []string {
-	candidates := make([]string, 0, 4)
-	for _, ext := range []string{".md", ".yaml", ".yml", ".json"} {
-		candidates = append(candidates, filepath.Join("profiles", profile+ext))
-	}
-	return candidates
-}
-
 func profilePatternPath(workspaceDir string, profile string) string {
 	return filepath.Join(workspaceDir, "profiles", profile+".{md,yaml,yml,json}")
 }

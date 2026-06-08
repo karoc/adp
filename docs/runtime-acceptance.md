@@ -40,10 +40,16 @@ adp workspace list
 adp workspace show game-a
 adp workspace doctor game-a
 adp workspace doctor
+adp doctor game-a
+adp doctor
+adp version
+adp --version
 adp tasks add --workspace game-a --priority high --phase p1 "Bind runtime session to task"
 adp env game-a --cd
 adp completion --shell bash
 adp completion --shell zsh
+adp completion values workspaces
+adp completion values profiles --workspace game-a
 adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
 adp run claude --task <task-id> -- --probe claude-payload
 adp run codex --workspace game-a --task missing-task -- --probe codex-payload
@@ -69,6 +75,14 @@ The fake Codex and Claude commands assert that:
 - Generated instructions contain the current task context.
 - Real project files are visible through symlinks from the runtime root.
 - Arguments after `--` reach the agent process.
+
+The script also checks the local CLI hardening surface:
+
+- `adp doctor [workspace]` reports the same workspace diagnostics as the workspace command group and works for one workspace or all registered workspaces.
+- `adp version` and `adp --version` print the CLI build identity without requiring network access or provider CLIs.
+- Bash and zsh completion scripts include dynamic value endpoint calls.
+- `adp completion values workspaces` returns registered workspace names from local state.
+- `adp completion values profiles --workspace <name>` returns local profile names from workspace configuration and profile files.
 
 The script also checks that a missing task ID fails before the fake agent command is launched.
 
@@ -117,6 +131,9 @@ This smoke validates ADP's runtime responsibilities:
 - Session history aggregation from local events.
 - Shell export rendering for parent-shell workflows.
 - Shell completion rendering for bash and zsh.
+- Dynamic local completion value endpoints for workspaces and profiles.
+- Global workspace diagnostics through `adp doctor`.
+- Local build identity output through `adp version`.
 - ADP-owned runtime pruning.
 - Protection against project-root pollution.
 
@@ -127,6 +144,7 @@ It does not validate provider accounts, remote model availability, external netw
 Run the runtime smoke with the standard repository checks:
 
 ```bash
+scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 go test -count=1 ./...
 go vet ./...
@@ -134,6 +152,8 @@ scripts/check-file-lines.sh
 scripts/check-docs-bilingual.sh
 git diff --check
 ```
+
+`scripts/check-all.sh` is the aggregate gate used by local handoff and CI. The expanded command list above is useful when a failure needs to be isolated.
 
 Real CLI checks are optional release evidence and should be recorded separately when they are run:
 

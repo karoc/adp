@@ -67,25 +67,32 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 		}
 		fmt.Fprintf(a.stdout, "workspace %q renamed to %q\n", args[1], args[2])
 	case "doctor":
-		if len(args) > 2 {
-			return errors.New("usage: adp workspace doctor [name]")
-		}
-		if len(args) == 2 {
-			report, err := a.deps.WorkspaceStore.Diagnose(ctx, args[1])
-			if err != nil {
-				return err
-			}
-			return a.workspaceDoctorReports([]workspace.DiagnosticReport{report})
-		}
-		reports, err := a.deps.WorkspaceStore.DiagnoseAll(ctx)
-		if err != nil {
-			return err
-		}
-		return a.workspaceDoctorReports(reports)
+		return a.doctor(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown workspace command %q", args[0])
 	}
 	return nil
+}
+
+func (a *App) doctor(ctx context.Context, args []string) error {
+	if a.deps.WorkspaceStore == nil {
+		return errors.New("workspace store is not configured")
+	}
+	if len(args) > 1 {
+		return errors.New("usage: adp doctor [workspace]")
+	}
+	if len(args) == 1 {
+		report, err := a.deps.WorkspaceStore.Diagnose(ctx, args[0])
+		if err != nil {
+			return err
+		}
+		return a.workspaceDoctorReports([]workspace.DiagnosticReport{report})
+	}
+	reports, err := a.deps.WorkspaceStore.DiagnoseAll(ctx)
+	if err != nil {
+		return err
+	}
+	return a.workspaceDoctorReports(reports)
 }
 
 func (a *App) workspaceList(ctx context.Context) error {

@@ -15,11 +15,14 @@ Implemented Phase 1 foundations:
 - `adp workspace list`
 - `adp workspace show <name>`
 - `adp workspace doctor [name]`
+- `adp doctor [workspace]`
 - `adp workspace remove <name>`
 - `adp workspace rename <old-name> <new-name>`
 - `adp env <workspace> [--cd]`
 - `adp shell-hook [--shell <sh|bash|zsh>]`
 - `adp completion [--shell <bash|zsh>] [--command <name>]`
+- `adp completion values <workspaces|profiles> [--workspace <name>]`
+- `adp version`
 - `adp events list [--workspace <name>] [--task <task-id>]`
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 - `adp sessions show <session-id>`
@@ -48,9 +51,13 @@ go run ./cmd/adp workspace add game-a /srv/game-a
 go run ./cmd/adp workspace list
 go run ./cmd/adp workspace show game-a
 go run ./cmd/adp workspace doctor game-a
+go run ./cmd/adp doctor game-a
 go run ./cmd/adp env game-a --cd
 go run ./cmd/adp shell-hook --shell bash
 go run ./cmd/adp completion --shell bash
+go run ./cmd/adp completion values workspaces
+go run ./cmd/adp completion values profiles --workspace game-a
+go run ./cmd/adp version
 TASK_ID=$(go run ./cmd/adp tasks add --workspace game-a --priority high --phase phase-1 "Bind runtime session to task" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 go run ./cmd/adp run codex --workspace game-a --task "$TASK_ID"
 cd /srv/game-a && go run /path/to/adp/cmd/adp run claude
@@ -92,7 +99,7 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp shell-hook --shell bash` prints a shell function that calls `adp env <workspace> --cd` and evaluates the result in the parent shell. `sh`, `bash`, and `zsh` are supported.
 
-`adp completion [--shell <bash|zsh>] [--command <name>]` prints deterministic shell completion for the current CLI surface. It defaults to bash when `--shell` is omitted. The optional command name lets packaged binaries or aliases render completion for a command name other than `adp`.
+`adp completion [--shell <bash|zsh>] [--command <name>]` prints deterministic shell completion for the current CLI surface. It defaults to bash when `--shell` is omitted. The optional command name lets packaged binaries or aliases render completion for a command name other than `adp`. Generated completion scripts call the read-only local value endpoints `adp completion values workspaces` and `adp completion values profiles [--workspace <name>]` to complete registered workspace names and workspace profile names.
 
 `adp events list` reads `$ADP_HOME/logs/events.jsonl` and prints recent runtime events with optional workspace, session, task, type, and limit filters.
 
@@ -101,6 +108,10 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 `adp sessions show <session-id>` prints the ordered events for one recorded session, including start, finish, workspace, agent, task ID, runtime path, exit code, and duration data when those fields are available.
 
 `adp workspace doctor [name]` validates workspace configuration, project root reachability, referenced prompt, memory, MCP, and profile files, and agent command settings. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
+
+`adp doctor [workspace]` is the global diagnostics entry point for the same local workspace checks. It is intended for terminal workflows where diagnostics should be available without first entering the `workspace` command group.
+
+`adp version` and `adp --version` print the CLI build identity. Packaged binaries can inject version, commit, and build-date values at build time; development builds fall back to `dev`.
 
 `adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered ADP-owned only when it contains `.adp-runtime.yaml` with `generated_by: adp`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
@@ -116,7 +127,7 @@ Use the aggregate validation gate before handoff:
 scripts/check-all.sh
 ```
 
-The aggregate gate covers deterministic runtime smoke, example workspace smoke, task manager smoke, Go test and vet, file length limits, bilingual documentation pairing, and whitespace diff checks. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
+The aggregate gate covers deterministic runtime smoke, example workspace smoke, task manager smoke, Go test and vet, file length limits, bilingual documentation pairing, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
 
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 
@@ -124,7 +135,7 @@ Documentation defaults to English and must include Simplified Chinese counterpar
 
 Runtime smoke acceptance is documented in [docs/runtime-acceptance.md](docs/runtime-acceptance.md).
 
-Real agent compatibility boundaries are documented in [docs/real-agent-compatibility.md](docs/real-agent-compatibility.md), and release readiness is tracked in [docs/release-checklist.md](docs/release-checklist.md).
+Real agent compatibility boundaries are documented in [docs/real-agent-compatibility.md](docs/real-agent-compatibility.md), release readiness is tracked in [docs/release-checklist.md](docs/release-checklist.md), and early preview packaging notes are in [docs/release-packaging.md](docs/release-packaging.md).
 
 Agent execution standards, including multi-agent coordination rules and project constraints, are documented in [AGENTS.md](AGENTS.md).
 

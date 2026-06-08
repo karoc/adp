@@ -17,7 +17,9 @@ func TestRenderCompletionDefaultsToBash(t *testing.T) {
 	for _, want := range []string{
 		"# bash completion for adp\n",
 		"_adp_completion() {\n",
-		"init workspace enter env shell-hook completion events sessions runtime tasks progress run",
+		"completion values workspaces",
+		"completion values profiles",
+		"init doctor version workspace enter env shell-hook completion events sessions runtime tasks progress run",
 		"add list show remove rename doctor",
 		"--shell -s --command",
 		"--workspace -w --session --task --type --limit",
@@ -32,6 +34,9 @@ func TestRenderCompletionDefaultsToBash(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("bash completion missing %q:\n%s", want, got)
 		}
+	}
+	if strings.Contains(got, "eval") {
+		t.Fatalf("bash completion should not contain eval:\n%s", got)
 	}
 
 	gotAgain, err := RenderCompletion(CompletionOptions{})
@@ -75,7 +80,11 @@ func TestRenderCompletionSupportsZsh(t *testing.T) {
 
 	for _, want := range []string{
 		"#compdef adp\n",
+		"completion values workspaces",
+		"completion values profiles",
 		"_adp_completion() {\n",
+		"'doctor:diagnose registered workspaces'",
+		"'version:print version information'",
 		"'workspace:manage registered workspaces'",
 		"'completion:render shell completion script'",
 		"'sessions:summarize ADP session history'",
@@ -96,6 +105,9 @@ func TestRenderCompletionSupportsZsh(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("zsh completion missing %q:\n%s", want, got)
 		}
+	}
+	if strings.Contains(got, "eval") {
+		t.Fatalf("zsh completion should not contain eval:\n%s", got)
 	}
 }
 

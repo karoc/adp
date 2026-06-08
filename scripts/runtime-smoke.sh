@@ -222,7 +222,7 @@ run_fake_smoke() (
   local runtime_dir="$smoke_root/runtime"
   local events_file="$adp_home/logs/events.jsonl"
   local output env_output runtime_root task_output task_id codex_output claude_output
-  local completion_output zsh_completion_output events_output
+  local completion_output zsh_completion_output workspace_values profile_values version_output events_output
   local codex_session sessions_output session_output prune_output invalid_output task_event_count
 
   mkdir -p "$project_root" "$fake_bin" "$adp_home" "$runtime_dir"
@@ -259,6 +259,28 @@ run_fake_smoke() (
   assert_contains "$output" "game-a" "workspace doctor all output"
   assert_contains "$output" "ok" "workspace doctor all output"
 
+  output=$(run_adp "$REPO_ROOT" doctor game-a)
+  assert_contains "$output" "game-a" "doctor output"
+  assert_contains "$output" "ok" "doctor output"
+
+  output=$(run_adp "$REPO_ROOT" doctor)
+  assert_contains "$output" "game-a" "doctor all output"
+  assert_contains "$output" "ok" "doctor all output"
+
+  version_output=$(run_adp "$REPO_ROOT" version)
+  assert_contains "$version_output" "adp dev" "version output"
+
+  version_output=$(run_adp "$REPO_ROOT" --version)
+  assert_contains "$version_output" "adp dev" "--version output"
+
+  workspace_values=$(run_adp "$REPO_ROOT" completion values workspaces)
+  assert_contains "$workspace_values" "game-a" "completion workspace values output"
+
+  profile_values=$(run_adp "$REPO_ROOT" completion values profiles --workspace game-a)
+  assert_contains "$profile_values" "default" "completion profile values output"
+  assert_contains "$profile_values" "codex" "completion profile values output"
+  assert_contains "$profile_values" "claude" "completion profile values output"
+
   info "fake smoke: create task for runtime binding"
   task_output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority high --phase p1 --description "runtime binding smoke" "Bind runtime session to task")
   assert_contains "$task_output" "task task-" "tasks add output"
@@ -279,10 +301,14 @@ run_fake_smoke() (
   completion_output=$(run_adp "$REPO_ROOT" completion --shell bash)
   assert_contains "$completion_output" "complete -F _adp_completion adp" "bash completion output"
   assert_contains "$completion_output" "sessions" "bash completion output"
+  assert_contains "$completion_output" "completion values workspaces" "bash completion output"
+  assert_contains "$completion_output" "completion values profiles" "bash completion output"
 
   zsh_completion_output=$(run_adp "$REPO_ROOT" completion --shell zsh)
   assert_contains "$zsh_completion_output" "compdef _adp_completion adp" "zsh completion output"
   assert_contains "$zsh_completion_output" "workspace" "zsh completion output"
+  assert_contains "$zsh_completion_output" "completion values workspaces" "zsh completion output"
+  assert_contains "$zsh_completion_output" "completion values profiles" "zsh completion output"
 
   info "fake smoke: run codex and claude through runtime overlays"
   codex_output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)

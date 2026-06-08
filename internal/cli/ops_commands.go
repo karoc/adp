@@ -43,6 +43,9 @@ func (a *App) completion(ctx context.Context, args []string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if len(args) > 0 && args[0] == "values" {
+		return a.completionValues(ctx, args[1:])
+	}
 
 	opts, err := parseCompletionArgs(args)
 	if err != nil {

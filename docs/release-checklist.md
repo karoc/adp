@@ -6,6 +6,8 @@ This checklist defines the local release gate for ADP. It keeps release validati
 
 The release gate verifies ADP's own runtime, CLI, workspace, diagnostics, documentation, and repository hygiene. It does not turn release validation into a hosted service check, Web UI check, SaaS deployment check, or remote provider certification process.
 
+For early preview artifact layout and CLI build commands, see [release-packaging.md](release-packaging.md).
+
 ## Required Gate
 
 Run the unified gate before handoff, commit, push, or release candidate tagging:
@@ -14,7 +16,7 @@ Run the unified gate before handoff, commit, push, or release candidate tagging:
 scripts/check-all.sh
 ```
 
-The script can be called from any current directory. It resolves the repository root from its own location before running checks.
+The script can be called from any current directory. It resolves the repository root from its own location before running checks. CI should call this same script instead of maintaining a separate release gate path.
 
 The required gate runs these checks in order:
 
@@ -44,6 +46,9 @@ The fake runtime smoke verifies:
 - Workspace diagnostics.
 - Shell export rendering.
 - Bash and zsh completion rendering.
+- Dynamic completion value endpoints for local workspaces and profiles.
+- Global `adp doctor [workspace]` diagnostics.
+- `adp version` and `adp --version` output.
 - ADP-owned runtime pruning.
 - Protection against polluting the real project root with runtime artifacts or planning files.
 
@@ -100,6 +105,12 @@ If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The
 
 If a task-bound runtime smoke step fails, inspect workspace resolution, task lookup under `$ADP_HOME/workspaces/<workspace>/planning`, generated task context in `AGENTS.md` or `CLAUDE.md`, `ADP_TASK_ID` in the runtime environment, and task IDs in events and sessions.
 
+If a diagnostics step fails, compare `adp doctor [workspace]` with `adp workspace doctor [name]` and inspect the local workspace registry, project root, referenced prompts, memory files, MCP files, profile files, and agent command settings.
+
+If a completion value step fails, inspect local workspace name discovery under `$ADP_HOME/workspaces`, `ADP_WORKSPACE` or `--workspace` resolution, workspace agent profiles, and files under the workspace `profiles/` directory. Completion value endpoints must stay read-only and local.
+
+If a version step fails, inspect the CLI build variables in `internal/cli` and the release `-ldflags` described in [release-packaging.md](release-packaging.md). Development builds may print `dev`; packaged preview binaries should inject version, commit, and build date.
+
 If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examples/basic-workspace/workspace.yaml` still matches the current schema and whether `adp env <workspace> --cd` still produces a kept runtime with project-file symlinks.
 
 If `scripts/task-manager-smoke.sh` fails, inspect task CLI parsing, workspace resolution, task storage under `planning/`, and project-root pollution checks.
@@ -128,6 +139,7 @@ Before a release candidate is announced, an operator should also confirm:
 - `.envrc` and `mvp.md` remain ignored and uncommitted.
 - Repository-local Git identity is not configured with `user.name` or `user.email`.
 - The license files and PolyForm Noncommercial positioning were not changed unintentionally.
+- Packaged CLI artifacts were built with version, commit, and build-date ldflags and `adp version` reports the expected values.
 - README and focused docs describe the current CLI surface without Web, UI, SaaS, cloud sync, or hosted orchestration drift.
 - Any claimed real-agent compatibility has matching opt-in real CLI evidence and, when needed, manual interactive acceptance notes.
 

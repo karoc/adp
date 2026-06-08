@@ -16,7 +16,7 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Register workspaces that map project roots to ADP runtime configuration.
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
-- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp env`, `adp shell-hook`, `adp completion`, `adp events list`, `adp sessions list/show`, `adp runtime prune`, `adp enter`, and `adp run`.
+- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show`, `adp runtime prune`, `adp enter`, and `adp run`.
 - Write a local JSONL event log for future replay, session restore, and multi-agent orchestration.
 
 Phase 1 explicitly excludes:
@@ -292,6 +292,10 @@ Prints operational details for one workspace, including project root, workspace 
 
 Checks one workspace, or all registered workspaces when no name is supplied. Diagnostics cover config loading and validation, project root reachability, prompt, memory, MCP, profile file references, path escapes, and agent command defaults. Error-level diagnostics should be terminal-readable and return a non-zero process exit code.
 
+### `adp doctor [workspace]`
+
+Provides the same local workspace diagnostics as a global command. It should accept one optional workspace name, fall back to all registered workspaces when omitted, and stay equivalent to the workspace command group for diagnostic behavior and exit codes.
+
 ### `adp workspace remove <name>`
 
 Removes the ADP workspace directory without touching the real project root.
@@ -314,7 +318,11 @@ Prints a shell function that calls `adp env <workspace> --cd` and evaluates the 
 
 ### `adp completion [--shell <bash|zsh>] [--command <name>]`
 
-Prints deterministic shell completion for supported shells, defaulting to bash when `--shell` is omitted. The completion script should cover the current command surface, including nested workspace, event, runtime, and session subcommands. The optional command name supports packaged binaries or aliases without hard-coding `adp`.
+Prints deterministic shell completion for supported shells, defaulting to bash when `--shell` is omitted. The completion script should cover the current command surface, including nested workspace, event, runtime, and session subcommands. The optional command name supports packaged binaries or aliases without hard-coding `adp`. Dynamic suggestions should be provided through read-only local endpoints: `adp completion values workspaces` and `adp completion values profiles [--workspace <name>]`.
+
+### `adp version`
+
+Prints the local CLI build identity. Development builds may report `dev`; preview release binaries should inject version, commit, and build-date values with Go linker flags.
 
 ### `adp events list [--workspace <name>] [--session <session-id>] [--type <event-type>] [--limit <n>]`
 
@@ -409,10 +417,12 @@ End-to-end expectations:
 - `adp workspace add` creates a workspace config without touching the project root.
 - `adp workspace list` and `adp workspace show` expose registered workspace details.
 - `adp workspace doctor` reports healthy workspaces and returns a non-zero exit code for error-level diagnostics.
+- `adp doctor` exposes the same diagnostics globally.
 - `adp workspace remove` and `adp workspace rename` modify only ADP workspace registry data.
 - `adp env` prints shell-safe exports for a kept runtime overlay.
 - `adp shell-hook` prints a deterministic shell function for `sh`, `bash`, and `zsh`.
-- `adp completion` prints deterministic completion for `bash` and `zsh`.
+- `adp completion` prints deterministic completion for `bash` and `zsh`, and `adp completion values` returns local workspace and profile candidates.
+- `adp version` reports the CLI build identity.
 - `adp events list` prints filtered run history from JSONL events.
 - `adp sessions list` and `adp sessions show` expose local session history derived from JSONL events.
 - `adp runtime prune` reports and removes only ADP-owned runtime directories.
@@ -427,7 +437,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 
 - P0 completed: Task and Progress Manager MVP. Store workspace-scoped task state under `$ADP_HOME/workspaces/<workspace>/planning`, expose `adp tasks` and `adp progress`, and validate it with a task-manager smoke.
 - P1 completed: Runtime task binding. Add `adp run --task <task-id>`, inject task context into runtime env and generated adapter instructions, and connect task IDs to events and sessions.
-- P2 next: Early preview hardening. Add dynamic workspace/profile completion, a global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes.
-- P3: Extended runtime standards. Expand adapter coverage, MCP management, session restore/replay, and optional runtime backends only after the local task/runtime loop is stable.
+- P2 completed: Early preview hardening. Dynamic workspace/profile completion, global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes are covered by the aggregate gate and runtime smoke.
+- P3 next: Project planning and execution progress management. Turn the current task/progress MVP into a phase-aware, cross-tool task list manager with explicit stage gates, multi-agent ownership boundaries, acceptance records, commit records, and push records before extending broader runtime standards.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

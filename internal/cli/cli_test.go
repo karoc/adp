@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/fs"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -401,6 +402,7 @@ type fakeStore struct {
 	addName            string
 	addRoot            string
 	cfg                schema.Config
+	workspaceDir       string
 	records            []workspace.Record
 	findByProjectPath  bool
 	findCalled         bool
@@ -433,11 +435,24 @@ func (s *fakeStore) Get(_ context.Context, name string) (*schema.Config, string,
 	if cfg.Version == 0 {
 		cfg = testConfig()
 	}
-	return &cfg, "/tmp/adp-home/workspaces/game-a", nil
+	workspaceDir := s.workspaceDir
+	if workspaceDir == "" {
+		workspaceDir = "/tmp/adp-home/workspaces/game-a"
+	}
+	return &cfg, workspaceDir, nil
 }
 
 func (s *fakeStore) List(context.Context) ([]workspace.Record, error) {
 	return s.records, nil
+}
+
+func (s *fakeStore) Names(context.Context) ([]string, error) {
+	names := make([]string, 0, len(s.records))
+	for _, record := range s.records {
+		names = append(names, record.Name)
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 func (s *fakeStore) FindByProjectPath(_ context.Context, _ string) (*schema.Config, string, error) {
@@ -449,7 +464,11 @@ func (s *fakeStore) FindByProjectPath(_ context.Context, _ string) (*schema.Conf
 	if cfg.Version == 0 {
 		cfg = testConfig()
 	}
-	return &cfg, "/tmp/adp-home/workspaces/game-a", nil
+	workspaceDir := s.workspaceDir
+	if workspaceDir == "" {
+		workspaceDir = "/tmp/adp-home/workspaces/game-a"
+	}
+	return &cfg, workspaceDir, nil
 }
 
 func (s *fakeStore) Remove(_ context.Context, name string) error {

@@ -43,6 +43,11 @@ type runtimePruneOptions struct {
 	dryRun      bool
 }
 
+type completionValuesOptions struct {
+	kind      string
+	workspace string
+}
+
 type tasksAddOptions struct {
 	workspace   string
 	title       string
@@ -190,6 +195,27 @@ func parseCompletionArgs(args []string) (shell.CompletionOptions, error) {
 			opts.CommandName = args[i]
 		default:
 			return shell.CompletionOptions{}, fmt.Errorf("unknown completion option %q", arg)
+		}
+	}
+	return opts, nil
+}
+
+func parseCompletionValuesArgs(args []string) (completionValuesOptions, error) {
+	if len(args) == 0 {
+		return completionValuesOptions{}, errors.New("usage: adp completion values <workspaces|profiles> [--workspace <name>]")
+	}
+	opts := completionValuesOptions{kind: args[0]}
+	for i := 1; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			if i+1 >= len(args) {
+				return completionValuesOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.workspace = args[i]
+		default:
+			return completionValuesOptions{}, fmt.Errorf("unknown completion values option %q", arg)
 		}
 	}
 	return opts, nil

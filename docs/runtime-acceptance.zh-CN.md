@@ -40,10 +40,16 @@ adp workspace list
 adp workspace show game-a
 adp workspace doctor game-a
 adp workspace doctor
+adp doctor game-a
+adp doctor
+adp version
+adp --version
 adp tasks add --workspace game-a --priority high --phase p1 "Bind runtime session to task"
 adp env game-a --cd
 adp completion --shell bash
 adp completion --shell zsh
+adp completion values workspaces
+adp completion values profiles --workspace game-a
 adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
 adp run claude --task <task-id> -- --probe claude-payload
 adp run codex --workspace game-a --task missing-task -- --probe codex-payload
@@ -69,6 +75,14 @@ fake Codex 和 Claude 命令会断言：
 - 生成的 instructions 包含当前 task context。
 - 真实项目文件可以通过 runtime root 中的 symlink 看到。
 - `--` 之后的参数可以传递给 agent 进程。
+
+脚本还会检查本地 CLI hardening surface：
+
+- `adp doctor [workspace]` 输出与 workspace 命令组一致的 workspace diagnostics，并支持检查单个 workspace 或全部已注册 workspace。
+- `adp version` 和 `adp --version` 可以在不访问网络、不依赖 provider CLI 的情况下输出 CLI build identity。
+- bash 和 zsh completion 脚本包含动态值端点调用。
+- `adp completion values workspaces` 从本地状态返回已注册 workspace 名称。
+- `adp completion values profiles --workspace <name>` 从 workspace 配置和 profile 文件中返回本地 profile 名称。
 
 脚本还会检查缺失的 task ID 会在 fake agent 命令启动前失败。
 
@@ -117,6 +131,9 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 从本地 events 聚合 session history。
 - 为 parent-shell workflow 渲染 shell exports。
 - 为 bash 和 zsh 渲染 shell completion。
+- 为 workspace 和 profile 提供动态本地 completion 值端点。
+- 通过 `adp doctor` 提供全局 workspace diagnostics。
+- 通过 `adp version` 输出本地 build identity。
 - 清理 ADP-owned runtime。
 - 防止项目根目录污染。
 
@@ -127,6 +144,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 将 runtime smoke 与标准仓库检查一起运行：
 
 ```bash
+scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 go test -count=1 ./...
 go vet ./...
@@ -134,6 +152,8 @@ scripts/check-file-lines.sh
 scripts/check-docs-bilingual.sh
 git diff --check
 ```
+
+`scripts/check-all.sh` 是本地 handoff 和 CI 使用的聚合门禁。展开后的命令列表适合在失败时单独定位问题。
 
 真实 CLI 检查是可选 release evidence，运行后应单独记录：
 
