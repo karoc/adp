@@ -65,6 +65,8 @@ go run ./cmd/adp run codex --workspace game-a --task "$TASK_ID"
 cd /srv/game-a && go run /path/to/adp/cmd/adp run claude
 go run ./cmd/adp run claude --workspace game-a
 go run ./cmd/adp events list --workspace game-a --task "$TASK_ID"
+go run ./cmd/adp tasks list --workspace game-a --format json
+go run ./cmd/adp progress --workspace game-a --format json
 go run ./cmd/adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
 go run ./cmd/adp sessions show <session-id>
 go run ./cmd/adp sessions restore-plan <session-id>
@@ -120,7 +122,7 @@ Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 sym
 
 `adp runtime prune` 会清理 `$ADP_RUNTIME_DIR` 下过期的 ADP runtime 目录。只有包含当前版本且结构自洽的 `.adp-runtime.yaml`，其中 `generated_by: adp` 且 `runtime_root` 与目录一致的 runtime 才会进入 prune 候选；默认保留 `keep: true` 的 runtime，除非传入 `--include-kept`；`--dry-run` 只报告候选项，不删除。
 
-`adp tasks` 和 `adp progress` 管理 `$ADP_HOME/workspaces/<workspace>/planning` 下的 workspace-scoped 规划和执行进度。`adp run --task <task-id>` 会把这份本地任务状态绑定到 runtime 环境变量、生成的 adapter instructions、events 和 sessions，同时不会把 planning 文件写入真实项目根目录。详见 [docs/task-management.zh-CN.md](docs/task-management.zh-CN.md)。
+`adp tasks` 和 `adp progress` 管理 `$ADP_HOME/workspaces/<workspace>/planning` 下的 workspace-scoped 规划和执行进度。只读 task、phase 和 progress 视图支持 `--format json`，方便本地工具和子 Agent 获取机器可读 planning snapshot；权威状态仍保存在 `$ADP_HOME` 下，task 或 phase 变更仍然必须通过显式命令完成。`adp run --task <task-id>` 会把这份本地任务状态绑定到 runtime 环境变量、生成的 adapter instructions、events 和 sessions，同时不会把 planning 文件写入真实项目根目录。详见 [docs/task-management.zh-CN.md](docs/task-management.zh-CN.md)。
 
 P3 提供项目规划和执行进度管理的本地 phase ledger。它会在 `$ADP_HOME` 下记录任务归属、可选 claim lease、验收记录、commit 记录、push 记录和明确的阶段门禁纪律。该能力仍然保持 terminal-first、local-first；它不是 Web dashboard、SaaS tracker、cloud sync layer 或 hosted orchestration service。
 

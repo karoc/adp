@@ -50,6 +50,12 @@ type phasePushOptions struct {
 	result    string
 }
 
+type phaseIDOutputOptions struct {
+	workspace string
+	phaseID   string
+	format    outputFormat
+}
+
 func parseTasksClaimArgs(args []string) (tasksClaimOptions, error) {
 	opts := tasksClaimOptions{}
 	for i := 0; i < len(args); i++ {
@@ -320,6 +326,43 @@ func parsePhaseIDArgs(args []string, usage string) (string, string, error) {
 		return "", "", errors.New("usage: " + usage)
 	}
 	return workspace, phaseID, nil
+}
+
+func parsePhaseIDOutputArgs(args []string, usage string) (phaseIDOutputOptions, error) {
+	opts := phaseIDOutputOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return phaseIDOutputOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return phaseIDOutputOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return phaseIDOutputOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return phaseIDOutputOptions{}, fmt.Errorf("unknown phase option %q", arg)
+			}
+			if opts.phaseID != "" {
+				return phaseIDOutputOptions{}, errors.New("usage: " + usage)
+			}
+			opts.phaseID = arg
+		}
+	}
+	if opts.phaseID == "" {
+		return phaseIDOutputOptions{}, errors.New("usage: " + usage)
+	}
+	return opts, nil
 }
 
 func requireValue(args []string, index int, option string) (string, int, error) {

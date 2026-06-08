@@ -13,6 +13,13 @@ import (
 const defaultEventLimit = 20
 const defaultSessionLimit = 20
 
+type outputFormat string
+
+const (
+	outputFormatText outputFormat = "text"
+	outputFormatJSON outputFormat = "json"
+)
+
 type runOptions struct {
 	agent     string
 	workspace string
@@ -66,6 +73,17 @@ type tasksBlockOptions struct {
 	workspace string
 	taskID    string
 	reason    string
+}
+
+type workspaceOutputOptions struct {
+	workspace string
+	format    outputFormat
+}
+
+type taskIDOutputOptions struct {
+	workspace string
+	taskID    string
+	format    outputFormat
 }
 
 func parseRunArgs(args []string) (runOptions, error) {
@@ -488,6 +506,43 @@ func parseTaskIDArgs(args []string, usage string) (string, string, error) {
 	return workspace, taskID, nil
 }
 
+func parseTaskIDOutputArgs(args []string, usage string) (taskIDOutputOptions, error) {
+	opts := taskIDOutputOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return taskIDOutputOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return taskIDOutputOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return taskIDOutputOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return taskIDOutputOptions{}, fmt.Errorf("unknown task option %q", arg)
+			}
+			if opts.taskID != "" {
+				return taskIDOutputOptions{}, errors.New("usage: " + usage)
+			}
+			opts.taskID = arg
+		}
+	}
+	if opts.taskID == "" {
+		return taskIDOutputOptions{}, errors.New("usage: " + usage)
+	}
+	return opts, nil
+}
+
 func parseWorkspaceOnlyArgs(args []string, usage string) (string, error) {
 	var workspace string
 	for i := 0; i < len(args); i++ {
@@ -504,6 +559,45 @@ func parseWorkspaceOnlyArgs(args []string, usage string) (string, error) {
 		}
 	}
 	return workspace, nil
+}
+
+func parseWorkspaceOutputArgs(args []string, usage string) (workspaceOutputOptions, error) {
+	opts := workspaceOutputOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return workspaceOutputOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return workspaceOutputOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return workspaceOutputOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			return workspaceOutputOptions{}, fmt.Errorf("unknown workspace option %q", arg)
+		}
+	}
+	return opts, nil
+}
+
+func parseOutputFormat(value string) (outputFormat, error) {
+	switch outputFormat(strings.TrimSpace(value)) {
+	case "", outputFormatText:
+		return outputFormatText, nil
+	case outputFormatJSON:
+		return outputFormatJSON, nil
+	default:
+		return "", fmt.Errorf("unknown output format %q", value)
+	}
 }
 
 func parseNonNegativeInt(value string, name string) (int, error) {

@@ -60,17 +60,20 @@ func (a *App) tasksAdd(ctx context.Context, args []string) error {
 }
 
 func (a *App) tasksList(ctx context.Context, args []string) error {
-	workspace, err := parseWorkspaceOnlyArgs(args, "adp tasks list [--workspace <name>]")
+	opts, err := parseWorkspaceOutputArgs(args, "adp tasks list [--workspace <name>] [--format <text|json>]")
 	if err != nil {
 		return err
 	}
-	store, _, err := a.loadTaskStore(ctx, workspace)
+	store, workspaceName, err := a.loadTaskStore(ctx, opts.workspace)
 	if err != nil {
 		return err
 	}
 	tasks, err := store.List(ctx)
 	if err != nil {
 		return err
+	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, taskListOutput(workspaceName, tasks))
 	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
@@ -90,17 +93,20 @@ func (a *App) tasksList(ctx context.Context, args []string) error {
 }
 
 func (a *App) tasksShow(ctx context.Context, args []string) error {
-	workspace, taskID, err := parseTaskIDArgs(args, "adp tasks show [--workspace <name>] <task-id>")
+	opts, err := parseTaskIDOutputArgs(args, "adp tasks show [--workspace <name>] <task-id> [--format <text|json>]")
 	if err != nil {
 		return err
 	}
-	store, _, err := a.loadTaskStore(ctx, workspace)
+	store, _, err := a.loadTaskStore(ctx, opts.workspace)
 	if err != nil {
 		return err
 	}
-	task, err := store.Get(ctx, taskID)
+	task, err := store.Get(ctx, opts.taskID)
 	if err != nil {
 		return err
+	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, taskOutput(task))
 	}
 	a.printTask(task)
 	return nil
@@ -200,11 +206,11 @@ func (a *App) tasksBlock(ctx context.Context, args []string) error {
 }
 
 func (a *App) progress(ctx context.Context, args []string) error {
-	workspace, err := parseWorkspaceOnlyArgs(args, "adp progress [--workspace <name>]")
+	opts, err := parseWorkspaceOutputArgs(args, "adp progress [--workspace <name>] [--format <text|json>]")
 	if err != nil {
 		return err
 	}
-	store, workspaceName, err := a.loadTaskStore(ctx, workspace)
+	store, workspaceName, err := a.loadTaskStore(ctx, opts.workspace)
 	if err != nil {
 		return err
 	}
@@ -215,6 +221,9 @@ func (a *App) progress(ctx context.Context, args []string) error {
 	phases, err := store.ListPhases(ctx)
 	if err != nil {
 		return err
+	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, progressOutput(workspaceName, progress, phases))
 	}
 
 	fmt.Fprintf(a.stdout, "workspace: %s\n", workspaceName)

@@ -26,6 +26,7 @@ The first task-management slice provides:
 - `adp phase commit`
 - `adp phase push`
 - `adp progress`
+- Read-only `--format json` output for task, phase, and progress inspection.
 - `adp run --task <task-id>` runtime binding.
 - Workspace-local planning files under `$ADP_HOME/workspaces/<workspace>/planning/`.
 - JSONL progress events for task creation and status changes.
@@ -86,6 +87,8 @@ List and inspect tasks:
 ```bash
 adp tasks list --workspace adp
 adp tasks show --workspace adp <task-id>
+adp tasks list --workspace adp --format json
+adp tasks show --workspace adp <task-id> --format json
 ```
 
 Move a task through execution:
@@ -107,15 +110,41 @@ adp phase accept --workspace adp p3 --command "scripts/check-all.sh" --result pa
 adp phase commit --workspace adp p3 --hash <commit-hash> --message "Implement phase gate MVP"
 adp phase push --workspace adp p3 --remote origin --branch main --result pushed
 adp phase show --workspace adp p3
+adp phase list --workspace adp --format json
+adp phase show --workspace adp p3 --format json
 ```
 
 Summarize progress:
 
 ```bash
 adp progress --workspace adp
+adp progress --workspace adp --format json
 ```
 
 When `--workspace` is omitted, ADP uses the same workspace resolution model as other workspace-aware commands: `ADP_WORKSPACE` first, then the current directory if it is inside a registered project root.
+
+## Machine-Readable Inspection
+
+Read-only task, phase, and progress views support `--format json` so local tools and sub-agents can parse the planning ledger without scraping terminal text:
+
+```bash
+adp tasks list --workspace adp --format json
+adp tasks show --workspace adp <task-id> --format json
+adp phase list --workspace adp --format json
+adp phase show --workspace adp <phase-id> --format json
+adp progress --workspace adp --format json
+```
+
+The JSON output is an inspection format, not a separate state store. The authoritative planning state remains under `$ADP_HOME/workspaces/<workspace>/planning/`, and progress evidence remains in the local `progress.jsonl` ledger. Repository docs may describe the plan, but they do not become the source of truth for execution state.
+
+Cross-tool consumers should treat JSON output as a local snapshot for selecting work, showing status, or handing context to another terminal agent. They should still call explicit mutating commands when state needs to change:
+
+- Use `adp tasks claim`, `adp tasks update`, `adp tasks done`, `adp tasks block`, or `adp tasks release` for task changes.
+- Use `adp phase start`, `adp phase accept`, `adp phase commit`, and `adp phase push` for phase transitions.
+- Do not infer acceptance from a passing command or close a task automatically without an explicit task or phase command.
+- Do not treat JSON output as permission to run Git, push changes, start the next phase, or modify the project root.
+
+The phase discipline is unchanged: a phase is complete only after implementation, acceptance, commit evidence, and push evidence have been recorded through explicit local commands.
 
 ## Phase Gate Ledger
 

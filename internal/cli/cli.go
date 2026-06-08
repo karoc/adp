@@ -41,21 +41,21 @@ Usage:
 	  adp sessions restore-plan <session-id>
 	  adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]
 	  adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>
-	  adp tasks list [--workspace <name>]
-	  adp tasks show [--workspace <name>] <task-id>
+	  adp tasks list [--workspace <name>] [--format <text|json>]
+	  adp tasks show [--workspace <name>] <task-id> [--format <text|json>]
 	  adp tasks update [--workspace <name>] <task-id> --status <status>
 	  adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]
 	  adp tasks release [--workspace <name>] <task-id> [--owner <owner>]
 	  adp tasks done [--workspace <name>] <task-id>
 	  adp tasks block [--workspace <name>] <task-id> --reason <reason>
 	  adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>
-	  adp phase list [--workspace <name>]
-	  adp phase show [--workspace <name>] <phase-id>
+	  adp phase list [--workspace <name>] [--format <text|json>]
+	  adp phase show [--workspace <name>] <phase-id> [--format <text|json>]
 	  adp phase start [--workspace <name>] <phase-id>
 	  adp phase accept [--workspace <name>] <phase-id> [--command <cmd>] [--result <result>] [--notes <text>]
 	  adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]
 	  adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]
-	  adp progress [--workspace <name>]
+	  adp progress [--workspace <name>] [--format <text|json>]
 	  adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]
 	`
 

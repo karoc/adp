@@ -53,17 +53,20 @@ func (a *App) phaseAdd(ctx context.Context, args []string) error {
 }
 
 func (a *App) phaseList(ctx context.Context, args []string) error {
-	workspace, err := parseWorkspaceOnlyArgs(args, "adp phase list [--workspace <name>]")
+	opts, err := parseWorkspaceOutputArgs(args, "adp phase list [--workspace <name>] [--format <text|json>]")
 	if err != nil {
 		return err
 	}
-	store, _, err := a.loadTaskStore(ctx, workspace)
+	store, workspaceName, err := a.loadTaskStore(ctx, opts.workspace)
 	if err != nil {
 		return err
 	}
 	phases, err := store.ListPhases(ctx)
 	if err != nil {
 		return err
+	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, phaseListOutput(workspaceName, phases))
 	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
@@ -75,17 +78,20 @@ func (a *App) phaseList(ctx context.Context, args []string) error {
 }
 
 func (a *App) phaseShow(ctx context.Context, args []string) error {
-	workspace, phaseID, err := parsePhaseIDArgs(args, "adp phase show [--workspace <name>] <phase-id>")
+	opts, err := parsePhaseIDOutputArgs(args, "adp phase show [--workspace <name>] <phase-id> [--format <text|json>]")
 	if err != nil {
 		return err
 	}
-	store, _, err := a.loadTaskStore(ctx, workspace)
+	store, _, err := a.loadTaskStore(ctx, opts.workspace)
 	if err != nil {
 		return err
 	}
-	phase, err := store.GetPhase(ctx, phaseID)
+	phase, err := store.GetPhase(ctx, opts.phaseID)
 	if err != nil {
 		return err
+	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, phaseOutput(phase))
 	}
 	a.printPhase(phase)
 	return nil

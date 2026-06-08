@@ -68,6 +68,39 @@ func TestTasksListAndShowCommandsReadTasks(t *testing.T) {
 	}
 }
 
+func TestTasksListAndShowCommandsPrintJSON(t *testing.T) {
+	store := &fakeTaskStore{tasks: []taskstore.Task{testTask("task-1", "Add task manager", taskstore.StatusReady)}}
+	var listOut bytes.Buffer
+	var listErr bytes.Buffer
+	var showOut bytes.Buffer
+	var showErr bytes.Buffer
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+
+	listCode := NewApp(deps, &listOut, &listErr).Execute(context.Background(), []string{"tasks", "list", "--workspace", "game-a", "--format", "json"})
+	showCode := NewApp(deps, &showOut, &showErr).Execute(context.Background(), []string{"tasks", "show", "--workspace", "game-a", "task-1", "--format", "json"})
+
+	if listCode != 0 {
+		t.Fatalf("tasks list exit code = %d, stderr = %q", listCode, listErr.String())
+	}
+	if showCode != 0 {
+		t.Fatalf("tasks show exit code = %d, stderr = %q", showCode, showErr.String())
+	}
+
+	task := findJSONObject(t, decodeJSONObjectList(t, listOut.Bytes(), "tasks"), "id", "task-1")
+	assertJSONStringField(t, task, "status", "ready")
+	assertJSONStringField(t, task, "phase", "phase-1.5")
+	assertJSONStringField(t, task, "title", "Add task manager")
+
+	detail := decodeJSONObject(t, showOut.Bytes())
+	assertJSONStringField(t, detail, "id", "task-1")
+	assertJSONStringField(t, detail, "status", "ready")
+	assertJSONStringField(t, detail, "priority", "high")
+	assertJSONStringField(t, detail, "phase", "phase-1.5")
+}
+
 func TestTasksUpdateDoneAndBlockCommandsUpdateStatus(t *testing.T) {
 	store := &fakeTaskStore{}
 	deps := Dependencies{
@@ -141,6 +174,45 @@ func TestProgressCommandPrintsSummary(t *testing.T) {
 			t.Fatalf("progress output missing %q: %q", want, stdout.String())
 		}
 	}
+}
+
+func TestProgressCommandPrintsJSON(t *testing.T) {
+	store := &fakeTaskStore{
+		progress: taskstore.Progress{
+			Total: 2,
+			Counts: map[taskstore.Status]int{
+				taskstore.StatusReady:      1,
+				taskstore.StatusInProgress: 1,
+			},
+			Next: []taskstore.Task{testTask("task-1", "Add task manager", taskstore.StatusReady)},
+		},
+		phases: []taskstore.Phase{testPhase("p3", "Project planning", taskstore.PhaseStatusActive)},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{"progress", "--workspace", "game-a", "--format", "json"})
+
+	if code != 0 {
+		t.Fatalf("progress exit code = %d, stderr = %q", code, stderr.String())
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	assertJSONStringField(t, payload, "workspace", "game-a")
+	assertJSONNumberField(t, payload, "total", 2)
+
+	counts := assertJSONObjectField(t, payload, "counts")
+	assertJSONNumberField(t, counts, "ready", 1)
+	assertJSONNumberField(t, counts, "in_progress", 1)
+
+	phase := findJSONObject(t, assertJSONObjectListField(t, payload, "phases"), "id", "p3")
+	assertJSONStringField(t, phase, "status", "active")
+
+	next := findJSONObject(t, assertJSONObjectListField(t, payload, "next"), "id", "task-1")
+	assertJSONStringField(t, next, "status", "ready")
 }
 
 func TestPhaseCommandsRecordGateLifecycle(t *testing.T) {

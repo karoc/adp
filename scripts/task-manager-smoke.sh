@@ -24,6 +24,21 @@ assert_contains() {
   esac
 }
 
+assert_json_field() {
+  local output="$1"
+  local field="$2"
+  local label="$3"
+
+  case "$output" in
+    *'{'* | *'['*) ;;
+    *)
+      printf '%s\n' "$output" >&2
+      fail "$label did not look like JSON"
+      ;;
+  esac
+  assert_contains "$output" "\"$field\"" "$label"
+}
+
 assert_file() {
   local path="$1"
   if [ ! -f "$path" ]; then
@@ -109,6 +124,19 @@ assert_contains "$output" "goal: phase gate smoke" "phase show output"
 output=$(run_adp "$REPO_ROOT" phase start --workspace game-a p3)
 assert_contains "$output" "phase p3 status: active" "phase start output"
 
+info "checking phase JSON output"
+output=$(run_adp "$REPO_ROOT" phase list --workspace game-a --format json)
+assert_json_field "$output" "id" "phase list json output"
+assert_json_field "$output" "status" "phase list json output"
+assert_contains "$output" "\"p3\"" "phase list json output"
+assert_contains "$output" "\"active\"" "phase list json output"
+
+output=$(run_adp "$REPO_ROOT" phase show --workspace game-a p3 --format json)
+assert_json_field "$output" "id" "phase show json output"
+assert_json_field "$output" "status" "phase show json output"
+assert_contains "$output" "\"p3\"" "phase show json output"
+assert_contains "$output" "\"active\"" "phase show json output"
+
 info "checking phase lifecycle guards"
 output=$(run_adp "$REPO_ROOT" phase add --workspace game-a --goal "future gated work" p4 "Future Phase")
 assert_contains "$output" "phase p4 added" "phase add p4 output"
@@ -143,6 +171,19 @@ assert_contains "$output" "id: $task_id" "tasks show output"
 assert_contains "$output" "title: Add task manager" "tasks show output"
 assert_contains "$output" "description: local task state" "tasks show output"
 assert_contains "$output" "phase: p3" "tasks show output"
+
+info "checking task JSON output"
+output=$(run_adp "$REPO_ROOT" tasks list --workspace game-a --format json)
+assert_json_field "$output" "id" "tasks list json output"
+assert_json_field "$output" "status" "tasks list json output"
+assert_contains "$output" "\"$task_id\"" "tasks list json output"
+assert_contains "$output" "\"ready\"" "tasks list json output"
+
+output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id" --format json)
+assert_json_field "$output" "id" "tasks show json output"
+assert_json_field "$output" "status" "tasks show json output"
+assert_contains "$output" "\"$task_id\"" "tasks show json output"
+assert_contains "$output" "\"ready\"" "tasks show json output"
 
 output=$(run_adp_expect_fail "$REPO_ROOT" tasks add --workspace game-a --phase missing-phase "Invalid phase task")
 assert_contains "$output" "phase not found" "tasks add phase guard output"
@@ -179,6 +220,14 @@ assert_contains "$output" "workspace: game-a" "progress output"
 assert_contains "$output" "p3" "progress output"
 assert_contains "$output" "total: 1" "progress output"
 assert_contains "$output" "done" "progress output"
+
+info "checking progress JSON output"
+output=$(run_adp "$REPO_ROOT" progress --workspace game-a --format json)
+assert_json_field "$output" "workspace" "progress json output"
+assert_json_field "$output" "total" "progress json output"
+assert_json_field "$output" "counts" "progress json output"
+assert_contains "$output" "\"game-a\"" "progress json output"
+assert_contains "$output" "\"done\"" "progress json output"
 
 assert_contains "$(cat "$TASKS_FILE")" "$task_id" "tasks file"
 assert_contains "$(cat "$PHASES_FILE")" "p3" "phases file"
