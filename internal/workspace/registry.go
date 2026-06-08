@@ -87,6 +87,12 @@ func (r *Registry) Get(ctx context.Context, name string) (*schema.Config, string
 	}
 
 	workspaceDir := r.Layout.WorkspaceDir(name)
+	if err := ensureWorkspaceDir(workspaceDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, "", fmt.Errorf("%w: %s", ErrWorkspaceNotFound, name)
+		}
+		return nil, "", err
+	}
 	cfg, err := schema.LoadConfig(r.Layout.WorkspaceConfig(name))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -99,6 +105,87 @@ func (r *Registry) Get(ctx context.Context, name string) (*schema.Config, string
 	}
 
 	return cfg, workspaceDir, nil
+}
+
+func (r *Registry) Remove(ctx context.Context, name string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := schema.ValidateWorkspaceName(name); err != nil {
+		return err
+	}
+
+	workspaceDir, err := r.safeWorkspaceDir(name)
+	if err != nil {
+		return err
+	}
+	if err := ensureWorkspacesDir(r.Layout.WorkspacesDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w: %s", ErrWorkspaceNotFound, name)
+		}
+		return err
+	}
+	if err := ensureWorkspaceDir(workspaceDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w: %s", ErrWorkspaceNotFound, name)
+		}
+		return err
+	}
+	if err := os.RemoveAll(workspaceDir); err != nil {
+		return fmt.Errorf("remove workspace directory %s: %w", workspaceDir, err)
+	}
+	return nil
+}
+
+func (r *Registry) Rename(ctx context.Context, oldName string, newName string) (*schema.Config, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := schema.ValidateWorkspaceName(oldName); err != nil {
+		return nil, err
+	}
+	if err := schema.ValidateWorkspaceName(newName); err != nil {
+		return nil, err
+	}
+
+	oldDir, err := r.safeWorkspaceDir(oldName)
+	if err != nil {
+		return nil, err
+	}
+	newDir, err := r.safeWorkspaceDir(newName)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureWorkspacesDir(r.Layout.WorkspacesDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("%w: %s", ErrWorkspaceNotFound, oldName)
+		}
+		return nil, err
+	}
+	if _, err := os.Lstat(newDir); err == nil {
+		return nil, fmt.Errorf("%w: %s", ErrWorkspaceExists, newName)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("stat target workspace directory %s: %w", newDir, err)
+	}
+
+	cfg, _, err := r.Get(ctx, oldName)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Workspace.Name = newName
+
+	if err := os.Rename(oldDir, newDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("%w: %s", ErrWorkspaceNotFound, oldName)
+		}
+		return nil, fmt.Errorf("rename workspace directory %s to %s: %w", oldDir, newDir, err)
+	}
+	if err := saveWorkspaceConfigAtomic(filepath.Join(newDir, "workspace.yaml"), cfg); err != nil {
+		_ = os.Rename(newDir, oldDir)
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 func (r *Registry) List(ctx context.Context) ([]Record, error) {
@@ -199,6 +286,74 @@ func createNewWorkspaceDir(workspaceDir string, name string) error {
 			return fmt.Errorf("%w: %s", ErrWorkspaceExists, name)
 		}
 		return fmt.Errorf("create workspace directory %s: %w", workspaceDir, err)
+	}
+	return nil
+}
+
+func (r *Registry) safeWorkspaceDir(name string) (string, error) {
+	workspaceDir := r.Layout.WorkspaceDir(name)
+	if err := ensurePathInside(r.Layout.WorkspacesDir, workspaceDir); err != nil {
+		return "", err
+	}
+	return workspaceDir, nil
+}
+
+func ensurePathInside(root string, path string) error {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return fmt.Errorf("resolve workspaces directory %s: %w", root, err)
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve workspace directory %s: %w", path, err)
+	}
+	rel, err := filepath.Rel(absRoot, absPath)
+	if err != nil {
+		return fmt.Errorf("compare workspace directory %s to %s: %w", absPath, absRoot, err)
+	}
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return fmt.Errorf("workspace directory escapes workspaces directory: %s", path)
+	}
+	return nil
+}
+
+func ensureWorkspacesDir(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("workspaces directory must not be a symlink: %s", path)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("workspaces path is not a directory: %s", path)
+	}
+	return nil
+}
+
+func ensureWorkspaceDir(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("workspace directory must not be a symlink: %s", path)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("workspace path is not a directory: %s", path)
+	}
+	return nil
+}
+
+func saveWorkspaceConfigAtomic(path string, cfg *schema.Config) error {
+	tmpPath := path + ".tmp"
+	defer os.Remove(tmpPath)
+
+	if err := schema.SaveConfig(tmpPath, cfg); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("replace workspace config %s: %w", path, err)
 	}
 	return nil
 }

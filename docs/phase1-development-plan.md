@@ -16,7 +16,7 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Register workspaces that map project roots to ADP runtime configuration.
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
-- Support `adp init`, `adp workspace add`, `adp workspace list`, `adp workspace show`, `adp enter`, and `adp run`.
+- Support `adp init`, `adp workspace add/list/show/remove/rename`, `adp env`, `adp enter`, and `adp run`.
 - Write a local JSONL event log for future replay, session restore, and multi-agent orchestration.
 
 Phase 1 explicitly excludes:
@@ -202,6 +202,7 @@ Runtime root example:
 ```txt
 ${ADP_RUNTIME_DIR:-/tmp/adp-runtime}/
 └── game-a-20260608T120102-8f3a/
+    ├── .adp-runtime.yaml
     ├── AGENTS.md
     ├── CLAUDE.md
     ├── .codex/
@@ -278,9 +279,21 @@ Prints registered workspace names, project roots, and ADP workspace directories.
 
 Prints operational details for one workspace, including project root, workspace directory, memory status, and MCP status.
 
+### `adp workspace remove <name>`
+
+Removes the ADP workspace directory without touching the real project root.
+
+### `adp workspace rename <old-name> <new-name>`
+
+Renames the ADP workspace directory and updates `workspace.yaml` while preserving project root, prompt, memory, MCP, and profile files.
+
 ### `adp enter <workspace> [--keep-runtime]`
 
 Builds a runtime overlay and starts a child shell in the runtime root. A CLI process cannot change the parent shell cwd, so Phase 1 intentionally starts a child shell. Later shell-hook integration can be added separately.
+
+### `adp env <workspace> [--cd]`
+
+Builds a kept runtime overlay and prints POSIX shell exports for the ADP runtime env. With `--cd`, it also prints a quoted `cd` command for the runtime root.
 
 ### `adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]`
 
@@ -354,6 +367,8 @@ End-to-end expectations:
 - `adp init` creates local ADP home.
 - `adp workspace add` creates a workspace config without touching the project root.
 - `adp workspace list` and `adp workspace show` expose registered workspace details.
+- `adp workspace remove` and `adp workspace rename` modify only ADP workspace registry data.
+- `adp env` prints shell-safe exports for a kept runtime overlay.
 - `adp run codex` and `adp run claude` build runtime overlays.
 - Fake agent tests can assert cwd, env, generated files, symlinks, args, exit code, logs, and cleanup.
 - The real project directory must not gain `AGENTS.md`, `CLAUDE.md`, `.codex/`, or `.claude/`.
@@ -362,6 +377,5 @@ End-to-end expectations:
 
 Next polishing should stay close to the runtime-manager goal:
 
-- Add CI for tests, vet, line checks, and bilingual-doc checks.
-- Add `adp env` or `adp shell-hook` later for parent-shell integration.
+- Add richer `adp shell-hook` integration later for parent-shell workflows.
 - Keep adapter formats isolated and update them only after checking current Codex/Claude CLI behavior.

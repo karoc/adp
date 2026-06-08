@@ -94,6 +94,40 @@ func TestWorkspaceShowCommandPrintsDetails(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRemoveCommandCallsStore(t *testing.T) {
+	store := &fakeStore{}
+	var stdout bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "remove", "game-a"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if store.removeName != "game-a" {
+		t.Fatalf("Remove called with %q", store.removeName)
+	}
+	if !strings.Contains(stdout.String(), "removed") {
+		t.Fatalf("remove output = %q", stdout.String())
+	}
+}
+
+func TestWorkspaceRenameCommandCallsStore(t *testing.T) {
+	store := &fakeStore{}
+	var stdout bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "rename", "old", "new"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if store.renameOld != "old" || store.renameNew != "new" {
+		t.Fatalf("Rename called with (%q, %q)", store.renameOld, store.renameNew)
+	}
+	if !strings.Contains(stdout.String(), `"old" renamed to "new"`) {
+		t.Fatalf("rename output = %q", stdout.String())
+	}
+}
+
 func TestRunCommandWiresAdapterRuntimeAndRunner(t *testing.T) {
 	store := &fakeStore{cfg: testConfig()}
 	registry := adapters.NewRegistry()
@@ -198,6 +232,54 @@ func TestRunCommandCanResolveWorkspaceFromCurrentDirectory(t *testing.T) {
 	}
 }
 
+func TestEnvCommandBuildsKeptRuntimeAndPrintsExports(t *testing.T) {
+	store := &fakeStore{cfg: testConfig()}
+	var buildReq runtime.BuildRequest
+	var stdout bytes.Buffer
+
+	deps := Dependencies{
+		Layout:         paths.New("/tmp/adp-home", "/tmp/adp-runtime"),
+		WorkspaceStore: store,
+		BuildRuntime: func(_ context.Context, req runtime.BuildRequest) (*runtime.Handle, error) {
+			buildReq = req
+			return &runtime.Handle{
+				Root: "/tmp/runtime root",
+				Env: map[string]string{
+					"ADP_WORKSPACE":     "game-a",
+					"ADP_RUNTIME_ROOT":  "/tmp/runtime root",
+					"ADP_PROJECT_ROOT":  "/srv/game-a",
+					"ADP_SESSION_ID":    "session-1",
+					"NON_ADP_SHOULD_GO": "no",
+				},
+				Keep: true,
+			}, nil
+		},
+		CleanupRuntime: func(context.Context, runtime.Handle) error {
+			t.Fatal("env command should keep runtime on success")
+			return nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"env", "game-a", "--cd"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !buildReq.Keep {
+		t.Fatal("env command should build keep-runtime handle")
+	}
+	output := stdout.String()
+	if !strings.Contains(output, "export ADP_WORKSPACE='game-a'") {
+		t.Fatalf("env output missing ADP export: %q", output)
+	}
+	if !strings.Contains(output, "cd '/tmp/runtime root'") {
+		t.Fatalf("env output missing cd: %q", output)
+	}
+	if strings.Contains(output, "NON_ADP") {
+		t.Fatalf("env output leaked non ADP variable: %q", output)
+	}
+}
+
 func TestEnterCommandWiresRuntimeAndShell(t *testing.T) {
 	store := &fakeStore{cfg: testConfig()}
 	var entered adapters.RuntimeHandle
@@ -239,6 +321,9 @@ type fakeStore struct {
 	records           []workspace.Record
 	findByProjectPath bool
 	findCalled        bool
+	removeName        string
+	renameOld         string
+	renameNew         string
 }
 
 func (s *fakeStore) Init(context.Context) error {
@@ -278,6 +363,19 @@ func (s *fakeStore) FindByProjectPath(_ context.Context, _ string) (*schema.Conf
 		cfg = testConfig()
 	}
 	return &cfg, "/tmp/adp-home/workspaces/game-a", nil
+}
+
+func (s *fakeStore) Remove(_ context.Context, name string) error {
+	s.removeName = name
+	return nil
+}
+
+func (s *fakeStore) Rename(_ context.Context, oldName string, newName string) (*schema.Config, error) {
+	s.renameOld = oldName
+	s.renameNew = newName
+	cfg := testConfig()
+	cfg.Workspace.Name = newName
+	return &cfg, nil
 }
 
 type fakeAdapter struct {

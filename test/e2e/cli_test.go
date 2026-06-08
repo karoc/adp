@@ -36,6 +36,22 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	repoRoot := repositoryRoot(t)
 	runADP(t, adpBin, repoRoot, env, "init")
 	runADP(t, adpBin, repoRoot, env, "workspace", "add", "game-a", projectRoot)
+	listOut := runADP(t, adpBin, repoRoot, env, "workspace", "list")
+	if !strings.Contains(listOut, "game-a") || !strings.Contains(listOut, projectRoot) {
+		t.Fatalf("workspace list missing registered project: %q", listOut)
+	}
+	showOut := runADP(t, adpBin, repoRoot, env, "workspace", "show", "game-a")
+	if !strings.Contains(showOut, "name: game-a") || !strings.Contains(showOut, "project_root: "+projectRoot) {
+		t.Fatalf("workspace show missing details: %q", showOut)
+	}
+	envOut := runADP(t, adpBin, repoRoot, env, "env", "game-a", "--cd")
+	runtimeRoot := parseExport(t, envOut, "ADP_RUNTIME_ROOT")
+	if !strings.Contains(envOut, "cd '"+runtimeRoot+"'") {
+		t.Fatalf("env output missing cd to runtime root: %q", envOut)
+	}
+	assertFileExists(t, filepath.Join(runtimeRoot, ".adp-runtime.yaml"))
+	assertProjectClean(t, projectRoot)
+
 	codexOut := runADP(t, adpBin, repoRoot, env, "run", "codex", "--workspace", "game-a", "--", "--probe")
 	claudeOut := runADP(t, adpBin, projectRoot, env, "run", "claude", "--", "--probe")
 
@@ -44,7 +60,18 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	}
 	assertEventLines(t, filepath.Join(adpHome, "logs", "events.jsonl"), 4)
 	assertProjectClean(t, projectRoot)
-	assertRuntimeCleaned(t, runtimeDir)
+	assertRuntimeEntries(t, runtimeDir, 1)
+
+	runADP(t, adpBin, repoRoot, env, "workspace", "rename", "game-a", "game-renamed")
+	renamedOut := runADP(t, adpBin, repoRoot, env, "workspace", "show", "game-renamed")
+	if !strings.Contains(renamedOut, "name: game-renamed") || !strings.Contains(renamedOut, "project_root: "+projectRoot) {
+		t.Fatalf("renamed workspace show missing details: %q", renamedOut)
+	}
+	runADP(t, adpBin, repoRoot, env, "workspace", "remove", "game-renamed")
+	removedList := runADP(t, adpBin, repoRoot, env, "workspace", "list")
+	if strings.Contains(removedList, "game-renamed") {
+		t.Fatalf("removed workspace still listed: %q", removedList)
+	}
 }
 
 func buildADP(t *testing.T, output string) {
@@ -119,15 +146,39 @@ func assertProjectClean(t *testing.T, projectRoot string) {
 	}
 }
 
-func assertRuntimeCleaned(t *testing.T, runtimeDir string) {
+func assertRuntimeEntries(t *testing.T, runtimeDir string, want int) {
 	t.Helper()
 	entries, err := os.ReadDir(runtimeDir)
 	if err != nil {
 		t.Fatalf("read runtime dir: %v", err)
 	}
-	if len(entries) != 0 {
-		t.Fatalf("runtime dir should be cleaned, found %d entries", len(entries))
+	if len(entries) != want {
+		t.Fatalf("runtime dir entries = %d, want %d", len(entries), want)
 	}
+}
+
+func assertFileExists(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+	if info.IsDir() {
+		t.Fatalf("%s is a directory, want file", path)
+	}
+}
+
+func parseExport(t *testing.T, output string, name string) string {
+	t.Helper()
+	prefix := "export " + name + "="
+	for _, line := range strings.Split(output, "\n") {
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		return strings.Trim(line[len(prefix):], "'")
+	}
+	t.Fatalf("export %s not found in:\n%s", name, output)
+	return ""
 }
 
 func mkdirAll(t *testing.T, paths ...string) {

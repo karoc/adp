@@ -2,13 +2,16 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/schema"
+	"gopkg.in/yaml.v3"
 )
 
 func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
@@ -67,6 +70,62 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 	}
 }
 
+func TestBuildWritesRuntimeManifestWithoutPollutingProject(t *testing.T) {
+	projectRoot := t.TempDir()
+	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
+
+	handle, err := Build(context.Background(), BuildRequest{
+		Layout:    layout,
+		Config:    testConfig(projectRoot),
+		Keep:      true,
+		SessionID: "manifest-session",
+	})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	manifestPath := filepath.Join(handle.Root, ManifestPath)
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read runtime manifest: %v", err)
+	}
+
+	var manifest Manifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		t.Fatalf("parse runtime manifest: %v", err)
+	}
+	if manifest.Version != schema.CurrentVersion {
+		t.Fatalf("manifest version mismatch: got %d want %d", manifest.Version, schema.CurrentVersion)
+	}
+	if manifest.SessionID != "manifest-session" {
+		t.Fatalf("manifest session id mismatch: %s", manifest.SessionID)
+	}
+	if manifest.Workspace != "game-a" {
+		t.Fatalf("manifest workspace mismatch: %s", manifest.Workspace)
+	}
+	if manifest.ProjectRoot != projectRoot {
+		t.Fatalf("manifest project root mismatch: %s", manifest.ProjectRoot)
+	}
+	if manifest.RuntimeRoot != handle.Root {
+		t.Fatalf("manifest runtime root mismatch: %s", manifest.RuntimeRoot)
+	}
+	if !manifest.Keep {
+		t.Fatalf("manifest keep mismatch: expected true")
+	}
+	if manifest.GeneratedBy != ManifestGeneratedBy {
+		t.Fatalf("manifest generated_by mismatch: %s", manifest.GeneratedBy)
+	}
+	if manifest.CreatedAt.IsZero() {
+		t.Fatalf("manifest created_at should be set")
+	}
+	if !manifest.CreatedAt.Equal(manifest.CreatedAt.UTC()) {
+		t.Fatalf("manifest created_at should be UTC: %s", manifest.CreatedAt.Format(time.RFC3339Nano))
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ManifestPath)); !os.IsNotExist(err) {
+		t.Fatalf("project root should not contain runtime manifest, stat err: %v", err)
+	}
+}
+
 func TestBuildGeneratesSessionIDAndCleanupHonorsKeep(t *testing.T) {
 	projectRoot := t.TempDir()
 	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
@@ -98,6 +157,37 @@ func TestBuildGeneratesSessionIDAndCleanupHonorsKeep(t *testing.T) {
 	}
 	if _, err := os.Stat(handle.Root); !os.IsNotExist(err) {
 		t.Fatalf("expected runtime root to be removed, stat err: %v", err)
+	}
+}
+
+func TestBuildRejectsAdapterRuntimeManifest(t *testing.T) {
+	projectRoot := t.TempDir()
+	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
+
+	reservedPaths := []string{
+		ManifestPath,
+		"./" + ManifestPath,
+		ManifestPath + "/child",
+	}
+	for _, reservedPath := range reservedPaths {
+		t.Run(reservedPath, func(t *testing.T) {
+			_, err := Build(context.Background(), BuildRequest{
+				Layout:    layout,
+				Config:    testConfig(projectRoot),
+				SessionID: "session-1-" + safeSessionSuffix(t.Name()),
+				Files: []adapters.GeneratedFile{
+					{Path: reservedPath, Data: []byte("adapter manifest\n")},
+				},
+			})
+			if !errors.Is(err, ErrManifestPathReserved) {
+				t.Fatalf("expected manifest path reserved error, got %v", err)
+			}
+
+			runtimeRoot := filepath.Join(layout.RuntimeParent, "game-a-session-1-"+safeSessionSuffix(t.Name()))
+			if _, err := os.Stat(runtimeRoot); !os.IsNotExist(err) {
+				t.Fatalf("runtime root should not be created after manifest conflict, stat err: %v", err)
+			}
+		})
 	}
 }
 
@@ -172,4 +262,14 @@ func assertSymlink(t *testing.T, path, want string) {
 	if got != want {
 		t.Fatalf("symlink target mismatch for %s: got %s want %s", path, got, want)
 	}
+}
+
+func safeSessionSuffix(name string) string {
+	clean := ""
+	for _, r := range name {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			clean += string(r)
+		}
+	}
+	return clean
 }

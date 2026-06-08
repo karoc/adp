@@ -4,20 +4,42 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/overlay"
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/schema"
+	"gopkg.in/yaml.v3"
 )
 
 type Handle = adapters.RuntimeHandle
 
+const (
+	ManifestPath        = ".adp-runtime.yaml"
+	ManifestGeneratedBy = "adp"
+)
+
+var ErrManifestPathReserved = errors.New(".adp-runtime.yaml is reserved for the ADP runtime manifest")
+
 var sessionIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
+type Manifest struct {
+	Version     int       `yaml:"version"`
+	SessionID   string    `yaml:"session_id"`
+	Workspace   string    `yaml:"workspace"`
+	ProjectRoot string    `yaml:"project_root"`
+	RuntimeRoot string    `yaml:"runtime_root"`
+	CreatedAt   time.Time `yaml:"created_at"`
+	Keep        bool      `yaml:"keep"`
+	GeneratedBy string    `yaml:"generated_by"`
+}
 
 type BuildRequest struct {
 	Layout       paths.Layout
@@ -64,6 +86,19 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		return nil, fmt.Errorf("resolve runtime parent: %w", err)
 	}
 	runtimeRoot := filepath.Join(runtimeParent, req.Config.Workspace.Name+"-"+sessionID)
+	files, err := appendRuntimeManifest(req.Files, Manifest{
+		Version:     schema.CurrentVersion,
+		SessionID:   sessionID,
+		Workspace:   req.Config.Workspace.Name,
+		ProjectRoot: req.Config.Project.Root,
+		RuntimeRoot: runtimeRoot,
+		CreatedAt:   time.Now().UTC(),
+		Keep:        req.Keep,
+		GeneratedBy: ManifestGeneratedBy,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	backend := req.Backend
 	if backend == nil {
@@ -73,7 +108,7 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		WorkspaceName: req.Config.Workspace.Name,
 		ProjectRoot:   req.Config.Project.Root,
 		RuntimeRoot:   runtimeRoot,
-		Files:         req.Files,
+		Files:         files,
 		Keep:          req.Keep,
 	})
 	if err != nil {
@@ -110,6 +145,33 @@ func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Confi
 	env["ADP_RUNTIME_ROOT"] = runtimeRoot
 	env["ADP_SESSION_ID"] = sessionID
 	return env
+}
+
+func appendRuntimeManifest(files []adapters.GeneratedFile, manifest Manifest) ([]adapters.GeneratedFile, error) {
+	for _, file := range files {
+		if isRuntimeManifestPath(file.Path) {
+			return nil, fmt.Errorf("%w: adapter generated file %q", ErrManifestPathReserved, file.Path)
+		}
+	}
+
+	data, err := yaml.Marshal(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("marshal runtime manifest: %w", err)
+	}
+
+	withManifest := make([]adapters.GeneratedFile, 0, len(files)+1)
+	withManifest = append(withManifest, files...)
+	withManifest = append(withManifest, adapters.GeneratedFile{
+		Path: ManifestPath,
+		Mode: 0644,
+		Data: data,
+	})
+	return withManifest, nil
+}
+
+func isRuntimeManifestPath(filePath string) bool {
+	normalized := path.Clean(strings.ReplaceAll(filePath, "\\", "/"))
+	return normalized == ManifestPath || strings.HasPrefix(normalized, ManifestPath+"/")
 }
 
 func warningsFromConflicts(conflicts []overlay.Conflict) []string {

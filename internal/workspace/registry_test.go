@@ -129,6 +129,145 @@ func TestRegistryGetSuccess(t *testing.T) {
 	}
 }
 
+func TestRegistryRemoveSuccess(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+	projectRoot := createProject(t)
+
+	if _, err := registry.Add(context.Background(), "game-a", projectRoot); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+
+	if err := registry.Remove(context.Background(), "game-a"); err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+	requireNotExist(t, layout.WorkspaceDir("game-a"))
+	requireDir(t, layout.WorkspacesDir)
+	requireFile(t, layout.ConfigFile)
+
+	_, _, err := registry.Get(context.Background(), "game-a")
+	if !errors.Is(err, ErrWorkspaceNotFound) {
+		t.Fatalf("Get() after Remove() error = %v, want ErrWorkspaceNotFound", err)
+	}
+}
+
+func TestRegistryRemoveMissingFails(t *testing.T) {
+	registry, _ := newTestRegistry(t)
+
+	err := registry.Remove(context.Background(), "missing")
+	if !errors.Is(err, ErrWorkspaceNotFound) {
+		t.Fatalf("Remove() missing error = %v, want ErrWorkspaceNotFound", err)
+	}
+}
+
+func TestRegistryRemoveRejectsInvalidName(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+
+	err := registry.Remove(context.Background(), "../bad")
+	if err == nil {
+		t.Fatal("Remove() error = nil, want invalid name error")
+	}
+	if _, statErr := os.Stat(layout.Home); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("invalid Remove() touched ADP home: stat error = %v", statErr)
+	}
+}
+
+func TestRegistryRenameSuccess(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+	projectRoot := createProject(t)
+
+	if _, err := registry.Add(context.Background(), "game-a", projectRoot); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	customPrompt := []byte("custom prompt\n")
+	promptPath := filepath.Join(layout.WorkspaceDir("game-a"), "prompts", "base.md")
+	if err := os.WriteFile(promptPath, customPrompt, 0o644); err != nil {
+		t.Fatalf("write custom prompt: %v", err)
+	}
+
+	cfg, err := registry.Rename(context.Background(), "game-a", "game-b")
+	if err != nil {
+		t.Fatalf("Rename() error = %v", err)
+	}
+	if cfg.Workspace.Name != "game-b" {
+		t.Fatalf("renamed config name = %q, want game-b", cfg.Workspace.Name)
+	}
+	if cfg.Project.Root != projectRoot {
+		t.Fatalf("project root = %q, want %q", cfg.Project.Root, projectRoot)
+	}
+	requireNotExist(t, layout.WorkspaceDir("game-a"))
+	requireDir(t, layout.WorkspaceDir("game-b"))
+
+	loaded, err := schema.LoadConfig(layout.WorkspaceConfig("game-b"))
+	if err != nil {
+		t.Fatalf("LoadConfig() renamed config error = %v", err)
+	}
+	if loaded.Workspace.Name != "game-b" {
+		t.Fatalf("loaded workspace name = %q, want game-b", loaded.Workspace.Name)
+	}
+	if loaded.Project.Root != projectRoot {
+		t.Fatalf("loaded project root = %q, want %q", loaded.Project.Root, projectRoot)
+	}
+	if loaded.Prompts.Base != "prompts/base.md" {
+		t.Fatalf("base prompt path = %q, want prompts/base.md", loaded.Prompts.Base)
+	}
+	gotPrompt, err := os.ReadFile(filepath.Join(layout.WorkspaceDir("game-b"), "prompts", "base.md"))
+	if err != nil {
+		t.Fatalf("read renamed prompt: %v", err)
+	}
+	if string(gotPrompt) != string(customPrompt) {
+		t.Fatalf("renamed prompt content = %q, want %q", gotPrompt, customPrompt)
+	}
+	requireFile(t, filepath.Join(layout.WorkspaceDir("game-b"), "memory", "shared.md"))
+	requireFile(t, filepath.Join(layout.WorkspaceDir("game-b"), "mcp", "config.yaml"))
+	requireFile(t, filepath.Join(layout.WorkspaceDir("game-b"), "profiles", "codex.yaml"))
+	requireFile(t, filepath.Join(layout.WorkspaceDir("game-b"), "profiles", "claude.yaml"))
+}
+
+func TestRegistryRenameToExistingFails(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+	gameARoot := createProject(t)
+	gameBRoot := createProject(t)
+
+	if _, err := registry.Add(context.Background(), "game-a", gameARoot); err != nil {
+		t.Fatalf("Add() game-a error = %v", err)
+	}
+	if _, err := registry.Add(context.Background(), "game-b", gameBRoot); err != nil {
+		t.Fatalf("Add() game-b error = %v", err)
+	}
+
+	_, err := registry.Rename(context.Background(), "game-a", "game-b")
+	if !errors.Is(err, ErrWorkspaceExists) {
+		t.Fatalf("Rename() existing target error = %v, want ErrWorkspaceExists", err)
+	}
+
+	gameA, err := schema.LoadConfig(layout.WorkspaceConfig("game-a"))
+	if err != nil {
+		t.Fatalf("LoadConfig() game-a error = %v", err)
+	}
+	if gameA.Workspace.Name != "game-a" || gameA.Project.Root != gameARoot {
+		t.Fatalf("game-a config changed after failed rename: %+v", gameA)
+	}
+	gameB, err := schema.LoadConfig(layout.WorkspaceConfig("game-b"))
+	if err != nil {
+		t.Fatalf("LoadConfig() game-b error = %v", err)
+	}
+	if gameB.Workspace.Name != "game-b" || gameB.Project.Root != gameBRoot {
+		t.Fatalf("game-b config changed after failed rename: %+v", gameB)
+	}
+}
+
+func TestRegistryRenameRejectsInvalidName(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+
+	_, err := registry.Rename(context.Background(), "game-a", "../bad")
+	if err == nil {
+		t.Fatal("Rename() error = nil, want invalid name error")
+	}
+	if _, statErr := os.Stat(layout.Home); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("invalid Rename() touched ADP home: stat error = %v", statErr)
+	}
+}
+
 func TestRegistryListSortsWorkspaces(t *testing.T) {
 	registry, _ := newTestRegistry(t)
 	zRoot := createProject(t)
@@ -245,5 +384,13 @@ func requireFile(t *testing.T, path string) {
 	}
 	if info.IsDir() {
 		t.Fatalf("%s is a directory, want file", path)
+	}
+}
+
+func requireNotExist(t *testing.T, path string) {
+	t.Helper()
+
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("stat %s error = %v, want ErrNotExist", path, err)
 	}
 }

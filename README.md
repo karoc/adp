@@ -14,6 +14,9 @@ Implemented Phase 1 foundations:
 - `adp workspace add <name> <project-root>`
 - `adp workspace list`
 - `adp workspace show <name>`
+- `adp workspace remove <name>`
+- `adp workspace rename <old-name> <new-name>`
+- `adp env <workspace> [--cd]`
 - `adp run codex --workspace <name>`
 - `adp run claude --workspace <name>`
 - `adp enter <workspace>`
@@ -30,6 +33,7 @@ go run ./cmd/adp init
 go run ./cmd/adp workspace add game-a /srv/game-a
 go run ./cmd/adp workspace list
 go run ./cmd/adp workspace show game-a
+go run ./cmd/adp env game-a --cd
 go run ./cmd/adp run codex --workspace game-a
 cd /srv/game-a && go run /path/to/adp/cmd/adp run claude
 go run ./cmd/adp run claude --workspace game-a
@@ -52,6 +56,7 @@ When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the
 /tmp/adp-runtime/game-a-<session>/
 ├── AGENTS.md
 ├── CLAUDE.md
+├── .adp-runtime.yaml
 ├── .codex/
 ├── .claude/
 ├── go.mod -> /srv/game-a/go.mod
@@ -59,6 +64,8 @@ When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the
 ```
 
 Agent-specific files are generated from the ADP workspace config. Real project files are linked into the runtime root. ADP-generated paths take priority inside the runtime view, and the original project directory is not modified.
+
+`adp env <workspace> --cd` prints POSIX shell exports for a kept runtime overlay. This is intended for shell-hook workflows and leaves the runtime directory in place so the calling shell can enter it.
 
 ## Development
 

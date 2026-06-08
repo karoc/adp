@@ -16,7 +16,7 @@ ADP Phase 1 的产品核心是一个 terminal-first 的 Agent Runtime Environmen
 - 注册 workspace，保存真实项目根目录与 ADP runtime 配置的映射。
 - 为 Agent 构建临时 runtime overlay，让 Agent 在不污染真实项目目录的前提下看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等配置文件。
 - 提供 Claude Code CLI 与 Codex CLI 两个 adapter。
-- 支持 `adp init`、`adp workspace add`、`adp workspace list`、`adp workspace show`、`adp enter`、`adp run`。
+- 支持 `adp init`、`adp workspace add/list/show/remove/rename`、`adp env`、`adp enter`、`adp run`。
 - 记录本地 JSONL event log，为后续 replay、session restore、多 Agent 编排预留数据基础。
 
 Phase 1 明确不做：
@@ -334,6 +334,31 @@ MVP adapter 输出：
 - workspace 不存在时有明确错误。
 - 输出字段稳定，便于终端阅读。
 
+### `adp workspace remove <name>`
+
+职责：
+
+- 删除 ADP workspace 目录，不触碰真实 project root。
+
+验收：
+
+- workspace 不存在时返回明确错误。
+- invalid name 不触碰 ADP home。
+
+### `adp workspace rename <old-name> <new-name>`
+
+职责：
+
+- 重命名 ADP workspace 目录。
+- 更新 `workspace.yaml` 中的 `workspace.name`。
+- 保留 project root、prompt、memory、MCP 和 profile 文件。
+
+验收：
+
+- old 不存在时返回明确错误。
+- new 已存在时返回明确错误。
+- 重命名后 `workspace show` 能读取新名称。
+
 ### `adp enter <workspace>`
 
 职责：
@@ -346,13 +371,27 @@ MVP adapter 输出：
 限制：
 
 - CLI 进程不能改变父 shell 的 cwd，所以 MVP 行为是启动一个子 shell。
-- 后续可以增加 `adp shell-hook` 或 `adp env` 支持 parent shell integration。
+- 后续可以增加更完整的 `adp shell-hook` 支持 parent shell integration。
 
 验收：
 
 - shell cwd 是 runtime root。
 - `pwd`、env、runtime 文件可见。
 - shell 退出后默认清理 runtime，`--keep-runtime` 保留。
+
+### `adp env <workspace> [--cd]`
+
+职责：
+
+- 构建保留的 runtime overlay。
+- 输出 POSIX shell 兼容的 `export ADP_*` 内容。
+- `--cd` 时额外输出进入 runtime root 的 `cd` 命令。
+
+验收：
+
+- 输出顺序稳定。
+- shell quote 能处理空格、单引号和特殊字符。
+- runtime root 中存在 `.adp-runtime.yaml`。
 
 ### `adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]`
 
@@ -493,15 +532,20 @@ adp init
 adp workspace add game-a /srv/game-a
 adp workspace list
 adp workspace show game-a
+adp env game-a --cd
 adp run codex --workspace game-a -- --version
 cd /srv/game-a && adp run claude -- --version
 adp enter game-a
+adp workspace rename game-a game-renamed
+adp workspace remove game-renamed
 ```
 
 验收点：
 
 - `$ADP_HOME/workspaces/game-a/workspace.yaml` 存在且 project root 正确。
 - `adp workspace list` / `show` 能输出已注册 workspace。
+- `adp env` 能输出 shell-safe exports，并保留 runtime manifest。
+- `adp workspace rename` / `remove` 只修改 ADP workspace registry。
 - runtime root 中存在 ADP 生成的 Agent 配置文件。
 - 真实 `/srv/game-a` 不新增 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/`。
 - event log 记录 run start/finish。

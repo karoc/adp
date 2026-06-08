@@ -27,7 +27,10 @@ Usage:
   adp workspace add <name> <project-root>
   adp workspace list
   adp workspace show <name>
+  adp workspace remove <name>
+  adp workspace rename <old-name> <new-name>
   adp enter <workspace> [--keep-runtime]
+  adp env <workspace> [--cd]
   adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]
 `
 
@@ -37,6 +40,8 @@ type WorkspaceStore interface {
 	Get(context.Context, string) (*schema.Config, string, error)
 	List(context.Context) ([]workspace.Record, error)
 	FindByProjectPath(context.Context, string) (*schema.Config, string, error)
+	Remove(context.Context, string) error
+	Rename(context.Context, string, string) (*schema.Config, error)
 }
 
 type AdapterRegistry interface {
@@ -114,6 +119,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		err = a.workspace(ctx, args[1:])
 	case "enter":
 		err = a.enter(ctx, args[1:])
+	case "env":
+		err = a.env(ctx, args[1:])
 	case "run":
 		err = a.run(ctx, args[1:])
 	default:
@@ -174,6 +181,22 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 			return errors.New("usage: adp workspace show <name>")
 		}
 		return a.workspaceShow(ctx, args[1])
+	case "remove":
+		if len(args) != 2 {
+			return errors.New("usage: adp workspace remove <name>")
+		}
+		if err := a.deps.WorkspaceStore.Remove(ctx, args[1]); err != nil {
+			return err
+		}
+		fmt.Fprintf(a.stdout, "workspace %q removed\n", args[1])
+	case "rename":
+		if len(args) != 3 {
+			return errors.New("usage: adp workspace rename <old-name> <new-name>")
+		}
+		if _, err := a.deps.WorkspaceStore.Rename(ctx, args[1], args[2]); err != nil {
+			return err
+		}
+		fmt.Fprintf(a.stdout, "workspace %q renamed to %q\n", args[1], args[2])
 	default:
 		return fmt.Errorf("unknown workspace command %q", args[0])
 	}
@@ -239,6 +262,38 @@ func (a *App) enter(ctx context.Context, args []string) error {
 		Stdout: a.stdout,
 		Stderr: a.stderr,
 	})
+}
+
+func (a *App) env(ctx context.Context, args []string) error {
+	name, changeDir, err := parseEnvArgs(args)
+	if err != nil {
+		return err
+	}
+
+	cfg, workspaceDir, err := a.loadWorkspace(ctx, name)
+	if err != nil {
+		return err
+	}
+	if a.deps.BuildRuntime == nil {
+		return errors.New("runtime builder is not configured")
+	}
+	handle, err := a.deps.BuildRuntime(ctx, runtime.BuildRequest{
+		Layout:       a.deps.Layout,
+		Config:       *cfg,
+		WorkspaceDir: workspaceDir,
+		Keep:         true,
+	})
+	if err != nil {
+		return err
+	}
+
+	output, err := shell.RenderExports(*handle, shell.ExportOptions{ChangeDir: changeDir})
+	if err != nil {
+		_ = a.cleanupRuntimeAfterError(ctx, *handle)
+		return err
+	}
+	fmt.Fprint(a.stdout, output)
+	return nil
 }
 
 func (a *App) run(ctx context.Context, args []string) error {
@@ -388,6 +443,13 @@ func (a *App) cleanupRuntime(ctx context.Context, handle runtime.Handle) {
 	}
 }
 
+func (a *App) cleanupRuntimeAfterError(ctx context.Context, handle runtime.Handle) error {
+	if a.deps.CleanupRuntime == nil {
+		return nil
+	}
+	return a.deps.CleanupRuntime(ctx, handle)
+}
+
 func (a *App) fail(err error) int {
 	fmt.Fprintf(a.stderr, "adp: %v\n", err)
 	return 1
@@ -462,6 +524,29 @@ func parseEnterArgs(args []string) (string, bool, error) {
 		return "", false, errors.New("usage: adp enter <workspace> [--keep-runtime]")
 	}
 	return name, keep, nil
+}
+
+func parseEnvArgs(args []string) (string, bool, error) {
+	var name string
+	var changeDir bool
+	for _, arg := range args {
+		switch arg {
+		case "--cd":
+			changeDir = true
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return "", false, fmt.Errorf("unknown env option %q", arg)
+			}
+			if name != "" {
+				return "", false, errors.New("usage: adp env <workspace> [--cd]")
+			}
+			name = arg
+		}
+	}
+	if name == "" {
+		return "", false, errors.New("usage: adp env <workspace> [--cd]")
+	}
+	return name, changeDir, nil
 }
 
 func mergedEnv(base map[string]string, overrides map[string]string) map[string]string {
