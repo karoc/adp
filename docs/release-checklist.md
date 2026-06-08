@@ -42,6 +42,7 @@ For normal development handoff, a phase slice is not complete when implementatio
 - The phase has a recorded gate result.
 - The accepted changes have been committed.
 - The commit has been pushed to the configured remote branch.
+- Commit and push evidence have been recorded in the local phase ledger before any next phase starts.
 - The next phase has not been mixed into the same commit.
 
 P3 phase gate work turns this discipline into local records under `$ADP_HOME/workspaces/<workspace>/planning`. Release evidence should include both the positive lifecycle path and the local guards that reject out-of-order phase evidence.
@@ -85,11 +86,11 @@ The example workspace smoke verifies:
 - Fake local agent execution through the copied example records session history and supports read-only restore planning.
 - Example documentation and release claims stay connected to an executable path.
 
-`scripts/task-manager-smoke.sh` remains the public entry point for workspace-local task, phase, and progress report runtime acceptance. It builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/next/show/update/claim/release/block/done`, `adp phase add/list/show/start/accept/commit/push`, `adp progress`, and `adp progress report`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning`, next-work/report generation is read-only, and no planning or report artifacts are written into the real project root.
+`scripts/task-manager-smoke.sh` remains the public entry point for workspace-local task, phase, and progress report runtime acceptance. It builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/next/show/update/claim/release/block/done`, `adp phase add/list/show/status/start/accept/commit/push`, `adp progress`, and `adp progress report`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning`, next-work/report generation is read-only, and no planning or report artifacts are written into the real project root.
 
 P9 may move shared smoke helpers and the JSON report validator into helper files under `scripts/`. That split is an implementation detail for maintenance and hardening; callers still run `scripts/task-manager-smoke.sh`, and the release gate still runs it through `scripts/check-all.sh`.
 
-The phase gate smoke path covers phase records, task claim ownership with leases, owner-checked release, task phase validation, acceptance or gate records, commit records, push records, lifecycle ordering guards, and project-root pollution protection. Go tests additionally cover planning lock behavior, claim conflicts, lease expiry, terminal-task claim rejection, failed acceptance, and failed push semantics. Do not add placeholder assertions for commands that do not exist yet.
+The phase gate smoke path covers phase records, task claim ownership with leases, owner-checked release, task phase validation, acceptance or gate records, commit records, push records, read-only phase gate status snapshots, lifecycle ordering guards, and project-root pollution protection. It asserts that a later phase cannot start before the earlier phase has successful pushed evidence, and that it can start after that evidence is recorded. Go tests additionally cover planning lock behavior, claim conflicts, lease expiry, terminal-task claim rejection, failed acceptance, failed push semantics, and explicit phase ordering. Do not add placeholder assertions for commands that do not exist yet.
 
 `scripts/plan-intake-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, and verifies `adp plan preview` and `adp plan apply` with structured YAML input from both files and stdin through `--file -`. It proves preview stays read-only, apply writes only the local planning ledger under `$ADP_HOME/workspaces/<workspace>/planning`, JSON output remains an inspection format, invalid input on a fresh workspace leaves no planning directory, staging failures leave no partial phase/task/progress state, and no runtime, Git, event-log, or real project-root side effects occur.
 
@@ -177,7 +178,7 @@ Before a release candidate is announced, an operator should also confirm:
 - The license files and PolyForm Noncommercial positioning were not changed unintentionally.
 - Packaged CLI artifacts were built with version, commit, and build-date ldflags and `adp version` reports the expected values.
 - README and focused docs describe the current CLI surface without Web, UI, SaaS, cloud sync, hosted tracker, hosted orchestration, automatic Git execution, automatic task closure, provider-native resume, or project-root report export drift.
-- Active development phases have local evidence for acceptance, commit, and push before the next phase starts.
+- Active development phases have local evidence for acceptance, commit, and successful push before the next phase starts, and `adp phase status --workspace <name> --format json` agrees that the next planned phase can start.
 - Any claimed real-agent compatibility has matching opt-in real CLI evidence and, when needed, manual interactive acceptance notes.
 
 ## Out Of Scope

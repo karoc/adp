@@ -16,7 +16,7 @@ ADP Phase 1 的产品核心是一个 terminal-first 的 Agent Runtime Environmen
 - 注册 workspace，保存真实项目根目录与 ADP runtime 配置的映射。
 - 为 Agent 构建临时 runtime overlay，让 Agent 在不污染真实项目目录的前提下看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等配置文件。
 - 提供 Claude Code CLI 与 Codex CLI 两个 adapter。
-- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show/restore-plan`、`adp runtime prune`、`adp enter`、`adp run`，以及本地 planning 命令 `adp tasks`、`adp phase`、`adp progress` 和 `adp plan preview/apply`。
+- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show/restore-plan`、`adp runtime prune`、`adp enter`、`adp run`，以及本地 planning 命令 `adp tasks`、`adp phase`、`adp phase status`、`adp progress` 和 `adp plan preview/apply`。
 - 记录本地 JSONL event log，为后续 replay、session restore、inspection-only handoff evidence 和 terminal-based 多 Agent 协作预留数据基础。
 
 Phase 1 明确不做：
@@ -584,21 +584,24 @@ Text 是默认格式，面向终端快速扫描。`--limit <n>` 限制 candidate
 - 命令只读。
 - 不能 claim tasks、修改 task status、改变 owners 或 leases、清理 blockers、修改 phases、追加 events、创建 runtime directories、启动 agents、运行 Git、push、推断 acceptance、关闭 tasks、恢复 provider-native conversations、写入真实 project root、同步 hosted trackers，或把 JSON 维护成第二份 planning store。
 
-### `adp phase add|list|show|start|accept|commit|push`
+### `adp phase add|list|show|status|start|accept|commit|push`
 
 行为：
 
 - 在 `$ADP_HOME/workspaces/<workspace>/planning` 下保存 workspace-scoped phase records。
 - 跟踪 phase status、goal、acceptance command evidence、commit evidence 和 push evidence。
+- 给新建 phase 和 plan-imported phase 分配显式本地 order，防止后续 phase 跳过更早的 planned 或 unfinished phase。
+- `adp phase status [--workspace <name>] [--format text|json]` 输出只读 gate snapshot，包含 open phase、下一个 planned phase、是否可以启动下一阶段，以及下一步必需动作。
 - 强制 phase lifecycle 顺序：planned、active、accepted、committed、pushed。
-- 强制阶段流程：acceptance 先于 commit evidence，commit 先于 push evidence，且下一阶段开始前上一阶段必须已 pushed。
+- 强制阶段流程：acceptance 先于 commit evidence，commit 先于 push evidence，且启动后续 phase 前，每个更早 phase 都必须已有 successful pushed evidence。
 
 验收：
 
 - phase evidence 是本地 ledger 数据，不是 Git automation。
 - `phase commit` 记录 commit hash 和 message，但不创建 commit。
 - `phase push` 记录 remote、branch 和 result，但不运行 `git push`。
-- 后续 phase 必须等当前 phase accepted、committed、pushed 并完成记录后才能开始。
+- 后续 phase 必须等所有更早 phase accepted、committed、successfully pushed 并完成记录后才能开始。
+- `phase status` 只读，不能修改 tasks、phases、events、runtime directories、Git、hosted services 或真实 project root。
 
 ### `adp plan preview|apply [--workspace <name>] --file <path|-> [--format text|json]`
 
@@ -769,6 +772,7 @@ adp workspace remove game-renamed
 - `adp sessions list` / `show` / `restore-plan` 能从 event log 查询 session history 和只读 restore planning。
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` 默认能向 stdout 打印 Markdown 规划/执行报告，传入 `--format json` 时输出只读 JSON handoff snapshot，在 JSONL event/session 数据存在时包含最近本地 runtime session evidence，并保持 planning state、Git state、runtime state、event log 和真实项目根目录不变。
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 会向 stdout 打印紧凑的优先级 next-work snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
+- `adp phase status [--workspace <name>] [--format text|json]` 会向 stdout 打印紧凑的只读 phase gate snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` 接收结构化本地 planning 输入；preview 保持只读，apply 只写 `$ADP_HOME` 下的本地 planning ledger，失败 apply 不留下 partial phase、task 或 progress state。
 - `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
 - `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
@@ -822,6 +826,7 @@ Phase process gate：
 - P21 taskstore maintainability split 已完成：`internal/tasks` core responsibilities 现在已拆分为同 package 下的 store、task model、task lifecycle、task persistence、progress events、task ranking、phase model、phase lifecycle、phase persistence 和 phase helper 文件。该拆分是机械维护，不改变 public APIs、本地 ledger 语义、plan-import atomic staging、phase-gate lifecycle 行为或 runtime acceptance 覆盖，并让所有 touched code files 都明显低于 700 行上限。
 - P22 Phase 1 bilingual roadmap normalization 已完成：英文默认 roadmap 与简体中文 counterpart 现在拥有相同章节树、当前 command surface、目录职责、local-first 非目标、validation gates、E2E expectations，以及 validate/accept/commit/push/record 阶段纪律。
 - P23 line pressure audit tooling 已完成：`scripts/check-file-lines.sh --audit` 会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的文件，默认阈值为 600，并以退出码 0 结束，便于在触及 700 行硬限制前规划拆分阶段。必跑的 `scripts/check-file-lines.sh` 硬门禁和 `scripts/check-all.sh` pass/fail 语义保持不变。
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18/P19/P20/P21 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
+- P24 phase gate status and ordering hardening 已完成：`adp phase status [--workspace <name>] [--format text|json]` 暴露只读本地 gate snapshot；新 phase 带有显式本地 order；phase start 会拒绝跳过更早 planned 或 unfinished phases；successful push evidence 不能被 failed push evidence 覆盖。
+- 已完成的 Phase 1 slices 保持同一组非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
 每个阶段切片必须先完成 validation、acceptance、commit、push 和 evidence record，然后再开始下一阶段。

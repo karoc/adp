@@ -46,10 +46,21 @@ type phaseListJSON struct {
 	Phases    []phaseJSON `json:"phases"`
 }
 
+type phaseGateJSON struct {
+	Workspace    string     `json:"workspace,omitempty"`
+	PhaseCount   int        `json:"phase_count"`
+	OpenPhase    *phaseJSON `json:"open_phase,omitempty"`
+	NextPlanned  *phaseJSON `json:"next_planned_phase,omitempty"`
+	CanStartNext bool       `json:"can_start_next"`
+	NextAction   string     `json:"next_action"`
+	Reason       string     `json:"reason"`
+}
+
 type phaseJSON struct {
 	ID         string                `json:"id"`
 	Title      string                `json:"title"`
 	Status     string                `json:"status"`
+	Order      int                   `json:"order,omitempty"`
 	Goal       string                `json:"goal,omitempty"`
 	Acceptance *acceptanceRecordJSON `json:"acceptance,omitempty"`
 	Commit     *commitRecordJSON     `json:"commit,omitempty"`
@@ -203,6 +214,7 @@ func phaseOutput(phase taskstore.Phase) phaseJSON {
 		ID:         phase.ID,
 		Title:      phase.Title,
 		Status:     string(phase.Status),
+		Order:      phase.Order,
 		Goal:       phase.Goal,
 		CreatedAt:  jsonTime(phase.CreatedAt),
 		UpdatedAt:  jsonTime(phase.UpdatedAt),
@@ -210,6 +222,26 @@ func phaseOutput(phase taskstore.Phase) phaseJSON {
 		Commit:     commitOutput(phase.Commit),
 		Push:       pushOutput(phase.Push),
 	}
+}
+
+func phaseGateOutput(workspace string, gate taskstore.PhaseGate) phaseGateJSON {
+	return phaseGateJSON{
+		Workspace:    workspace,
+		PhaseCount:   gate.PhaseCount,
+		OpenPhase:    phaseJSONPointer(gate.OpenPhase),
+		NextPlanned:  phaseJSONPointer(gate.NextPlannedPhase),
+		CanStartNext: gate.CanStartNext,
+		NextAction:   gate.NextAction,
+		Reason:       gate.Reason,
+	}
+}
+
+func phaseJSONPointer(phase *taskstore.Phase) *phaseJSON {
+	if phase == nil {
+		return nil
+	}
+	out := phaseOutput(*phase)
+	return &out
 }
 
 func progressOutput(workspace string, progress taskstore.Progress, phases []taskstore.Phase) progressJSON {

@@ -79,6 +79,9 @@ info "checking phase lifecycle guards"
 output=$(run_adp "$REPO_ROOT" phase add --workspace game-a --goal "future gated work" p4 "Future Phase")
 assert_contains "$output" "phase p4 added" "phase add p4 output"
 
+output=$(run_adp_expect_fail "$REPO_ROOT" phase start --workspace game-a p4)
+assert_contains "$output" "phase p3 must be pushed before phase p4 can start" "phase start order guard output"
+
 output=$(run_adp_expect_fail "$REPO_ROOT" phase commit --workspace game-a p4 --hash blocked)
 assert_contains "$output" "must be accepted before commit evidence is recorded" "phase commit guard output"
 
@@ -97,6 +100,40 @@ fi
 assert_file "$TASKS_FILE"
 assert_file "$PHASES_FILE"
 assert_file "$PROGRESS_FILE"
+
+info "checking phase gate status read-only output"
+tasks_before=$(cat "$TASKS_FILE")
+phases_before=$(cat "$PHASES_FILE")
+progress_before=$(cat "$PROGRESS_FILE")
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+
+output=$(run_adp "$REPO_ROOT" phase status --workspace game-a)
+assert_contains "$output" "workspace: game-a" "phase status output"
+assert_contains "$output" "phase_count: 2" "phase status output"
+assert_contains "$output" "open_phase: p3 [active] Phase Gate MVP" "phase status output"
+assert_contains "$output" "next_planned_phase: p4 [planned] Future Phase" "phase status output"
+assert_contains "$output" "can_start_next: false" "phase status output"
+assert_contains "$output" "next_action: record_acceptance" "phase status output"
+
+output=$(run_adp "$REPO_ROOT" phase status --workspace game-a --format json)
+assert_json_field "$output" "workspace" "phase status json output"
+assert_json_field "$output" "phase_count" "phase status json output"
+assert_json_field "$output" "open_phase" "phase status json output"
+assert_json_field "$output" "next_planned_phase" "phase status json output"
+assert_json_field "$output" "can_start_next" "phase status json output"
+assert_json_field "$output" "next_action" "phase status json output"
+assert_contains "$output" "\"p3\"" "phase status json output"
+assert_contains "$output" "\"p4\"" "phase status json output"
+assert_contains "$output" "\"can_start_next\": false" "phase status json output"
+assert_contains "$output" "\"next_action\": \"record_acceptance\"" "phase status json output"
+
+assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "phase status"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "phase status" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "phase status" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "phase status" "Git state"
+assert_project_root_clean
 
 info "inspecting task list and detail"
 output=$(run_adp "$REPO_ROOT" tasks list --workspace game-a)
@@ -255,6 +292,14 @@ assert_contains "$(cat "$PHASES_FILE")" "abc123" "phases file"
 assert_contains "$(cat "$PROGRESS_FILE")" "phase_accepted" "progress file"
 assert_contains "$(cat "$PROGRESS_FILE")" "phase_committed" "progress file"
 assert_contains "$(cat "$PROGRESS_FILE")" "phase_pushed" "progress file"
+
+output=$(run_adp "$REPO_ROOT" phase status --workspace game-a --format json)
+assert_contains "$output" "\"can_start_next\": true" "phase status after push json output"
+assert_contains "$output" "\"next_action\": \"start_next_phase\"" "phase status after push json output"
+assert_contains "$output" "\"p4\"" "phase status after push json output"
+
+output=$(run_adp "$REPO_ROOT" phase start --workspace game-a p4)
+assert_contains "$output" "phase p4 status: active" "phase start p4 after p3 push output"
 
 info "checking progress report phase evidence"
 tasks_before=$(cat "$TASKS_FILE")

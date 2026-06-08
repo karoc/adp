@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	taskstore "github.com/karoc/adp/internal/tasks"
@@ -44,6 +45,46 @@ func TestPhaseListAndShowCommandsPrintJSON(t *testing.T) {
 	assertJSONFieldAbsent(t, detail, "acceptance")
 	assertJSONFieldAbsent(t, detail, "commit")
 	assertJSONFieldAbsent(t, detail, "push")
+}
+
+func TestPhaseStatusCommandPrintsGateSnapshot(t *testing.T) {
+	p3 := testPhase("p3", "Project planning", taskstore.PhaseStatusAccepted)
+	p3.Order = 1
+	p4 := testPhase("p4", "Future phase", taskstore.PhaseStatusPlanned)
+	p4.Order = 2
+	store := &fakeTaskStore{phases: []taskstore.Phase{p4, p3}}
+	var textOut bytes.Buffer
+	var jsonOut bytes.Buffer
+	var jsonErr bytes.Buffer
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+
+	textCode := NewApp(deps, &textOut, &bytes.Buffer{}).Execute(context.Background(), []string{"phase", "status", "--workspace", "game-a"})
+	jsonCode := NewApp(deps, &jsonOut, &jsonErr).Execute(context.Background(), []string{"phase", "status", "--workspace", "game-a", "--format", "json"})
+
+	if textCode != 0 {
+		t.Fatalf("phase status text exit code = %d, output = %q", textCode, textOut.String())
+	}
+	if jsonCode != 0 {
+		t.Fatalf("phase status json exit code = %d, stderr = %q", jsonCode, jsonErr.String())
+	}
+	for _, want := range []string{"workspace: game-a", "phase_count: 2", "open_phase: p3 [accepted] Project planning", "next_planned_phase: p4 [planned] Future phase", "can_start_next: false", "next_action: record_commit"} {
+		if !strings.Contains(textOut.String(), want) {
+			t.Fatalf("phase status text missing %q: %q", want, textOut.String())
+		}
+	}
+
+	payload := decodeJSONObject(t, jsonOut.Bytes())
+	assertJSONStringField(t, payload, "workspace", "game-a")
+	assertJSONNumberField(t, payload, "phase_count", 2)
+	assertJSONBoolField(t, payload, "can_start_next", false)
+	assertJSONStringField(t, payload, "next_action", taskstore.PhaseGateActionRecordCommit)
+	openPhase := assertJSONObjectField(t, payload, "open_phase")
+	assertJSONStringField(t, openPhase, "id", "p3")
+	nextPlanned := assertJSONObjectField(t, payload, "next_planned_phase")
+	assertJSONStringField(t, nextPlanned, "id", "p4")
 }
 
 func decodeJSONObject(t *testing.T, data []byte) map[string]any {
@@ -149,6 +190,21 @@ func assertJSONNumberField(t *testing.T, object map[string]any, field string, wa
 	}
 	if got != float64(want) {
 		t.Fatalf("JSON field %q = %s, want %d", field, fmt.Sprint(got), want)
+	}
+}
+
+func assertJSONBoolField(t *testing.T, object map[string]any, field string, want bool) {
+	t.Helper()
+	value, ok := object[field]
+	if !ok {
+		t.Fatalf("JSON object missing field %q: %#v", field, object)
+	}
+	got, ok := value.(bool)
+	if !ok {
+		t.Fatalf("JSON field %q = %T, want bool", field, value)
+	}
+	if got != want {
+		t.Fatalf("JSON field %q = %t, want %t", field, got, want)
 	}
 }
 

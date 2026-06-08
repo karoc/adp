@@ -338,6 +338,12 @@ func TestStoreEnforcesPhaseGateTransitions(t *testing.T) {
 	if _, err := store.AddPhase(context.Background(), PhaseAddRequest{ID: "p3", Title: "Phase three"}); err != nil {
 		t.Fatalf("AddPhase p3 returned error: %v", err)
 	}
+	if _, err := store.AddPhase(context.Background(), PhaseAddRequest{ID: "p4", Title: "Phase four"}); err != nil {
+		t.Fatalf("AddPhase p4 returned error: %v", err)
+	}
+	if _, err := store.StartPhase(context.Background(), "p4"); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("start p4 while p3 planned error = %v, want ErrPhaseInvalidTransition", err)
+	}
 
 	if _, err := store.RecordPhaseCommit(context.Background(), PhaseCommitRequest{ID: "p3", Hash: "abc123"}); !errors.Is(err, ErrPhaseInvalidTransition) {
 		t.Fatalf("commit before accept error = %v, want ErrPhaseInvalidTransition", err)
@@ -368,9 +374,6 @@ func TestStoreEnforcesPhaseGateTransitions(t *testing.T) {
 	if phase.Status != PhaseStatusActive || phase.Acceptance.Result != "failed" {
 		t.Fatalf("failed re-accept phase = %+v", phase)
 	}
-	if _, err := store.AddPhase(context.Background(), PhaseAddRequest{ID: "p4", Title: "Phase four"}); err != nil {
-		t.Fatalf("AddPhase p4 returned error: %v", err)
-	}
 	if _, err := store.StartPhase(context.Background(), "p4"); !errors.Is(err, ErrPhaseInvalidTransition) {
 		t.Fatalf("start p4 while p3 active error = %v, want ErrPhaseInvalidTransition", err)
 	}
@@ -396,6 +399,9 @@ func TestStoreEnforcesPhaseGateTransitions(t *testing.T) {
 	if phase.Status != PhaseStatusCommitted || phase.Push.Result != "failed" {
 		t.Fatalf("failed push phase = %+v", phase)
 	}
+	if _, err := store.StartPhase(context.Background(), "p4"); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("start p4 after failed p3 push error = %v, want ErrPhaseInvalidTransition", err)
+	}
 	phase, err = store.RecordPhasePush(context.Background(), PhasePushRequest{ID: "p3", Remote: "origin", Branch: "main", Result: "pushed"})
 	if err != nil {
 		t.Fatalf("pushed RecordPhasePush returned error: %v", err)
@@ -403,12 +409,15 @@ func TestStoreEnforcesPhaseGateTransitions(t *testing.T) {
 	if phase.Status != PhaseStatusPushed || phase.Push.Result != "pushed" {
 		t.Fatalf("pushed phase = %+v", phase)
 	}
-	phase, err = store.RecordPhasePush(context.Background(), PhasePushRequest{ID: "p3", Remote: "origin", Branch: "main", Result: "failed"})
-	if err != nil {
-		t.Fatalf("failed push after pushed returned error: %v", err)
+	if _, err := store.RecordPhasePush(context.Background(), PhasePushRequest{ID: "p3", Remote: "origin", Branch: "main", Result: "failed"}); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("failed push after pushed error = %v, want ErrPhaseInvalidTransition", err)
 	}
-	if phase.Status != PhaseStatusPushed || phase.Push.Result != "failed" {
-		t.Fatalf("failed push after pushed phase = %+v", phase)
+	got, err := store.GetPhase(context.Background(), "p3")
+	if err != nil {
+		t.Fatalf("GetPhase p3 returned error: %v", err)
+	}
+	if got.Status != PhaseStatusPushed || got.Push.Result != "pushed" {
+		t.Fatalf("successful push evidence was overwritten: %+v", got)
 	}
 	phase, err = store.StartPhase(context.Background(), "p4")
 	if err != nil {
@@ -416,6 +425,86 @@ func TestStoreEnforcesPhaseGateTransitions(t *testing.T) {
 	}
 	if phase.Status != PhaseStatusActive {
 		t.Fatalf("p4 status = %q, want active", phase.Status)
+	}
+}
+
+func TestStoreBlocksStartingEarlierPhaseWhenLaterPhaseIsOpen(t *testing.T) {
+	store := testStore(t)
+	now := store.now()
+	if err := store.savePhases(context.Background(), phaseFile{
+		Version: currentVersion,
+		Phases: []Phase{
+			{ID: "p3", Title: "Phase three", Status: PhaseStatusPlanned, Order: 1, CreatedAt: now, UpdatedAt: now},
+			{ID: "p4", Title: "Phase four", Status: PhaseStatusActive, Order: 2, CreatedAt: now, UpdatedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("save legacy phases returned error: %v", err)
+	}
+
+	if _, err := store.StartPhase(context.Background(), "p3"); !errors.Is(err, ErrPhaseInvalidTransition) {
+		t.Fatalf("start p3 while p4 active error = %v, want ErrPhaseInvalidTransition", err)
+	}
+	phases, err := store.ListPhases(context.Background())
+	if err != nil {
+		t.Fatalf("ListPhases returned error: %v", err)
+	}
+	if phases[0].Status != PhaseStatusPlanned || phases[1].Status != PhaseStatusActive {
+		t.Fatalf("phases changed after blocked start: %+v", phases)
+	}
+}
+
+func TestPhaseGateStatusReportsNextAction(t *testing.T) {
+	p3 := Phase{ID: "p3", Title: "Phase three", Status: PhaseStatusPlanned, Order: 1}
+	p4 := Phase{ID: "p4", Title: "Phase four", Status: PhaseStatusPlanned, Order: 2}
+
+	gate := PhaseGateStatus([]Phase{p4, p3})
+	if !gate.CanStartNext || gate.NextAction != PhaseGateActionStartNextPhase || gate.NextPlannedPhase == nil || gate.NextPlannedPhase.ID != "p3" {
+		t.Fatalf("planned gate = %+v", gate)
+	}
+
+	p3.Status = PhaseStatusActive
+	gate = PhaseGateStatus([]Phase{p4, p3})
+	if gate.CanStartNext || gate.NextAction != PhaseGateActionRecordAcceptance || gate.OpenPhase == nil || gate.OpenPhase.ID != "p3" {
+		t.Fatalf("active gate = %+v", gate)
+	}
+	if gate.NextPlannedPhase == nil || gate.NextPlannedPhase.ID != "p4" {
+		t.Fatalf("active gate next planned = %+v", gate)
+	}
+
+	p3.Status = PhaseStatusAccepted
+	gate = PhaseGateStatus([]Phase{p3, p4})
+	if gate.NextAction != PhaseGateActionRecordCommit {
+		t.Fatalf("accepted gate = %+v", gate)
+	}
+
+	p3.Status = PhaseStatusCommitted
+	gate = PhaseGateStatus([]Phase{p3, p4})
+	if gate.NextAction != PhaseGateActionRecordPush {
+		t.Fatalf("committed gate = %+v", gate)
+	}
+
+	p3.Status = PhaseStatusPushed
+	p3.Push = PushRecord{Remote: "origin", Branch: "main", Result: "failed"}
+	gate = PhaseGateStatus([]Phase{p3, p4})
+	if gate.CanStartNext || gate.NextAction != PhaseGateActionRecordPush || gate.OpenPhase == nil || gate.OpenPhase.ID != "p3" {
+		t.Fatalf("failed push gate = %+v", gate)
+	}
+
+	p3.Push.Result = "pushed"
+	gate = PhaseGateStatus([]Phase{p4, p3})
+	if !gate.CanStartNext || gate.NextAction != PhaseGateActionStartNextPhase || gate.NextPlannedPhase == nil || gate.NextPlannedPhase.ID != "p4" {
+		t.Fatalf("next planned gate = %+v", gate)
+	}
+
+	p3.Status = PhaseStatusPlanned
+	p3.Push = PushRecord{}
+	p4.Status = PhaseStatusActive
+	gate = PhaseGateStatus([]Phase{p4, p3})
+	if gate.CanStartNext || gate.NextAction != PhaseGateActionRecordAcceptance || gate.OpenPhase == nil || gate.OpenPhase.ID != "p4" {
+		t.Fatalf("legacy open gate = %+v", gate)
+	}
+	if gate.NextPlannedPhase == nil || gate.NextPlannedPhase.ID != "p3" {
+		t.Fatalf("legacy open gate next planned = %+v", gate)
 	}
 }
 

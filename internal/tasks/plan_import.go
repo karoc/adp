@@ -110,6 +110,7 @@ func (s *Store) preparePlanImport(req PlanImportRequest, phaseData phaseFile, ta
 
 	newPhases := make([]Phase, 0, len(req.Phases))
 	newPhaseIDs := map[string]struct{}{}
+	nextOrder := nextPhaseOrder(phaseData.Phases)
 	for _, input := range req.Phases {
 		id := strings.TrimSpace(input.ID)
 		title := strings.TrimSpace(input.Title)
@@ -130,10 +131,12 @@ func (s *Store) preparePlanImport(req PlanImportRequest, phaseData phaseFile, ta
 			ID:        id,
 			Title:     title,
 			Status:    PhaseStatusPlanned,
+			Order:     nextOrder,
 			Goal:      strings.TrimSpace(input.Goal),
 			CreatedAt: now,
 			UpdatedAt: now,
 		})
+		nextOrder++
 	}
 
 	knownPhases := map[string]struct{}{}

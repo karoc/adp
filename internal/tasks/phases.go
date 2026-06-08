@@ -34,6 +34,7 @@ func (s *Store) AddPhase(ctx context.Context, req PhaseAddRequest) (Phase, error
 			ID:        id,
 			Title:     title,
 			Status:    PhaseStatusPlanned,
+			Order:     nextPhaseOrder(data.Phases),
 			Goal:      strings.TrimSpace(req.Goal),
 			CreatedAt: now,
 			UpdatedAt: now,
@@ -91,7 +92,7 @@ func (s *Store) StartPhase(ctx context.Context, id string) (Phase, error) {
 			if data.Phases[i].Status != PhaseStatusPlanned && data.Phases[i].Status != PhaseStatusActive {
 				return fmt.Errorf("%w: phase %s with status %s cannot be started", ErrPhaseInvalidTransition, id, data.Phases[i].Status)
 			}
-			if blocker, ok := openPhase(data.Phases, id); ok {
+			if blocker, ok := phaseStartBlocker(data.Phases, id); ok {
 				return fmt.Errorf("%w: phase %s must be pushed before phase %s can start", ErrPhaseInvalidTransition, blocker.ID, id)
 			}
 			data.Phases[i].Status = PhaseStatusActive
@@ -183,9 +184,12 @@ func (s *Store) RecordPhasePush(ctx context.Context, req PhasePushRequest) (Phas
 		if strings.TrimSpace(phase.Commit.Hash) == "" {
 			return progressEvent{}, fmt.Errorf("%w: phase %s commit hash is required before push evidence", ErrPhaseInvalidTransition, phase.ID)
 		}
+		if phaseGateSatisfied(*phase) && !pushSucceeded(result) {
+			return progressEvent{}, fmt.Errorf("%w: phase %s already has successful push evidence", ErrPhaseInvalidTransition, phase.ID)
+		}
 		if pushSucceeded(result) {
 			phase.Status = PhaseStatusPushed
-		} else if phase.Status != PhaseStatusPushed {
+		} else {
 			phase.Status = PhaseStatusCommitted
 		}
 		phase.Push = PushRecord{

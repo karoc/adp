@@ -12,7 +12,7 @@ import (
 
 func (a *App) phase(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: adp phase <add|list|show|start|accept|commit|push>")
+		return errors.New("usage: adp phase <add|list|show|status|start|accept|commit|push>")
 	}
 
 	switch args[0] {
@@ -22,6 +22,8 @@ func (a *App) phase(ctx context.Context, args []string) error {
 		return a.phaseList(ctx, args[1:])
 	case "show":
 		return a.phaseShow(ctx, args[1:])
+	case "status":
+		return a.phaseStatus(ctx, args[1:])
 	case "start":
 		return a.phaseStart(ctx, args[1:])
 	case "accept":
@@ -94,6 +96,27 @@ func (a *App) phaseShow(ctx context.Context, args []string) error {
 		return writePlanningJSON(a.stdout, phaseOutput(phase))
 	}
 	a.printPhase(phase)
+	return nil
+}
+
+func (a *App) phaseStatus(ctx context.Context, args []string) error {
+	opts, err := parseWorkspaceOutputArgs(args, "adp phase status [--workspace <name>] [--format <text|json>]")
+	if err != nil {
+		return err
+	}
+	store, workspaceName, err := a.loadTaskStore(ctx, opts.workspace)
+	if err != nil {
+		return err
+	}
+	phases, err := store.ListPhases(ctx)
+	if err != nil {
+		return err
+	}
+	gate := taskstore.PhaseGateStatus(phases)
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, phaseGateOutput(workspaceName, gate))
+	}
+	a.printPhaseGate(workspaceName, gate)
 	return nil
 }
 
@@ -194,4 +217,21 @@ func (a *App) printPhase(phase taskstore.Phase) {
 	fmt.Fprintf(a.stdout, "push_result: %s\n", valueOrDash(phase.Push.Result))
 	fmt.Fprintf(a.stdout, "created_at: %s\n", formatEventTime(phase.CreatedAt))
 	fmt.Fprintf(a.stdout, "updated_at: %s\n", formatEventTime(phase.UpdatedAt))
+}
+
+func (a *App) printPhaseGate(workspaceName string, gate taskstore.PhaseGate) {
+	fmt.Fprintf(a.stdout, "workspace: %s\n", workspaceName)
+	fmt.Fprintf(a.stdout, "phase_count: %d\n", gate.PhaseCount)
+	fmt.Fprintf(a.stdout, "open_phase: %s\n", phaseGatePhaseSummary(gate.OpenPhase))
+	fmt.Fprintf(a.stdout, "next_planned_phase: %s\n", phaseGatePhaseSummary(gate.NextPlannedPhase))
+	fmt.Fprintf(a.stdout, "can_start_next: %t\n", gate.CanStartNext)
+	fmt.Fprintf(a.stdout, "next_action: %s\n", valueOrDash(gate.NextAction))
+	fmt.Fprintf(a.stdout, "reason: %s\n", valueOrDash(gate.Reason))
+}
+
+func phaseGatePhaseSummary(phase *taskstore.Phase) string {
+	if phase == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%s [%s] %s", phase.ID, phase.Status, phase.Title)
 }

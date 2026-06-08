@@ -25,6 +25,7 @@ type Phase struct {
 	ID         string            `yaml:"id"`
 	Title      string            `yaml:"title"`
 	Status     PhaseStatus       `yaml:"status"`
+	Order      int               `yaml:"order,omitempty"`
 	Goal       string            `yaml:"goal,omitempty"`
 	Acceptance AcceptanceRecord  `yaml:"acceptance,omitempty"`
 	Commit     CommitRecord      `yaml:"commit,omitempty"`

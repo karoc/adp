@@ -139,6 +139,16 @@ These checks do not replace manual real-agent acceptance for credentials, models
 - When adding scripts or release gates, document when they should run and what they do not validate.
 - Do not add Web/SaaS positioning.
 
+## Current Project Dogfooding
+
+ADP development uses ADP's own local planning ledger for P24 and later work. Treat the `adp` workspace as the execution source of truth:
+
+- Register each new implementation slice as a phase and prioritized tasks before starting it.
+- Keep the authoritative phase/task/progress records under `$ADP_HOME`; do not export planning state into the repository root as a normal workflow.
+- Use `adp tasks next --workspace adp --limit 0 --format json` and `adp phase status --workspace adp --format json` as local handoff snapshots for main-thread and sub-agent coordination.
+- Do not start a later phase until the current phase has passed validation, recorded acceptance, been committed, been pushed, and recorded commit plus push evidence.
+- Repository docs may summarize accepted behavior, but they are not the execution ledger.
+
 ## Phase Discipline
 
 After a planned phase slice is complete:

@@ -139,6 +139,7 @@ P9 task-manager smoke modularization 可以把共享 shell helpers 和 JSON repo
 - `adp phase add`
 - `adp phase list`
 - `adp phase show`
+- `adp phase status`
 - `adp phase start`
 - `adp phase accept`
 - `adp phase commit`
@@ -156,12 +157,13 @@ P9 task-manager smoke modularization 可以把共享 shell helpers 和 JSON repo
 - acceptance 或 gate records 能记录命令、结果、时间戳和失败证据。
 - commit records 能记录已验收阶段的 commit hash 和 branch。
 - push records 能记录 remote、branch 和 push 结果；commit 证据保存在同一个 phase record 中。
+- `adp phase status --format json` 输出只读 gate snapshot，包含 open phase、下一个 planned phase、下一步必需动作，以及下一阶段是否可以启动。
 - progress report 默认输出英文 Markdown，`--language zh-CN` 只作用于 Markdown，并在本地 JSONL events 中存在相应数据时包含 runtime session evidence。
 - `adp tasks next --format json` 输出只读 next-work snapshot，包含 workspace、planning source、snapshot 时间、task counts、status counts、请求的 limit、排序后的 candidates，以及存在 eligible work 时的 singular first-candidate `next` 值。
 - `adp progress report --format json` 输出机器可读的只读 handoff snapshot，包含 workspace、task 总数、phases、task counts、tasks、按优先级排序的 next work、phase evidence，以及在本地 JSONL event/session 数据存在时的最近 runtime session evidence。
 - JSON report 输出保持为跨工具解析 snapshot，不能创建单独的状态存储。
 - happy path 会在阶段被视为 pushed 前记录 acceptance、commit 和 push 证据。
-- lifecycle guard 检查会拒绝未通过验收前记录 commit、拒绝未记录 commit evidence 前记录 push，并在 phase ledger 存在时拒绝把任务分配到未知 phase。
+- lifecycle guard 检查会拒绝未通过验收前记录 commit、拒绝未记录 commit evidence 前记录 push、拒绝跳过更早 planned 或 unfinished phases，并在 phase ledger 存在时拒绝把任务分配到未知 phase。
 - next-work 和 report 生成不会追加 events、修改 task 或 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、推断 acceptance、关闭 task、恢复 provider 原生会话、同步 hosted tracker，或把 Markdown 或 JSON report 文件写入项目根目录。
 - 所有状态都留在临时 `$ADP_HOME` 下，不污染项目根目录。
 

@@ -139,6 +139,16 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 - 新增脚本或 release gate 时，必须说明运行时机和不覆盖的验收边界。
 - 不加入 Web/SaaS 定位。
 
+## 当前项目 Dogfooding
+
+ADP 自身开发从 P24 开始使用 ADP 自己的本地 planning ledger。把 `adp` workspace 视为执行状态事实源：
+
+- 每个新的实现切片开始前，先登记为 phase 和按优先级排序的 tasks。
+- 权威 phase/task/progress records 保存在 `$ADP_HOME` 下；正常流程中不要把 planning state 导出到仓库根目录。
+- 主线程和子 Agent 协作交接时，使用 `adp tasks next --workspace adp --limit 0 --format json` 和 `adp phase status --workspace adp --format json` 作为本地 snapshot。
+- 当前 phase 未通过验证、未记录验收、未提交、未推送、未记录 commit 和 push evidence 前，不启动后续 phase。
+- 仓库文档可以总结已验收行为，但不是执行 ledger。
+
 ## 阶段纪律
 
 一个规划阶段切片完成后：

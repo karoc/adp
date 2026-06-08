@@ -42,6 +42,7 @@ git diff --check
 - 阶段已经记录 gate 结果。
 - 已验收变更已经提交。
 - 该 commit 已推送到配置的远端分支。
+- 启动任何下一阶段前，本地 phase ledger 已记录 commit 和 push evidence。
 - 下一阶段没有混入同一个 commit。
 
 P3 phase gate 工作会把这条纪律转化为 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地记录。release evidence 应同时包含正向 lifecycle path，以及拒绝乱序 phase evidence 的本地 guards。
@@ -85,11 +86,11 @@ example workspace smoke 验证：
 - 通过复制后的示例执行 fake local agent 会记录 session history，并支持只读 restore planning。
 - 示例文档和发布声明有可执行路径支撑。
 
-`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口。它会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/next/show/update/claim/release/block/done`、`adp phase add/list/show/start/accept/commit/push`、`adp progress` 和 `adp progress report`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，next-work/report 生成保持只读，且没有 planning 或 report artifacts 写入真实项目根目录。
+`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口。它会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/next/show/update/claim/release/block/done`、`adp phase add/list/show/status/start/accept/commit/push`、`adp progress` 和 `adp progress report`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，next-work/report 生成保持只读，且没有 planning 或 report artifacts 写入真实项目根目录。
 
 P9 可以把共享 smoke helpers 和 JSON report validator 移到 `scripts/` 下的 helper files 中。这种拆分只是维护和 hardening 的实现细节；调用者仍然运行 `scripts/task-manager-smoke.sh`，release gate 仍然通过 `scripts/check-all.sh` 运行它。
 
-phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership、带 owner 校验的 release、task phase validation、acceptance 或 gate records、commit records、push records、lifecycle ordering guards，以及项目根目录污染防护。Go 测试还会覆盖 planning lock 行为、claim conflicts、lease expiry、terminal-task claim rejection、failed acceptance 和 failed push 语义。不要为尚不存在的命令添加 placeholder assertions。
+phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership、带 owner 校验的 release、task phase validation、acceptance 或 gate records、commit records、push records、只读 phase gate status snapshots、lifecycle ordering guards，以及项目根目录污染防护。它会断言 earlier phase 没有 successful pushed evidence 时不能启动 later phase，并在该 evidence 记录后可以启动 later phase。Go 测试还会覆盖 planning lock 行为、claim conflicts、lease expiry、terminal-task claim rejection、failed acceptance、failed push 语义和显式 phase ordering。不要为尚不存在的命令添加 placeholder assertions。
 
 `scripts/plan-intake-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，并用来自文件以及通过 `--file -` 从 stdin 传入的结构化 YAML 输入验证 `adp plan preview` 和 `adp plan apply`。它证明 preview 保持只读，apply 只写 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地 planning ledger，JSON 输出仍是 inspection format，fresh workspace 上的 invalid input 不会留下 planning 目录，staging failure 不会留下 partial phase/task/progress state，并且不会产生 runtime、Git、event log 或真实 project-root 副作用。
 
@@ -177,7 +178,7 @@ go test -count=1 ./test/e2e
 - license 文件和 PolyForm Noncommercial 定位没有被意外修改。
 - packaged CLI artifact 使用 version、commit 和 build-date ldflags 构建，且 `adp version` 报告符合预期。
 - README 和 focused docs 描述当前 CLI surface，且没有 Web、UI、SaaS、cloud sync、hosted tracker、hosted orchestration、automatic Git execution、automatic task closure、provider-native resume 或 project-root report export 偏移。
-- 活跃开发阶段在下一阶段开始前，已有 acceptance、commit 和 push 的本地证据。
+- 活跃开发阶段在下一阶段开始前，已有 acceptance、commit 和 successful push 的本地证据，并且 `adp phase status --workspace <name> --format json` 同意下一 planned phase 可以启动。
 - 任何声明的 real-agent compatibility 都有对应的 opt-in real CLI evidence，必要时还有手工交互式验收记录。
 
 ## 范围之外

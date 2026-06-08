@@ -16,7 +16,7 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Register workspaces that map project roots to ADP runtime configuration.
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
-- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show/restore-plan`, `adp runtime prune`, `adp enter`, `adp run`, and the local planning commands `adp tasks`, `adp phase`, `adp progress`, and `adp plan preview/apply`.
+- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show/restore-plan`, `adp runtime prune`, `adp enter`, `adp run`, and the local planning commands `adp tasks`, `adp phase`, `adp phase status`, `adp progress`, and `adp plan preview/apply`.
 - Write a local JSONL event log for future replay, session restore, inspection-only handoff evidence, and terminal-based multi-agent coordination.
 
 Phase 1 explicitly excludes:
@@ -585,21 +585,24 @@ Acceptance:
 - The command is read-only.
 - It must not claim tasks, mutate task status, change owners or leases, clear blockers, mutate phases, append events, create runtime directories, start agents, run Git, push, infer acceptance, close tasks, resume provider-native conversations, write files into the real project root, sync with hosted trackers, or maintain JSON as a second planning store.
 
-### `adp phase add|list|show|start|accept|commit|push`
+### `adp phase add|list|show|status|start|accept|commit|push`
 
 Behavior:
 
 - Stores workspace-scoped phase records under `$ADP_HOME/workspaces/<workspace>/planning`.
 - Tracks phase status, goal, acceptance command evidence, commit evidence, and push evidence.
+- Assigns an explicit local order to new phases and plan-imported phases so later phases cannot skip earlier planned or unfinished phases.
+- `adp phase status [--workspace <name>] [--format text|json]` prints a read-only gate snapshot with the open phase, next planned phase, whether the next phase can start, and the next required action.
 - Enforces phase lifecycle ordering: planned, active, accepted, committed, pushed.
-- Guards the phase process: acceptance before commit evidence, commit before push evidence, and pushed phase before starting the next phase.
+- Guards the phase process: acceptance before commit evidence, commit before push evidence, and successful pushed evidence for every earlier phase before starting a later phase.
 
 Acceptance:
 
 - Phase evidence is local ledger data, not Git automation.
 - `phase commit` records a commit hash and message but does not create the commit.
 - `phase push` records remote, branch, and result but does not run `git push`.
-- Later phases must not start until the current phase is accepted, committed, pushed, and recorded.
+- Later phases must not start until every earlier phase is accepted, committed, successfully pushed, and recorded.
+- `phase status` is read-only and must not mutate tasks, phases, events, runtime directories, Git, hosted services, or the real project root.
 
 ### `adp plan preview|apply [--workspace <name>] --file <path|-> [--format text|json]`
 
@@ -772,6 +775,7 @@ adp workspace remove game-renamed
 - `adp sessions list`, `adp sessions show`, and `adp sessions restore-plan` expose local session history and read-only restore planning derived from JSONL events.
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a Markdown planning/execution report to stdout by default, emits a read-only JSON handoff snapshot with `--format json`, includes recent local runtime session evidence when JSONL event/session data exists, and leaves planning state, Git state, runtime state, event logs, and the real project root unchanged.
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` prints a compact prioritized next-work snapshot to stdout, exposes a stable JSON contract for local tools, and leaves task state, phase state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
+- `adp phase status [--workspace <name>] [--format text|json]` prints a compact read-only phase gate snapshot to stdout, exposes a stable JSON contract for local tools, and leaves task state, phase state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
 - `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` accepts structured local planning input; preview stays read-only, apply writes only the local planning ledger under `$ADP_HOME`, and failed apply leaves no partial phase, task, or progress state.
 - `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
@@ -822,6 +826,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P21 taskstore maintainability split completed: `internal/tasks` core responsibilities are now separated into same-package store, task model, task lifecycle, task persistence, progress events, task ranking, phase model, phase lifecycle, phase persistence, and phase helper files. The split is mechanical and preserves public APIs, local ledger semantics, plan-import atomic staging, phase-gate lifecycle behavior, and runtime acceptance coverage while keeping all touched code files well below the 700-line cap.
 - P22 Phase 1 bilingual roadmap normalization completed: the English default roadmap and Simplified Chinese counterpart now share the same section tree, current command surface, directory responsibilities, local-first non-goals, validation gates, E2E expectations, and validate/accept/commit/push/record phase discipline.
 - P23 line pressure audit tooling completed: `scripts/check-file-lines.sh --audit` reports files at or above `LINE_PRESSURE_WARN_LINES`, defaulting to 600, and exits zero so split phases can be planned before the hard 700-line cap is breached. The required `scripts/check-file-lines.sh` hard gate and `scripts/check-all.sh` pass/fail semantics remain unchanged.
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18/P19/P20/P21 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
+- P24 phase gate status and ordering hardening completed: `adp phase status [--workspace <name>] [--format text|json]` exposes a read-only local gate snapshot, new phases carry explicit local order, phase start rejects skipped earlier planned or unfinished phases, and successful push evidence cannot be overwritten by failed push evidence.
+- Completed Phase 1 slices keep the same non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 
 Each phase slice must be validated, accepted, committed, pushed, and recorded before the next slice starts.

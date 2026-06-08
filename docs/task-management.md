@@ -22,6 +22,7 @@ The first task-management slice provides:
 - `adp phase add`
 - `adp phase list`
 - `adp phase show`
+- `adp phase status`
 - `adp phase start`
 - `adp phase accept`
 - `adp phase commit`
@@ -89,6 +90,18 @@ Each candidate uses the same task object shape as `adp tasks list --format json`
 
 The endpoint is read-only. It must not claim a task, update status, change owners or leases, clear blockers, mutate phases, append planning or runtime events, create runtime directories, start agents, run Git, infer acceptance, close tasks, write output files into the project root, sync with a hosted service, or maintain JSON output as a second planning store.
 
+## Phase Gate Status Scope
+
+P24 adds a read-only phase gate snapshot for local tools and terminal agents:
+
+- `adp phase status [--workspace <name>] [--format text|json]`
+
+The command reads the local phase ledger, identifies the earliest phase whose gate is not satisfied, reports any currently open phase, reports the next planned phase, tells whether another phase can start, and prints the next required action. The action is one of `record_acceptance`, `record_commit`, `record_push`, `start_next_phase`, or `plan_next_phase`.
+
+The snapshot is inspection only. It does not start phases, accept phases, record commit or push evidence, mutate tasks, append events, run Git, push, start agents, sync hosted trackers, or write planning files into the project root.
+
+Phase ordering is explicit for new phase records and plan imports. Existing phase records without an order keep their stable created-time and ID ordering for compatibility. A later phase cannot start until every earlier phase is satisfied, and a phase is satisfied only when it has successful pushed evidence recorded in the local phase ledger.
+
 ## Planning Intake Scope
 
 P14 adds local planning intake commands for deterministic, cross-tool phase/task input:
@@ -123,6 +136,7 @@ The Phase Gate MVP keeps using this local planning directory and extends it with
 
 - `tasks.yaml`: task list, status, priority, phase ID, owner, claim timestamp, and optional lease expiration.
 - `phases.yaml`: phase records, phase status, acceptance records, commit records, push records, and gate summary.
+- Phase records include a local order value for new phases so the gate can prevent skipping earlier planned or unfinished phases.
 - `.lock`: short-lived local planning mutation lock. It is created around task and phase writes, and stale lock files are removed after the configured stale age.
 - `progress.jsonl`: append-only audit events for task, phase, acceptance, commit, and push changes.
 
@@ -175,6 +189,7 @@ Record a phase and its gate evidence:
 
 ```bash
 adp phase add --workspace adp --goal "phase gate MVP" p3 "Project planning and execution progress"
+adp phase status --workspace adp
 adp phase start --workspace adp p3
 adp phase accept --workspace adp p3 --command "scripts/check-all.sh" --result passed --notes "local gate passed"
 adp phase commit --workspace adp p3 --hash <commit-hash> --message "Implement phase gate MVP"
@@ -182,6 +197,7 @@ adp phase push --workspace adp p3 --remote origin --branch main --result pushed
 adp phase show --workspace adp p3
 adp phase list --workspace adp --format json
 adp phase show --workspace adp p3 --format json
+adp phase status --workspace adp --format json
 ```
 
 Summarize progress:
@@ -213,6 +229,7 @@ adp tasks show --workspace adp <task-id> --format json
 adp tasks next --workspace adp --format json
 adp phase list --workspace adp --format json
 adp phase show --workspace adp <phase-id> --format json
+adp phase status --workspace adp --format json
 adp progress --workspace adp --format json
 adp progress report --workspace adp --format json
 ```
@@ -224,6 +241,7 @@ Cross-tool consumers should treat JSON output as a local snapshot for selecting 
 - Use `adp tasks next --format json` when a local tool needs a compact prioritized task-selection snapshot.
 - Use `adp tasks claim`, `adp tasks update`, `adp tasks done`, `adp tasks block`, or `adp tasks release` for task changes.
 - Use `adp phase start`, `adp phase accept`, `adp phase commit`, and `adp phase push` for phase transitions.
+- Use `adp phase status --format json` when a local tool needs to know whether the current phase needs acceptance, commit evidence, push evidence, or whether the next planned phase can start.
 - Do not infer acceptance from a passing command or close a task automatically without an explicit task or phase command.
 - Do not treat JSON output as permission to run Git, push changes, start the next phase, or modify the project root.
 
@@ -274,7 +292,7 @@ P3's phase gate work turns the task list into a phase-aware execution ledger tha
 
 The ledger makes these records explicit:
 
-- Phase records: ID, title, status, objective or goal, acceptance command list, commit evidence, push evidence, and latest gate outcome.
+- Phase records: ID, title, local order, status, objective or goal, acceptance command list, commit evidence, push evidence, and latest gate outcome.
 - Task claim records: task ID, owner, claimed timestamp, optional lease expiration, release evidence, and current ownership state.
 - Acceptance records: phase ID, command list, result, timestamp, and short evidence text.
 - Gate records: phase ID, gate status, required checks, and operator or agent notes when they are provided.
@@ -321,12 +339,13 @@ These records are local execution evidence. They should support handoff between 
 
 Lifecycle guards are enforced locally:
 
-- `phase start` keeps one open phase at a time. Another phase cannot start while an existing phase is `active`, `accepted`, or `committed`.
+- `phase start` follows phase order. A later phase cannot start while any earlier phase lacks successful pushed evidence, including earlier `planned`, `active`, `accepted`, or `committed` phases.
 - `phase accept --result passed` moves a phase to `accepted`.
 - `phase accept --result failed` records evidence and keeps or returns the phase to `active`.
 - `phase commit` requires `accepted` status and `acceptance.result == passed`.
 - `phase push` requires recorded commit evidence and a non-empty commit hash.
-- `phase push --result failed` records evidence without advancing the phase beyond its prior committed or pushed state.
+- `phase push --result failed` records evidence without advancing the phase beyond its prior committed state, and it cannot overwrite already recorded successful push evidence.
+- `phase status` summarizes the current gate without changing the ledger.
 - A phase is complete only after it reaches `pushed`.
 
 ## Runtime Binding
