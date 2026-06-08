@@ -93,6 +93,20 @@ func TestRunCommandBindsTaskContextToRuntimeEventsAndEnv(t *testing.T) {
 	if len(logged) != 2 || logged[0].TaskID != task.ID || logged[1].TaskID != task.ID {
 		t.Fatalf("logged task events = %+v", logged)
 	}
+	invocation, ok := logged[0].Fields["invocation"].(map[string]any)
+	if !ok {
+		t.Fatalf("run_started invocation fields = %#v", logged[0].Fields)
+	}
+	if invocation["schema_version"] != 1 || invocation["keep_runtime"] != false || invocation["workspace_resolution"] != "--workspace" {
+		t.Fatalf("invocation fields = %#v", invocation)
+	}
+	if args, ok := invocation["agent_args"].([]string); !ok || len(args) != 1 || args[0] != "--probe" {
+		t.Fatalf("invocation agent args = %#v", invocation["agent_args"])
+	}
+	taskSnapshot, ok := invocation["task_snapshot"].(map[string]any)
+	if !ok || taskSnapshot["id"] != task.ID || taskSnapshot["phase"] != "p1" {
+		t.Fatalf("invocation task snapshot = %#v", invocation["task_snapshot"])
+	}
 }
 
 func TestRunCommandRejectsMissingTaskBeforeRuntimeBuild(t *testing.T) {

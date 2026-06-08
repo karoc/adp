@@ -134,7 +134,10 @@ Inspect local history:
 adp events list --workspace game-a
 adp sessions list --workspace game-a
 adp sessions show <session-id>
+adp sessions restore-plan <session-id>
 ```
+
+`sessions restore-plan` prints a read-only suggested `adp run ...` command for a previous session when enough non-sensitive invocation data is available. It does not execute the command, launch an agent, append events, mutate task state, write to the real project root, or resume a provider-native conversation.
 
 Clean old ADP-owned runtime directories:
 

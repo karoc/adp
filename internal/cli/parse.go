@@ -314,6 +314,13 @@ func parseSessionsShowArgs(args []string) (string, error) {
 	return args[0], nil
 }
 
+func parseSessionsRestorePlanArgs(args []string) (string, error) {
+	if len(args) != 1 {
+		return "", errors.New("usage: adp sessions restore-plan <session-id>")
+	}
+	return args[0], nil
+}
+
 func parseRuntimePruneArgs(args []string) (runtimePruneOptions, error) {
 	opts := runtimePruneOptions{olderThan: 24 * time.Hour}
 	for i := 0; i < len(args); i++ {

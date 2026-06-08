@@ -26,6 +26,7 @@ Implemented Phase 1 foundations:
 - `adp events list [--workspace <name>] [--task <task-id>]`
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 - `adp sessions show <session-id>`
+- `adp sessions restore-plan <session-id>`
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 - `adp tasks add/list/show/update/claim/release/done/block`
 - `adp phase add/list/show/start/accept/commit/push`
@@ -66,6 +67,7 @@ go run ./cmd/adp run claude --workspace game-a
 go run ./cmd/adp events list --workspace game-a --task "$TASK_ID"
 go run ./cmd/adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
 go run ./cmd/adp sessions show <session-id>
+go run ./cmd/adp sessions restore-plan <session-id>
 go run ./cmd/adp runtime prune --older-than 24h --dry-run
 go run ./cmd/adp enter game-a
 ```
@@ -108,6 +110,8 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp sessions show <session-id>` prints the ordered events for one recorded session, including start, finish, workspace, agent, task ID, runtime path, exit code, and duration data when those fields are available.
 
+`adp sessions restore-plan <session-id>` reads one recorded session and prints a read-only suggested `adp run ...` command when enough non-sensitive invocation data is available. It does not execute the command, launch an agent, create a runtime, append events, change task state, write to the project root, or resume provider-native conversations. See [docs/session-restore.md](docs/session-restore.md).
+
 `adp workspace doctor [name]` validates workspace configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, agent command settings, and reserved project-root paths. It reports adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, and missing, ambiguous, or escaping non-default profiles as local diagnostics. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
 
 `adp doctor [workspace]` is the global diagnostics entry point for the same local workspace checks. It is intended for terminal workflows where diagnostics should be available without first entering the `workspace` command group.
@@ -139,6 +143,8 @@ Documentation defaults to English and must include Simplified Chinese counterpar
 Runtime smoke acceptance is documented in [docs/runtime-acceptance.md](docs/runtime-acceptance.md).
 
 Task management and P3 phase gate planning are documented in [docs/task-management.md](docs/task-management.md).
+
+Session restore planning is documented in [docs/session-restore.md](docs/session-restore.md).
 
 Real agent compatibility boundaries are documented in [docs/real-agent-compatibility.md](docs/real-agent-compatibility.md), release readiness is tracked in [docs/release-checklist.md](docs/release-checklist.md), and early preview packaging notes are in [docs/release-packaging.md](docs/release-packaging.md).
 

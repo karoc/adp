@@ -134,7 +134,10 @@ adp run claude --workspace game-a -- <agent-args>
 adp events list --workspace game-a
 adp sessions list --workspace game-a
 adp sessions show <session-id>
+adp sessions restore-plan <session-id>
 ```
+
+`sessions restore-plan` 会在非敏感 invocation 数据足够时，为历史 session 打印只读的建议 `adp run ...` 命令。它不会执行命令、启动 Agent、追加 events、修改 task 状态、写入真实项目根目录或恢复 provider 原生会话。
 
 清理旧的 ADP-owned runtime 目录：
 

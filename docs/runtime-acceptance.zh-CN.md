@@ -56,6 +56,7 @@ adp run codex --workspace game-a --task missing-task -- --probe codex-payload
 adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
 adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
+adp sessions restore-plan <session-id>
 adp runtime prune --older-than 0s --include-kept --dry-run
 adp runtime prune --older-than 0s --include-kept
 ```
@@ -84,6 +85,12 @@ fake Codex 和 Claude 命令会断言：
 - bash 和 zsh completion 脚本包含动态值端点调用。
 - `adp completion values workspaces` 从本地状态返回已注册 workspace 名称。
 - `adp completion values profiles --workspace <name>` 从 workspace 配置和 profile 文件中返回本地 profile 名称。
+
+脚本还会验收 session restore planning：
+
+- `adp events list --session <session-id> --task <task-id>` 可以查到 Codex session 的 task-bound `run_started` 和 `run_finished` events。
+- `adp sessions restore-plan <session-id>` 会打印只读的建议命令，并保留原始 agent arguments。
+- 运行 `restore-plan` 不会追加 event log、创建 runtime 状态、修改 task 状态或写入项目根目录。
 
 脚本还会检查缺失的 task ID 会在 fake agent 命令启动前失败。
 
@@ -169,6 +176,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 从 runtime root 启动 agent 命令。
 - 写入本地 JSONL event log。
 - 从本地 events 聚合 session history。
+- 基于非敏感 invocation snapshot 打印只读 session restore plan。
 - 为 parent-shell workflow 渲染 shell exports。
 - 为 bash 和 zsh 渲染 shell completion。
 - 为 workspace 和 profile 提供动态本地 completion 值端点。

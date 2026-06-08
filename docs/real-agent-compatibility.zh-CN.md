@@ -169,7 +169,10 @@ adp run claude --workspace real-agent-smoke -- <operator-safe-claude-args>
 adp events list --workspace real-agent-smoke
 adp sessions list --workspace real-agent-smoke
 adp sessions show <session-id>
+adp sessions restore-plan <session-id>
 ```
+
+即使对真实 Agent，`sessions restore-plan` 也保持只读。它可以基于本地 invocation metadata 建议一条相似的新 `adp run ...` 命令，但不会恢复 provider 原生 conversation，也不会执行建议命令。
 
 确认真实项目根目录保持干净：
 

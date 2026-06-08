@@ -16,7 +16,7 @@ ADP Phase 1 的产品核心是一个 terminal-first 的 Agent Runtime Environmen
 - 注册 workspace，保存真实项目根目录与 ADP runtime 配置的映射。
 - 为 Agent 构建临时 runtime overlay，让 Agent 在不污染真实项目目录的前提下看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等配置文件。
 - 提供 Claude Code CLI 与 Codex CLI 两个 adapter。
-- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show`、`adp runtime prune`、`adp enter`、`adp run`。
+- 支持 `adp init`、`adp workspace add/list/show/doctor/remove/rename`、`adp doctor`、`adp env`、`adp shell-hook`、`adp completion`、`adp completion values`、`adp version`、`adp events list`、`adp sessions list/show/restore-plan`、`adp runtime prune`、`adp enter`、`adp run`。
 - 记录本地 JSONL event log，为后续 replay、session restore、多 Agent 编排预留数据基础。
 
 Phase 1 明确不做：
@@ -119,7 +119,7 @@ adp/
 - `internal/adapters/claude`：Claude runtime 文件、环境变量、启动命令。
 - `internal/runner`：执行外部命令，处理 stdin/stdout/stderr、exit code、signal。
 - `internal/shell`：实现 `adp enter`、shell exports 渲染、parent-shell hook 渲染和 shell completion 渲染。
-- `internal/sessions`：把本地事件聚合为 session history summary 和 detail 视图。
+- `internal/sessions`：把本地事件聚合为 session history summary、detail 视图和只读 restore plan。
 - `internal/events`：JSONL event log 的写入和查询。
 
 ## 4. 本地数据布局
@@ -492,7 +492,7 @@ MVP adapter 输出：
 - 损坏 JSON 行返回带行号的明确错误。
 - `--limit` 返回最近 N 条匹配事件，并保持输出顺序为时间顺序。
 
-### `adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]`
+### `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 
 职责：
 
@@ -518,6 +518,19 @@ MVP adapter 输出：
 验收：
 
 - session 不存在时返回明确 not-found 错误。
+
+### `adp sessions restore-plan <session-id>`
+
+职责：
+
+- 当历史 session 中有足够的非敏感 invocation snapshot 数据时，打印只读的建议 `adp run ...` 命令。
+- 不执行建议命令、不启动 Agent、不创建 runtime 状态、不追加 events、不修改 task 状态、不写入项目根目录，也不恢复 provider 原生会话。
+
+验收：
+
+- invocation snapshot 足够时输出 ready plan 和 suggested command。
+- 旧 session 或不完整 event 数据输出 partial plan、missing fields 和 reasons。
+- 命令本身保持只读，不改变 event log、task state、runtime directories 或真实项目根目录。
 - 输出事件顺序与 log 中记录顺序一致。
 - 损坏 JSON 行与 `adp events list` 保持一致的错误行为。
 
@@ -579,7 +592,7 @@ $ADP_HOME/logs/events.jsonl
 - 写入失败不应导致 Agent 无法启动，但要给 stderr warning。
 - 每行一条完整 JSON，便于后续 streaming 和 grep。
 - `adp events list` 返回最近匹配事件时，输出顺序仍保持时间顺序。
-- `adp sessions list/show` 是同一本地 log 的只读视图，不能创建、修改或删除 runtime 状态。
+- `adp sessions list/show/restore-plan` 是同一本地 log 的只读视图，不能创建、修改或删除 runtime 状态。
 
 ## 10. 并行开发边界
 
@@ -689,6 +702,7 @@ cd /srv/game-a && adp run claude -- --version
 adp events list --workspace game-a --task <task-id>
 adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
+adp sessions restore-plan <session-id>
 adp runtime prune --older-than 24h --dry-run
 adp enter game-a
 adp workspace rename game-a game-renamed
@@ -706,7 +720,7 @@ adp workspace remove game-renamed
 - `adp completion` 能输出 `bash` 和 `zsh` 的稳定 completion，`adp completion values` 能返回本地 workspace 和 profile 候选值。
 - `adp version` 能输出 CLI build identity。
 - `adp events list` 能查询 run start/finish 历史。
-- `adp sessions list` / `show` 能从 event log 查询 session history。
+- `adp sessions list` / `show` / `restore-plan` 能从 event log 查询 session history 和只读 restore planning。
 - `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
 - `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
@@ -758,7 +772,7 @@ symlink overlay 与真实项目已有配置冲突：
 - P4 runtime manifest compatibility 已完成：runtime manifest 现在使用显式 manifest version，runtime smoke 会检查核心 manifest 字段，pruning 会跳过不兼容或自相矛盾的 manifest，而不是把每个 `generated_by: adp` 文件都当作可安全删除的证据。
 - P4 workspace runtime-parent diagnostics 已完成：workspace 和全局 doctor 现在会拒绝位于文件系统根目录、等于 project root、位于 project root 内部或包含 project root 的 runtime parent，并对 symlink runtime parent 发出 warning。
 - P4 agent command/profile diagnostics 已完成：workspace 和全局 doctor 现在会报告 project root 中的保留路径、adapter default command fallback、inline command arguments、缺失或不可执行的路径型 command wrapper、无效、缺失、重复、非文件或逃逸到 workspace 外部的非 default profile，以及 enabled 但未知的 agent 配置，并且不会运行 provider CLI。
-- P4 下一优先级：继续推进 session restore 设计和聚焦的 examples/docs polish，同时保持当前 terminal-first、local-first 边界。
+- P4 session restore foundation 已完成：`run_started` event 会记录非敏感 invocation snapshot，`adp sessions restore-plan <session-id>` 会输出只读建议命令，runtime 和 example smoke 会验收 session events、session history、restore-plan 不追加 events，以及 examples/docs polish。
 - P3/P4 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration 或远程 issue-service 集成。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

@@ -162,6 +162,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		ProjectRoot: cfg.Project.Root,
 		SessionID:   handle.SessionID,
 		TaskID:      taskCtx.ID,
+		Fields:      runInvocationFields(opts, profile, taskCtx),
 	})
 
 	spec, err := adapter.Launch(ctx, adapterCtx, *handle, opts.agentArgs)
@@ -231,6 +232,51 @@ func taskContext(task taskstore.Task) adapters.TaskContext {
 		Phase:         task.Phase,
 		Description:   task.Description,
 		BlockedReason: task.BlockedReason,
+	}
+}
+
+func runInvocationFields(opts runOptions, profile string, taskCtx adapters.TaskContext) map[string]any {
+	invocation := map[string]any{
+		"schema_version":       1,
+		"agent_args":           append([]string(nil), opts.agentArgs...),
+		"keep_runtime":         opts.keep,
+		"workspace_resolution": workspaceResolutionSource(opts),
+		"profile_source":       profileSource(opts, profile),
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		invocation["original_cwd"] = cwd
+	}
+	if !taskCtx.IsZero() {
+		invocation["task_snapshot"] = map[string]any{
+			"id":       taskCtx.ID,
+			"title":    taskCtx.Title,
+			"status":   taskCtx.Status,
+			"priority": taskCtx.Priority,
+			"phase":    taskCtx.Phase,
+		}
+	}
+	return map[string]any{"invocation": invocation}
+}
+
+func workspaceResolutionSource(opts runOptions) string {
+	switch {
+	case opts.workspace != "":
+		return "--workspace"
+	case os.Getenv("ADP_WORKSPACE") != "":
+		return "ADP_WORKSPACE"
+	default:
+		return "cwd"
+	}
+}
+
+func profileSource(opts runOptions, profile string) string {
+	switch {
+	case opts.profile != "":
+		return "--profile"
+	case profile != "":
+		return "workspace"
+	default:
+		return "default"
 	}
 }
 

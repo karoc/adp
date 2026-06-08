@@ -16,7 +16,7 @@ ADP Phase 1 is a terminal-first Agent Runtime Environment:
 - Register workspaces that map project roots to ADP runtime configuration.
 - Build temporary runtime overlays so agents can see generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/` without polluting the real project directory.
 - Provide Codex and Claude adapters.
-- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show`, `adp runtime prune`, `adp enter`, and `adp run`.
+- Support `adp init`, `adp workspace add/list/show/doctor/remove/rename`, `adp doctor`, `adp env`, `adp shell-hook`, `adp completion`, `adp completion values`, `adp version`, `adp events list`, `adp sessions list/show/restore-plan`, `adp runtime prune`, `adp enter`, and `adp run`.
 - Write a local JSONL event log for future replay, session restore, and multi-agent orchestration.
 
 Phase 1 explicitly excludes:
@@ -117,7 +117,7 @@ Package responsibilities:
 - `internal/adapters`: adapter contracts, registry, concrete Codex/Claude adapters, and shared rendering.
 - `internal/runner`: execute external commands with controlled cwd, env, and streams.
 - `internal/shell`: implement `adp enter`, shell export rendering, parent-shell hook rendering, and shell completion rendering.
-- `internal/sessions`: aggregate local events into session history summaries and detail views.
+- `internal/sessions`: aggregate local events into session history summaries, detail views, and read-only restore plans.
 - `internal/events`: append and query JSONL runtime events.
 - `test/e2e`: end-to-end CLI tests using fake agents.
 
@@ -328,13 +328,17 @@ Prints the local CLI build identity. Development builds may report `dev`; previe
 
 Reads `$ADP_HOME/logs/events.jsonl`, filters JSONL events, and prints recent matching events in a stable terminal table. Corrupted event log lines are reported with line numbers instead of being ignored.
 
-### `adp sessions list [--workspace <name>] [--agent <agent>] [--limit <n>]`
+### `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 
 Groups local event log records by `session_id` and prints recent session summaries. Empty session IDs are ignored. Workspace and agent filters should be applied before limiting, and the selected sessions should remain in chronological session-start order for terminal readability.
 
 ### `adp sessions show <session-id>`
 
 Prints the ordered events for one session. Missing sessions return a clear not-found error. The command is read-only and derives its data from the local JSONL event log.
+
+### `adp sessions restore-plan <session-id>`
+
+Prints a read-only suggested `adp run ...` command for a previous session when enough non-sensitive invocation snapshot data is available. The command must not execute the suggestion, launch an agent, create runtime state, append events, mutate task state, write to the project root, or resume provider-native conversations.
 
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
@@ -373,7 +377,7 @@ Constraints:
 - Event log write failures should warn on stderr but should not prevent agent startup.
 - One complete JSON object per line.
 - `adp events list` must return the most recent matching events while preserving chronological output order.
-- `adp sessions list/show` are read-only views over the same local log and must not create, mutate, or delete runtime state.
+- `adp sessions list/show/restore-plan` are read-only views over the same local log and must not create, mutate, or delete runtime state.
 
 ## 10. Parallel Development Boundaries
 
@@ -424,7 +428,7 @@ End-to-end expectations:
 - `adp completion` prints deterministic completion for `bash` and `zsh`, and `adp completion values` returns local workspace and profile candidates.
 - `adp version` reports the CLI build identity.
 - `adp events list` prints filtered run history from JSONL events.
-- `adp sessions list` and `adp sessions show` expose local session history derived from JSONL events.
+- `adp sessions list`, `adp sessions show`, and `adp sessions restore-plan` expose local session history and read-only restore planning derived from JSONL events.
 - `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
@@ -443,7 +447,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P4 runtime manifest compatibility completed: runtime manifests now use an explicit manifest version, runtime smoke checks core manifest fields, and pruning skips incompatible or self-inconsistent manifests instead of treating every `generated_by: adp` file as safe deletion evidence.
 - P4 workspace runtime-parent diagnostics completed: workspace and global doctor now reject runtime parents placed at the filesystem root, equal to the project root, inside the project root, or containing the project root, and warn on symlinked runtime parents.
 - P4 agent command/profile diagnostics completed: workspace and global doctor now report reserved project-root paths, adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, invalid, missing, ambiguous, not-file, or escaping non-default profiles, and unknown enabled agents without running provider CLIs.
-- P4 next priority: continue with session restore design and focused examples/docs polish while preserving the current terminal-first, local-first boundary.
+- P4 session restore foundation completed: `run_started` events now record non-sensitive invocation snapshots, `adp sessions restore-plan <session-id>` prints read-only suggested commands, and runtime plus example smoke cover session events, session history, restore-plan event-log immutability, and examples/docs polish.
 - P3/P4 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, or remote issue-service integration.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

@@ -55,6 +55,7 @@ fake runtime smoke 验证：
 - 通过 fake binary 覆盖 Codex 和 Claude adapter 启动路径。
 - event log 写入。
 - session history 查询。
+- 只读 session restore-plan 输出，包括原始 agent arguments，并且 inspection 不会修改 event log。
 - 通过 `adp workspace doctor` 和 `adp doctor` 提供 workspace diagnostics。
 - runtime parent safety diagnostics：fake smoke 覆盖 project-root overlap 拒绝路径，Go 测试覆盖文件系统根目录、包含 project root、symlink 和非目录风险。
 - agent command/profile diagnostics：fake smoke 覆盖 project root 中的保留路径、adapter default command fallback、inline command arguments、缺失的非 default profile、逃逸到 workspace 外部的 profile symlink，以及 enabled 但未知的 agent 配置；Go 测试覆盖缺失或不可执行的路径型 command wrapper 和重复 profile 文件。
@@ -67,13 +68,14 @@ fake runtime smoke 验证：
 - runtime manifest compatibility checks，确保 prune 只处理当前版本且结构自洽的 ADP runtime 目录。
 - 防止 runtime artifact 或 planning 文件污染真实项目根目录。
 
-`scripts/example-workspace-smoke.sh` 会构建当前 `cmd/adp` 二进制，把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，把复制后的 `project.root` 改写为临时项目，并用该示例验证 `adp init`、`workspace doctor`、`workspace show` 和 `env --cd`。
+`scripts/example-workspace-smoke.sh` 会构建当前 `cmd/adp` 二进制，把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，把复制后的 `project.root` 改写为临时项目，并用该示例验证 `adp init`、`workspace doctor`、`workspace show`、`env --cd`、fake Codex runtime launch、本地 events、sessions 和 restore-plan 输出。
 
 example workspace smoke 验证：
 
 - 发布的示例可以被复制使用，不依赖仓库本地状态。
 - 示例 workspace schema 与当前 CLI 保持兼容。
 - 临时项目根目录可以被链接进 kept runtime overlay。
+- 通过复制后的示例执行 fake local agent 会记录 session history，并支持只读 restore planning。
 - 示例文档和发布声明有可执行路径支撑。
 
 `scripts/task-manager-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，执行 `adp tasks add/list/show/update/claim/release/block/done`、`adp phase add/list/show/start/accept/commit/push` 和 `adp progress`，并验证 planning 文件写入 `$ADP_HOME/workspaces/<workspace>/planning`，而不是写入真实项目根目录。

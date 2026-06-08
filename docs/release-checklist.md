@@ -55,6 +55,7 @@ The fake runtime smoke verifies:
 - Codex and Claude adapter launch paths through fake binaries.
 - Event log writes.
 - Session history queries.
+- Read-only session restore-plan output, including original agent arguments and no event-log mutation from inspection.
 - Workspace diagnostics through `adp workspace doctor` and `adp doctor`.
 - Runtime parent safety diagnostics: fake smoke covers project-root overlap rejection, while Go tests cover filesystem-root, containing-project-root, symlink, and non-directory risks.
 - Agent command/profile diagnostics: fake smoke covers reserved project-root paths, adapter default command fallback, inline command arguments, missing non-default profiles, escaping profile symlinks, and unknown enabled agent entries; Go tests cover path-like missing or non-executable command wrappers and ambiguous profile files.
@@ -67,13 +68,14 @@ The fake runtime smoke verifies:
 - Runtime manifest compatibility checks that keep prune limited to current-version, self-consistent ADP runtime directories.
 - Protection against polluting the real project root with runtime artifacts or planning files.
 
-`scripts/example-workspace-smoke.sh` builds the current `cmd/adp` binary, copies `examples/basic-workspace` into a temporary `ADP_HOME`, rewrites the copied `project.root` to a temporary project, and verifies `adp init`, `workspace doctor`, `workspace show`, and `env --cd` against that copied example.
+`scripts/example-workspace-smoke.sh` builds the current `cmd/adp` binary, copies `examples/basic-workspace` into a temporary `ADP_HOME`, rewrites the copied `project.root` to a temporary project, and verifies `adp init`, `workspace doctor`, `workspace show`, `env --cd`, fake Codex runtime launch, local events, sessions, and restore-plan output against that copied example.
 
 The example workspace smoke verifies:
 
 - The published example can be copied without depending on repository-local state.
 - The example workspace schema remains compatible with the current CLI.
 - A temporary project root can be linked into a kept runtime overlay.
+- Fake local agent execution through the copied example records session history and supports read-only restore planning.
 - Example documentation and release claims stay connected to an executable path.
 
 `scripts/task-manager-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, exercises `adp tasks add/list/show/update/claim/release/block/done`, `adp phase add/list/show/start/accept/commit/push`, and `adp progress`, then verifies that planning files are written under `$ADP_HOME/workspaces/<workspace>/planning` instead of the real project root.

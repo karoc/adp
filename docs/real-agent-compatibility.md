@@ -169,7 +169,10 @@ After each run, inspect local ADP evidence:
 adp events list --workspace real-agent-smoke
 adp sessions list --workspace real-agent-smoke
 adp sessions show <session-id>
+adp sessions restore-plan <session-id>
 ```
+
+`sessions restore-plan` remains read-only for real agents too. It can suggest a similar new `adp run ...` command from local invocation metadata, but it does not resume the provider-native conversation or execute the suggested command.
 
 Confirm the real project root remains clean:
 

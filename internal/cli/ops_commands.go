@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -117,7 +118,7 @@ func (a *App) eventsList(ctx context.Context, args []string) error {
 
 func (a *App) sessions(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: adp sessions <list|show>")
+		return errors.New("usage: adp sessions <list|show|restore-plan>")
 	}
 
 	switch args[0] {
@@ -125,6 +126,8 @@ func (a *App) sessions(ctx context.Context, args []string) error {
 		return a.sessionsList(ctx, args[1:])
 	case "show":
 		return a.sessionsShow(ctx, args[1:])
+	case "restore-plan":
+		return a.sessionsRestorePlan(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown sessions command %q", args[0])
 	}
@@ -213,6 +216,29 @@ func (a *App) sessionsShow(ctx context.Context, args []string) error {
 	return writer.Flush()
 }
 
+func (a *App) sessionsRestorePlan(ctx context.Context, args []string) error {
+	sessionID, err := parseSessionsRestorePlanArgs(args)
+	if err != nil {
+		return err
+	}
+	if a.deps.GetSession == nil {
+		return errors.New("session reader is not configured")
+	}
+
+	detail, err := a.deps.GetSession(ctx, a.deps.Layout, sessionID)
+	if err != nil {
+		return err
+	}
+
+	plan := sessions.BuildRestorePlan(detail)
+	fmt.Fprintf(a.stdout, "session_id: %s\n", valueOrDash(plan.SessionID))
+	fmt.Fprintf(a.stdout, "status: %s\n", valueOrDash(plan.Status))
+	fmt.Fprintf(a.stdout, "suggested_command: %s\n", formatSuggestedCommand(plan.SuggestedCommand))
+	fmt.Fprintf(a.stdout, "missing_fields: %s\n", formatStringList(plan.MissingFields))
+	fmt.Fprintf(a.stdout, "reasons: %s\n", formatStringList(plan.Reasons))
+	return nil
+}
+
 func (a *App) runtime(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		return errors.New("usage: adp runtime <prune>")
@@ -296,4 +322,37 @@ func valueOrDash(value string) string {
 		return "-"
 	}
 	return value
+}
+
+func formatStringList(values []string) string {
+	if len(values) == 0 {
+		return "-"
+	}
+	return strings.Join(values, "; ")
+}
+
+func formatSuggestedCommand(args []string) string {
+	if len(args) == 0 {
+		return "-"
+	}
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		quoted = append(quoted, shellQuoteArg(arg))
+	}
+	return strings.Join(quoted, " ")
+}
+
+func shellQuoteArg(arg string) string {
+	if arg == "" {
+		return "''"
+	}
+	if strings.IndexFunc(arg, func(r rune) bool {
+		return !((r >= 'a' && r <= 'z') ||
+			(r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') ||
+			r == '_' || r == '-' || r == '.' || r == '/' || r == ':' || r == '=')
+	}) == -1 {
+		return arg
+	}
+	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
 }

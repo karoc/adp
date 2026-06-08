@@ -56,6 +56,7 @@ adp run codex --workspace game-a --task missing-task -- --probe codex-payload
 adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
 adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
+adp sessions restore-plan <session-id>
 adp runtime prune --older-than 0s --include-kept --dry-run
 adp runtime prune --older-than 0s --include-kept
 ```
@@ -84,6 +85,12 @@ The script also checks the local CLI hardening surface:
 - Bash and zsh completion scripts include dynamic value endpoint calls.
 - `adp completion values workspaces` returns registered workspace names from local state.
 - `adp completion values profiles --workspace <name>` returns local profile names from workspace configuration and profile files.
+
+The script also verifies session restore planning:
+
+- `adp events list --session <session-id> --task <task-id>` exposes the task-bound `run_started` and `run_finished` events for the Codex session.
+- `adp sessions restore-plan <session-id>` prints a read-only suggested command that includes the original agent arguments.
+- Running `restore-plan` does not append event log entries, create runtime state, change task state, or write to the project root.
 
 The script also checks that a missing task ID fails before the fake agent command is launched.
 
@@ -169,6 +176,7 @@ This smoke validates ADP's runtime responsibilities:
 - Agent command launch from the runtime root.
 - Local JSONL event logging.
 - Session history aggregation from local events.
+- Read-only session restore planning from non-sensitive invocation snapshots.
 - Shell export rendering for parent-shell workflows.
 - Shell completion rendering for bash and zsh.
 - Dynamic local completion value endpoints for workspaces and profiles.

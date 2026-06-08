@@ -368,6 +368,85 @@ func TestSessionsShowCommandReportsMissingSession(t *testing.T) {
 	}
 }
 
+func TestSessionsRestorePlanCommandPrintsReadOnlyPlan(t *testing.T) {
+	var stdout bytes.Buffer
+	var gotSessionID string
+
+	deps := Dependencies{
+		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
+			gotSessionID = sessionID
+			return &sessions.Detail{
+				Summary: sessions.Summary{
+					SessionID: "session-1",
+					Workspace: "game-a",
+					Agent:     "codex",
+					Profile:   "senior",
+					TaskID:    "task-1",
+				},
+				Events: []events.Event{{
+					Type: "run_started",
+					Fields: map[string]any{
+						"invocation": map[string]any{
+							"schema_version": 1,
+							"keep_runtime":   true,
+							"agent_args":     []any{"--probe", "payload value", "it's-ok"},
+						},
+					},
+				}},
+			}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"sessions", "restore-plan", "session-1"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if gotSessionID != "session-1" {
+		t.Fatalf("session id = %q", gotSessionID)
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		"session_id: session-1",
+		"status: ready",
+		"suggested_command: adp run codex --workspace game-a --profile senior --task task-1 --keep-runtime -- --probe 'payload value' 'it'\"'\"'s-ok'",
+		"missing_fields: -",
+		"restore-plan is read-only",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("restore-plan output missing %q: %q", want, output)
+		}
+	}
+}
+
+func TestSessionsRestorePlanCommandReportsMissingSession(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	var gotSessionID string
+
+	deps := Dependencies{
+		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
+			gotSessionID = sessionID
+			return nil, sessions.ErrNotFound
+		},
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{"sessions", "restore-plan", "missing"})
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if gotSessionID != "missing" {
+		t.Fatalf("session id = %q", gotSessionID)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "adp: session not found") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func TestRuntimePruneCommandRunsPrunerAndPrintsResults(t *testing.T) {
 	var stdout bytes.Buffer
 	var gotReq runtime.PruneRequest

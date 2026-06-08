@@ -38,6 +38,7 @@ Usage:
   adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]
 	  adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]
 	  adp sessions show <session-id>
+	  adp sessions restore-plan <session-id>
 	  adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]
 	  adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>
 	  adp tasks list [--workspace <name>]
