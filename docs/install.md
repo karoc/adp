@@ -109,7 +109,7 @@ adp workspace show game-a
 adp workspace doctor game-a
 ```
 
-`adp workspace doctor` checks local configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, and agent command settings. Fix doctor errors before running real agents.
+`adp workspace doctor` checks local configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, agent command settings, and reserved project-root paths. It reports adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, and missing, ambiguous, or escaping non-default profiles as local diagnostics. Fix doctor errors before running real agents; warning-only command/profile diagnostics do not prove or disprove real provider CLI authentication, network access, or model availability.
 
 ## Enter Or Run A Runtime
 

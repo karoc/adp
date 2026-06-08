@@ -108,7 +108,7 @@ Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 sym
 
 `adp sessions show <session-id>` 会输出某个已记录 session 的有序事件；如果事件包含 workspace、agent、task ID、runtime path、exit code 和 duration 等字段，也会一起展示。
 
-`adp workspace doctor [name]` 会检查 workspace 配置、project root 是否可访问、runtime parent 安全性、prompt、memory、MCP、profile 文件引用以及 agent command 设置。不传 name 时检查所有已注册 workspace；发现 error 级 diagnostics 时返回非零退出码。
+`adp workspace doctor [name]` 会检查 workspace 配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、agent command 设置，以及 project root 中的保留路径。它会把 adapter default command fallback、写在 command 字段里的 inline arguments、缺失或不可执行的路径型 command wrapper，以及缺失、重复或逃逸到 workspace 外部的非 default profile 报告为本地 diagnostics。不传 name 时检查所有已注册 workspace；发现 error 级 diagnostics 时返回非零退出码。
 
 `adp doctor [workspace]` 是同一组本地 workspace 检查的全局 diagnostics 入口。它适合需要在终端中直接运行 diagnostics、但不想先进入 `workspace` 命令组的工作流。
 

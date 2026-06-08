@@ -125,7 +125,7 @@ ADP_SMOKE_REAL_CODEX=1 ADP_SMOKE_CODEX_BIN=/path/to/codex scripts/runtime-smoke.
 ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smoke.sh --real-claude
 ```
 
-These checks only confirm that the external command exists and that a lightweight `--version` or `--help` invocation completes. They do not prove that a real interactive session can authenticate, select a model, reach a provider, or use external tools correctly.
+These checks only confirm that the external command exists and that a lightweight `--version` or `--help` invocation completes. Default doctor diagnostics remain static and local: they can flag command shape, wrapper path, profile, and reserved-path risks, but they do not run provider CLIs. Neither path proves that a real interactive session can authenticate, select a model, reach a provider, or use external tools correctly.
 
 ## Manual Acceptance Steps
 

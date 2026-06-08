@@ -109,7 +109,7 @@ adp workspace show game-a
 adp workspace doctor game-a
 ```
 
-`adp workspace doctor` 会检查本地配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用以及 agent command 设置。运行真实 Agent 前应先修复 doctor error。
+`adp workspace doctor` 会检查本地配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、agent command 设置，以及 project root 中的保留路径。它会把 adapter default command fallback、写在 command 字段里的 inline arguments、缺失或不可执行的路径型 command wrapper，以及缺失、重复或逃逸到 workspace 外部的非 default profile 报告为本地 diagnostics。运行真实 Agent 前应先修复 doctor error；warning-only command/profile diagnostics 不能证明或否定真实 provider CLI 的认证、网络访问或模型可用性。
 
 ## 进入或运行 Runtime
 

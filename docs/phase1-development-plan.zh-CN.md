@@ -352,7 +352,7 @@ MVP adapter 输出：
 职责：
 
 - 不传 name 时检查全部已注册 workspace；传 name 时只检查指定 workspace。
-- 检查 config load/validation、project root 是否可访问、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、路径逃逸和 agent command 默认值。
+- 检查 config load/validation、project root 是否可访问、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、路径逃逸、agent command 默认值、inline command arguments、路径型 command wrapper readiness、未知 enabled agent，以及 project root 中的保留路径。
 - 以稳定终端表格输出 diagnostics。
 
 验收：
@@ -757,7 +757,8 @@ symlink overlay 与真实项目已有配置冲突：
 - P3 planning coordination hardening 已完成：会用本地 lock 保护 planning 修改操作，task claim 会强制 owner conflict 和可选 lease，release 支持 owner 校验；phase ledger 存在后 task 会校验 phase ID；phase lifecycle guards 会强制 accept-before-commit、commit-before-push，以及 push-before-next-phase 纪律。
 - P4 runtime manifest compatibility 已完成：runtime manifest 现在使用显式 manifest version，runtime smoke 会检查核心 manifest 字段，pruning 会跳过不兼容或自相矛盾的 manifest，而不是把每个 `generated_by: adp` 文件都当作可安全删除的证据。
 - P4 workspace runtime-parent diagnostics 已完成：workspace 和全局 doctor 现在会拒绝位于文件系统根目录、等于 project root、位于 project root 内部或包含 project root 的 runtime parent，并对 symlink runtime parent 发出 warning。
-- P4 下一优先级：继续加强 agent command 和 profile diagnostics，同时保持当前 terminal-first、local-first 边界。候选切片包括 agent command readiness detail、profile consistency checks、reserved-path diagnostics、session restore 设计，以及聚焦的 examples/docs polish。
+- P4 agent command/profile diagnostics 已完成：workspace 和全局 doctor 现在会报告 project root 中的保留路径、adapter default command fallback、inline command arguments、缺失或不可执行的路径型 command wrapper、无效、缺失、重复、非文件或逃逸到 workspace 外部的非 default profile，以及 enabled 但未知的 agent 配置，并且不会运行 provider CLI。
+- P4 下一优先级：继续推进 session restore 设计和聚焦的 examples/docs polish，同时保持当前 terminal-first、local-first 边界。
 - P3/P4 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration 或远程 issue-service 集成。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

@@ -108,7 +108,7 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp sessions show <session-id>` prints the ordered events for one recorded session, including start, finish, workspace, agent, task ID, runtime path, exit code, and duration data when those fields are available.
 
-`adp workspace doctor [name]` validates workspace configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, and agent command settings. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
+`adp workspace doctor [name]` validates workspace configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, agent command settings, and reserved project-root paths. It reports adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, and missing, ambiguous, or escaping non-default profiles as local diagnostics. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
 
 `adp doctor [workspace]` is the global diagnostics entry point for the same local workspace checks. It is intended for terminal workflows where diagnostics should be available without first entering the `workspace` command group.
 

@@ -55,8 +55,9 @@ The fake runtime smoke verifies:
 - Codex and Claude adapter launch paths through fake binaries.
 - Event log writes.
 - Session history queries.
-- Workspace diagnostics.
-- Runtime parent safety diagnostics for filesystem-root, project-root overlap, symlink, and non-directory risks.
+- Workspace diagnostics through `adp workspace doctor` and `adp doctor`.
+- Runtime parent safety diagnostics: fake smoke covers project-root overlap rejection, while Go tests cover filesystem-root, containing-project-root, symlink, and non-directory risks.
+- Agent command/profile diagnostics: fake smoke covers reserved project-root paths, adapter default command fallback, inline command arguments, missing non-default profiles, escaping profile symlinks, and unknown enabled agent entries; Go tests cover path-like missing or non-executable command wrappers and ambiguous profile files.
 - Shell export rendering.
 - Bash and zsh completion rendering.
 - Dynamic completion value endpoints for local workspaces and profiles.
@@ -121,7 +122,7 @@ If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The
 
 If a task-bound runtime smoke step fails, inspect workspace resolution, task lookup under `$ADP_HOME/workspaces/<workspace>/planning`, generated task context in `AGENTS.md` or `CLAUDE.md`, `ADP_TASK_ID` in the runtime environment, and task IDs in events and sessions.
 
-If a diagnostics step fails, compare `adp doctor [workspace]` with `adp workspace doctor [name]` and inspect the local workspace registry, project root, `ADP_RUNTIME_DIR`, referenced prompts, memory files, MCP files, profile files, and agent command settings. For runtime parent failures, confirm `ADP_RUNTIME_DIR` is not the filesystem root, not equal to the project root, not inside the project root, not a parent directory containing the project root, not a file, and not an unintended symlink.
+If a diagnostics step fails, compare `adp doctor [workspace]` with `adp workspace doctor [name]` and inspect the local workspace registry, project root, `ADP_RUNTIME_DIR`, referenced prompts, memory files, MCP files, profile files, and agent command settings. For runtime parent failures, confirm `ADP_RUNTIME_DIR` is not the filesystem root, not equal to the project root, not inside the project root, not a parent directory containing the project root, not a file, and not an unintended symlink. For agent command/profile warnings, check whether the enabled agent has an adapter default, whether `command` contains inline arguments that should be passed after `--` or moved into a wrapper, whether path-like command wrappers exist and are executable, whether non-default profile files are missing or duplicated, and whether profile files escape the workspace through symlinks or path traversal.
 
 If a completion value step fails, inspect local workspace name discovery under `$ADP_HOME/workspaces`, `ADP_WORKSPACE` or `--workspace` resolution, workspace agent profiles, and files under the workspace `profiles/` directory. Completion value endpoints must stay read-only and local.
 

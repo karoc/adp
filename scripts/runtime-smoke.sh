@@ -220,6 +220,7 @@ run_real_cli_smoke() {
 run_fake_smoke() (
   local smoke_root="$TMP_ROOT/fake"
   local project_root="$smoke_root/project"
+  local diag_project_root="$smoke_root/diagnostics-project"
   local fake_bin="$smoke_root/bin"
   local adp_home="$smoke_root/adp-home"
   local runtime_dir="$smoke_root/runtime"
@@ -228,9 +229,11 @@ run_fake_smoke() (
   local completion_output zsh_completion_output workspace_values profile_values version_output events_output
   local codex_session sessions_output session_output prune_output invalid_output task_event_count
 
-  mkdir -p "$project_root" "$fake_bin" "$adp_home" "$runtime_dir"
+  mkdir -p "$project_root" "$diag_project_root" "$fake_bin" "$adp_home" "$runtime_dir"
   printf 'module example.com/adp-smoke\n' > "$project_root/go.mod"
   printf 'package main\n' > "$project_root/main.go"
+  printf 'module example.com/adp-diagnostics-smoke\n' > "$diag_project_root/go.mod"
+  printf 'package main\n' > "$diag_project_root/main.go"
 
   write_fake_agent "$fake_bin/codex" codex AGENTS.md .codex/config.toml go.mod
   write_fake_agent "$fake_bin/claude" claude CLAUDE.md .claude/settings.json main.go
@@ -269,6 +272,55 @@ run_fake_smoke() (
   output=$(run_adp "$REPO_ROOT" doctor)
   assert_contains "$output" "game-a" "doctor all output"
   assert_contains "$output" "ok" "doctor all output"
+
+  info "fake smoke: inspect agent diagnostics"
+  mkdir -p "$diag_project_root/.codex" "$diag_project_root/planning"
+  printf '# project agents\n' > "$diag_project_root/AGENTS.md"
+  printf 'runtime_root: %s\n' "$diag_project_root" > "$diag_project_root/.adp-runtime.yaml"
+  output=$(run_adp "$REPO_ROOT" workspace add diag-a "$diag_project_root")
+  assert_contains "$output" 'workspace "diag-a" added' "diagnostics workspace add output"
+  printf '# escaped profile\n' > "$smoke_root/escaped-profile.yaml"
+  rm -f "$adp_home/workspaces/diag-a/profiles/escaped-profile.yaml"
+  ln -s "$smoke_root/escaped-profile.yaml" "$adp_home/workspaces/diag-a/profiles/escaped-profile.yaml"
+  cat > "$adp_home/workspaces/diag-a/workspace.yaml" <<YAML
+version: 1
+workspace:
+  name: diag-a
+project:
+  root: $diag_project_root
+memory:
+  enabled: false
+prompts:
+  base: prompts/base.md
+mcp:
+  enabled: false
+agents:
+  codex:
+    enabled: true
+    profile: missing-profile
+    command: ""
+  claude:
+    enabled: true
+    profile: escaped-profile
+    command: claude
+  local:
+    enabled: true
+    profile: default
+    command: "codex --model test"
+YAML
+  output=$(run_adp "$REPO_ROOT" workspace doctor diag-a)
+  assert_contains "$output" "diag-a" "agent diagnostics output"
+  assert_contains "$output" "workspace.project.reserved_path.present" "agent diagnostics output"
+  assert_contains "$output" "workspace.agent.command.default" "agent diagnostics output"
+  assert_contains "$output" "workspace.agent.command.arguments" "agent diagnostics output"
+  assert_contains "$output" "workspace.agent.profile.missing" "agent diagnostics output"
+  assert_contains "$output" "workspace.agent.profile.outside_workspace" "agent diagnostics output"
+  assert_contains "$output" "workspace.agent.unknown" "agent diagnostics output"
+
+  output=$(run_adp "$REPO_ROOT" doctor diag-a)
+  assert_contains "$output" "diag-a" "global agent diagnostics output"
+  assert_contains "$output" "workspace.project.reserved_path.present" "global agent diagnostics output"
+  assert_contains "$output" "workspace.agent.profile.outside_workspace" "global agent diagnostics output"
 
   output=$(
     export ADP_RUNTIME_DIR="$project_root"

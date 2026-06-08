@@ -32,6 +32,8 @@ const (
 	DiagnosticCodeProjectRootMissing        = "workspace.project.root.missing"
 	DiagnosticCodeProjectRootStatFailed     = "workspace.project.root.stat_failed"
 	DiagnosticCodeProjectRootNotDirectory   = "workspace.project.root.not_directory"
+	DiagnosticCodeProjectRootReservedPath   = "workspace.project.reserved_path.present"
+	DiagnosticCodeProjectRootReservedStat   = "workspace.project.reserved_path.stat_failed"
 	DiagnosticCodePromptOutsideWorkspace    = "workspace.prompt.outside_workspace"
 	DiagnosticCodePromptMissing             = "workspace.prompt.missing"
 	DiagnosticCodePromptStatFailed          = "workspace.prompt.stat_failed"
@@ -46,9 +48,18 @@ const (
 	DiagnosticCodeMCPConfigMissing          = "workspace.mcp.config.missing"
 	DiagnosticCodeMCPConfigStatFailed       = "workspace.mcp.config.stat_failed"
 	DiagnosticCodeMCPConfigNotFile          = "workspace.mcp.config.not_file"
+	DiagnosticCodeAgentUnknown              = "workspace.agent.unknown"
 	DiagnosticCodeAgentCommandDefault       = "workspace.agent.command.default"
+	DiagnosticCodeAgentCommandArguments     = "workspace.agent.command.arguments"
+	DiagnosticCodeAgentCommandMissing       = "workspace.agent.command.missing"
+	DiagnosticCodeAgentCommandStatFailed    = "workspace.agent.command.stat_failed"
+	DiagnosticCodeAgentCommandNotExecutable = "workspace.agent.command.not_executable"
+	DiagnosticCodeAgentProfileInvalid       = "workspace.agent.profile.invalid"
 	DiagnosticCodeAgentProfileOutside       = "workspace.agent.profile.outside_workspace"
 	DiagnosticCodeAgentProfileMissing       = "workspace.agent.profile.missing"
+	DiagnosticCodeAgentProfileStatFailed    = "workspace.agent.profile.stat_failed"
+	DiagnosticCodeAgentProfileNotFile       = "workspace.agent.profile.not_file"
+	DiagnosticCodeAgentProfileAmbiguous     = "workspace.agent.profile.ambiguous"
 )
 
 type Diagnostic struct {
@@ -173,6 +184,7 @@ func diagnoseWorkspaceDir(ctx context.Context, name string, workspaceDir string,
 	}
 
 	checkProjectRoot(&report, cfg.Project.Root)
+	checkProjectReservedPaths(&report, cfg.Project.Root, cfg.Agents)
 	checkRuntimeParent(&report, runtimeParent, cfg.Project.Root)
 	checkWorkspaceFile(&report, fileCheck{
 		Label:        "base prompt",
@@ -208,7 +220,7 @@ func diagnoseWorkspaceDir(ctx context.Context, name string, workspaceDir string,
 			EmptyMessage: "MCP is enabled, but no MCP config path is configured",
 		})
 	}
-	if err := checkAgents(ctx, &report, cfg.Agents); err != nil {
+	if err := checkAgents(ctx, &report, cfg.Project.Root, cfg.Agents); err != nil {
 		return report, err
 	}
 	return report, nil
@@ -275,75 +287,6 @@ func checkWorkspaceFile(report *DiagnosticReport, check fileCheck) {
 	if inspection.Info.IsDir() {
 		report.add(DiagnosticLevelWarning, check.NotFileCode, fmt.Sprintf("configured %s path is a directory, not a file", check.Label), inspection.Path)
 	}
-}
-
-func checkAgents(ctx context.Context, report *DiagnosticReport, agents map[string]schema.AgentConfig) error {
-	names := make([]string, 0, len(agents))
-	for name := range agents {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		agent := agents[name]
-		if !agent.Enabled {
-			continue
-		}
-		if strings.TrimSpace(agent.Command) == "" {
-			level := DiagnosticLevelWarning
-			message := fmt.Sprintf("enabled agent %q has no command override; configure a command unless an adapter default is available", name)
-			if agentHasDefaultCommand(name) {
-				level = DiagnosticLevelInfo
-				message = fmt.Sprintf("enabled agent %q has no command override; adapter default command will be used", name)
-			}
-			report.add(level, DiagnosticCodeAgentCommandDefault, message, report.ConfigPath)
-		}
-		profile := strings.TrimSpace(agent.Profile)
-		if profile != "" && profile != "default" {
-			checkProfileFile(report, name, profile)
-		}
-	}
-	return nil
-}
-
-func agentHasDefaultCommand(name string) bool {
-	switch name {
-	case "codex", "claude":
-		return true
-	default:
-		return false
-	}
-}
-
-func checkProfileFile(report *DiagnosticReport, agentName string, profile string) {
-	candidates := profileCandidatePaths(profile)
-	var outsidePath string
-	for _, candidate := range candidates {
-		inspection := inspectWorkspacePath(report.WorkspaceDir, candidate)
-		if inspection.Outside {
-			if outsidePath == "" {
-				outsidePath = inspection.Path
-			}
-			continue
-		}
-		if inspection.Err == nil && !inspection.Info.IsDir() {
-			return
-		}
-	}
-
-	if outsidePath != "" {
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileOutside, fmt.Sprintf("profile %q for agent %q resolves outside the ADP workspace directory", profile, agentName), outsidePath)
-		return
-	}
-	report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileMissing, fmt.Sprintf("non-default profile %q for agent %q has no profile file", profile, agentName), profilePatternPath(report.WorkspaceDir, profile))
-}
-
-func profilePatternPath(workspaceDir string, profile string) string {
-	return filepath.Join(workspaceDir, "profiles", profile+".{md,yaml,yml,json}")
 }
 
 func workspaceFilePath(workspaceDir string, rel string) (string, bool) {

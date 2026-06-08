@@ -125,7 +125,7 @@ ADP_SMOKE_REAL_CODEX=1 ADP_SMOKE_CODEX_BIN=/path/to/codex scripts/runtime-smoke.
 ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smoke.sh --real-claude
 ```
 
-这些检查只确认外部命令存在，并且轻量的 `--version` 或 `--help` invocation 能完成。它们不能证明真实交互 session 可以完成认证、选择模型、访问 provider 或正确使用外部工具。
+这些检查只确认外部命令存在，并且轻量的 `--version` 或 `--help` invocation 能完成。默认 doctor diagnostics 仍然是静态且本地的：它们可以提示 command 形态、wrapper 路径、profile 和 reserved path 风险，但不会运行 provider CLI。两类路径都不能证明真实交互 session 可以完成认证、选择模型、访问 provider 或正确使用外部工具。
 
 ## 手工验收步骤
 

@@ -79,6 +79,7 @@ The fake Codex and Claude commands assert that:
 The script also checks the local CLI hardening surface:
 
 - `adp doctor [workspace]` reports the same workspace diagnostics as the workspace command group, works for one workspace or all registered workspaces, and the fake smoke exercises runtime parent rejection for project-root and inside-project-root values. Go tests cover the broader runtime parent guard set: filesystem root, project root, inside project root, containing project root, symlink warning, and non-directory paths.
+- The fake smoke also checks warning-only agent command/profile diagnostics through both doctor entry points: reserved project-root paths, adapter default command fallback, inline command arguments, missing non-default profiles, escaping profile symlinks, and unknown enabled agent entries. These diagnostics stay local and static; they do not run real provider CLIs.
 - `adp version` and `adp --version` print the CLI build identity without requiring network access or provider CLIs.
 - Bash and zsh completion scripts include dynamic value endpoint calls.
 - `adp completion values workspaces` returns registered workspace names from local state.
@@ -173,6 +174,7 @@ This smoke validates ADP's runtime responsibilities:
 - Dynamic local completion value endpoints for workspaces and profiles.
 - Global workspace diagnostics through `adp doctor`.
 - Runtime parent safety diagnostics through workspace and global doctor commands, covering filesystem root, project-root overlap, symlink warning, and non-directory cases.
+- Agent command/profile diagnostics through workspace and global doctor commands, covering adapter default fallback, inline command arguments, path-like command wrappers, missing or ambiguous profile files, profile path escapes, unknown enabled agents, and reserved project-root paths.
 - Local build identity output through `adp version`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
 - Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.

@@ -69,6 +69,40 @@ func TestDoctorCommandReturnsTwoWhenRuntimeParentDiagnosticsFail(t *testing.T) {
 	}
 }
 
+func TestDoctorCommandKeepsZeroForWarningDiagnostics(t *testing.T) {
+	store := &fakeStore{
+		diagnoseReport: workspace.DiagnosticReport{
+			Workspace:    "game-a",
+			WorkspaceDir: "/tmp/adp-home/workspaces/game-a",
+			Diagnostics: []workspace.Diagnostic{{
+				Level:   workspace.DiagnosticLevelWarning,
+				Code:    workspace.DiagnosticCodeAgentProfileAmbiguous,
+				Message: "profile matches multiple profile files",
+				Path:    "/tmp/adp-home/workspaces/game-a/profiles/senior.{md,yaml,yml,json}",
+			}},
+		},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &stderr).Execute(
+		context.Background(),
+		[]string{"doctor", "game-a"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	for _, want := range []string{"game-a", "warning", workspace.DiagnosticCodeAgentProfileAmbiguous, "/tmp/adp-home/workspaces/game-a/profiles/senior.{md,yaml,yml,json}"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("doctor output missing %q: %q", want, stdout.String())
+		}
+	}
+}
+
 func TestVersionCommandPrintsVersionMetadata(t *testing.T) {
 	withVersion("1.2.3", "abc123", "2026-06-08T00:00:00Z", func() {
 		var stdout bytes.Buffer

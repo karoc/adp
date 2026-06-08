@@ -78,6 +78,78 @@ func TestRegistryDiagnoseReportsConfiguredResourceIssues(t *testing.T) {
 	}
 }
 
+func TestRegistryDiagnoseReportsAgentCommandReadinessIssues(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+	projectRoot := createProject(t)
+
+	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
+	if err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+
+	binDir := filepath.Join(projectRoot, "bin")
+	if err := os.Mkdir(binDir, 0o755); err != nil {
+		t.Fatalf("create bin dir: %v", err)
+	}
+	notExecutable := filepath.Join(binDir, "not-executable")
+	writeFile(t, notExecutable, "#!/bin/sh\n")
+
+	codex := cfg.Agents["codex"]
+	codex.Command = "codex --model test"
+	cfg.Agents["codex"] = codex
+	claude := cfg.Agents["claude"]
+	claude.Command = "bin/missing-claude"
+	cfg.Agents["claude"] = claude
+	cfg.Agents["local"] = schema.AgentConfig{
+		Enabled: true,
+		Profile: "default",
+		Command: "bin/not-executable",
+	}
+	saveWorkspaceConfig(t, layout.WorkspaceConfig("game-a"), cfg)
+
+	report, err := registry.Diagnose(context.Background(), "game-a")
+	if err != nil {
+		t.Fatalf("Diagnose() error = %v", err)
+	}
+
+	assertDiagnostic(t, report, DiagnosticCodeAgentCommandArguments, DiagnosticLevelWarning, layout.WorkspaceConfig("game-a"))
+	assertDiagnostic(t, report, DiagnosticCodeAgentCommandMissing, DiagnosticLevelWarning, filepath.Join(projectRoot, "bin", "missing-claude"))
+	assertDiagnostic(t, report, DiagnosticCodeAgentCommandNotExecutable, DiagnosticLevelWarning, notExecutable)
+	assertDiagnostic(t, report, DiagnosticCodeAgentUnknown, DiagnosticLevelWarning, layout.WorkspaceConfig("game-a"))
+}
+
+func TestRegistryDiagnoseReportsProjectReservedPaths(t *testing.T) {
+	registry, _ := newTestRegistry(t)
+	projectRoot := createProject(t)
+	writeFile(t, filepath.Join(projectRoot, "AGENTS.md"), "# project agents\n")
+	writeFile(t, filepath.Join(projectRoot, "CLAUDE.md"), "# project claude\n")
+	if err := os.Mkdir(filepath.Join(projectRoot, ".codex"), 0o755); err != nil {
+		t.Fatalf("create .codex: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(projectRoot, "planning"), 0o755); err != nil {
+		t.Fatalf("create planning: %v", err)
+	}
+
+	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
+	if err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	claude := cfg.Agents["claude"]
+	claude.Enabled = false
+	cfg.Agents["claude"] = claude
+	saveWorkspaceConfig(t, registry.Layout.WorkspaceConfig("game-a"), cfg)
+
+	report, err := registry.Diagnose(context.Background(), "game-a")
+	if err != nil {
+		t.Fatalf("Diagnose() error = %v", err)
+	}
+
+	assertDiagnostic(t, report, DiagnosticCodeProjectRootReservedPath, DiagnosticLevelWarning, filepath.Join(projectRoot, "AGENTS.md"))
+	assertDiagnostic(t, report, DiagnosticCodeProjectRootReservedPath, DiagnosticLevelWarning, filepath.Join(projectRoot, ".codex"))
+	assertDiagnostic(t, report, DiagnosticCodeProjectRootReservedPath, DiagnosticLevelWarning, filepath.Join(projectRoot, "planning"))
+	assertNoDiagnosticPath(t, report, DiagnosticCodeProjectRootReservedPath, filepath.Join(projectRoot, "CLAUDE.md"))
+}
+
 func TestRegistryDiagnoseReportsSymlinkResourceEscapes(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
@@ -171,7 +243,7 @@ func TestRegistryDiagnoseAllowsSymlinkResourcesInsideWorkspace(t *testing.T) {
 	}
 }
 
-func TestRegistryDiagnoseReportsProfileDirectoryAsMissing(t *testing.T) {
+func TestRegistryDiagnoseReportsProfileDirectoryAsNotFile(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
 
@@ -195,7 +267,63 @@ func TestRegistryDiagnoseReportsProfileDirectoryAsMissing(t *testing.T) {
 		t.Fatalf("Diagnose() error = %v", err)
 	}
 
-	assertDiagnostic(t, report, DiagnosticCodeAgentProfileMissing, DiagnosticLevelWarning, filepath.Join(workspaceDir, "profiles", "senior.{md,yaml,yml,json}"))
+	assertDiagnostic(t, report, DiagnosticCodeAgentProfileNotFile, DiagnosticLevelWarning, profileDir)
+}
+
+func TestRegistryDiagnoseReportsProfileConsistencyIssues(t *testing.T) {
+	tests := []struct {
+		name    string
+		profile string
+		setup   func(t *testing.T, workspaceDir string)
+		code    string
+		path    func(workspaceDir string) string
+	}{
+		{
+			name:    "invalid-profile-name",
+			profile: "../senior",
+			code:    DiagnosticCodeAgentProfileInvalid,
+			path:    func(workspaceDir string) string { return filepath.Join(workspaceDir, "workspace.yaml") },
+		},
+		{
+			name:    "ambiguous-profile-files",
+			profile: "senior",
+			setup: func(t *testing.T, workspaceDir string) {
+				writeFile(t, filepath.Join(workspaceDir, "profiles", "senior.md"), "# senior\n")
+				writeFile(t, filepath.Join(workspaceDir, "profiles", "senior.yaml"), "profile: senior\n")
+			},
+			code: DiagnosticCodeAgentProfileAmbiguous,
+			path: func(workspaceDir string) string {
+				return filepath.Join(workspaceDir, "profiles", "senior.{md,yaml,yml,json}")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			registry, layout := newTestRegistry(t)
+			projectRoot := createProject(t)
+
+			cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
+			if err != nil {
+				t.Fatalf("Add() error = %v", err)
+			}
+			workspaceDir := layout.WorkspaceDir("game-a")
+			if tt.setup != nil {
+				tt.setup(t, workspaceDir)
+			}
+			codex := cfg.Agents["codex"]
+			codex.Profile = tt.profile
+			cfg.Agents["codex"] = codex
+			saveWorkspaceConfig(t, layout.WorkspaceConfig("game-a"), cfg)
+
+			report, err := registry.Diagnose(context.Background(), "game-a")
+			if err != nil {
+				t.Fatalf("Diagnose() error = %v", err)
+			}
+
+			assertDiagnostic(t, report, tt.code, DiagnosticLevelWarning, tt.path(workspaceDir))
+		})
+	}
 }
 
 func TestRegistryDiagnoseReportsWorkspaceDirectorySymlink(t *testing.T) {
@@ -309,22 +437,37 @@ func TestRegistryDiagnoseRespectsContextCancellation(t *testing.T) {
 func assertDiagnostic(t *testing.T, report DiagnosticReport, code string, level DiagnosticLevel, path string) {
 	t.Helper()
 
+	foundCode := false
 	for _, diagnostic := range report.Diagnostics {
 		if diagnostic.Code != code {
 			continue
 		}
+		foundCode = true
+		if diagnostic.Path != path {
+			continue
+		}
 		if diagnostic.Level != level {
 			t.Fatalf("diagnostic %s level = %q, want %q", code, diagnostic.Level, level)
-		}
-		if diagnostic.Path != path {
-			t.Fatalf("diagnostic %s path = %q, want %q", code, diagnostic.Path, path)
 		}
 		if diagnostic.Message == "" {
 			t.Fatalf("diagnostic %s message is empty", code)
 		}
 		return
 	}
+	if foundCode {
+		t.Fatalf("diagnostic %s found, but not with path %q in %+v", code, path, report.Diagnostics)
+	}
 	t.Fatalf("diagnostic %s not found in %+v", code, report.Diagnostics)
+}
+
+func assertNoDiagnosticPath(t *testing.T, report DiagnosticReport, code string, path string) {
+	t.Helper()
+
+	for _, diagnostic := range report.Diagnostics {
+		if diagnostic.Code == code && diagnostic.Path == path {
+			t.Fatalf("unexpected diagnostic %s with path %q in %+v", code, path, report.Diagnostics)
+		}
+	}
 }
 
 func reportByWorkspace(t *testing.T, reports []DiagnosticReport, workspace string) DiagnosticReport {

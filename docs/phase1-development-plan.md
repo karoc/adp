@@ -290,7 +290,7 @@ Prints operational details for one workspace, including project root, workspace 
 
 ### `adp workspace doctor [name]`
 
-Checks one workspace, or all registered workspaces when no name is supplied. Diagnostics cover config loading and validation, project root reachability, runtime parent safety, prompt, memory, MCP, profile file references, path escapes, and agent command defaults. Error-level diagnostics should be terminal-readable and return a non-zero process exit code.
+Checks one workspace, or all registered workspaces when no name is supplied. Diagnostics cover config loading and validation, project root reachability, runtime parent safety, prompt, memory, MCP, profile file references, path escapes, agent command defaults, inline command arguments, path-like command wrapper readiness, unknown enabled agents, and reserved project-root paths. Error-level diagnostics should be terminal-readable and return a non-zero process exit code; warning-only command/profile diagnostics should keep doctor exit code zero.
 
 ### `adp doctor [workspace]`
 
@@ -442,7 +442,8 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P3 planning coordination hardening completed: Mutating planning operations use a local lock, task claims enforce owner conflicts and optional leases, owner-checked release is available, tasks validate phase IDs once a phase ledger exists, and phase lifecycle guards enforce accept-before-commit, commit-before-push, and push-before-next-phase discipline.
 - P4 runtime manifest compatibility completed: runtime manifests now use an explicit manifest version, runtime smoke checks core manifest fields, and pruning skips incompatible or self-inconsistent manifests instead of treating every `generated_by: adp` file as safe deletion evidence.
 - P4 workspace runtime-parent diagnostics completed: workspace and global doctor now reject runtime parents placed at the filesystem root, equal to the project root, inside the project root, or containing the project root, and warn on symlinked runtime parents.
-- P4 next priority: strengthen agent command and profile diagnostics while preserving the current terminal-first, local-first boundary. Candidate slices include agent command readiness detail, profile consistency checks, reserved-path diagnostics, session restore design, and focused examples/docs polish.
+- P4 agent command/profile diagnostics completed: workspace and global doctor now report reserved project-root paths, adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, invalid, missing, ambiguous, not-file, or escaping non-default profiles, and unknown enabled agents without running provider CLIs.
+- P4 next priority: continue with session restore design and focused examples/docs polish while preserving the current terminal-first, local-first boundary.
 - P3/P4 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, or remote issue-service integration.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

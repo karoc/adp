@@ -55,8 +55,9 @@ fake runtime smoke 验证：
 - 通过 fake binary 覆盖 Codex 和 Claude adapter 启动路径。
 - event log 写入。
 - session history 查询。
-- workspace diagnostics。
-- 针对文件系统根目录、project-root overlap、symlink 和非目录风险的 runtime parent safety diagnostics。
+- 通过 `adp workspace doctor` 和 `adp doctor` 提供 workspace diagnostics。
+- runtime parent safety diagnostics：fake smoke 覆盖 project-root overlap 拒绝路径，Go 测试覆盖文件系统根目录、包含 project root、symlink 和非目录风险。
+- agent command/profile diagnostics：fake smoke 覆盖 project root 中的保留路径、adapter default command fallback、inline command arguments、缺失的非 default profile、逃逸到 workspace 外部的 profile symlink，以及 enabled 但未知的 agent 配置；Go 测试覆盖缺失或不可执行的路径型 command wrapper 和重复 profile 文件。
 - shell export 渲染。
 - bash 和 zsh completion 渲染。
 - 本地 workspace 和 profile 的动态 completion 值端点。
@@ -121,7 +122,7 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 task-bound runtime smoke 步骤失败，优先检查 workspace 解析、`$ADP_HOME/workspaces/<workspace>/planning` 下的 task lookup、`AGENTS.md` 或 `CLAUDE.md` 中生成的 task context、runtime 环境变量中的 `ADP_TASK_ID`，以及 events 和 sessions 中的 task ID。
 
-如果 diagnostics 步骤失败，对比 `adp doctor [workspace]` 和 `adp workspace doctor [name]`，并检查本地 workspace registry、project root、`ADP_RUNTIME_DIR`、引用的 prompt、memory、MCP、profile 文件和 agent command 设置。对于 runtime parent 失败，确认 `ADP_RUNTIME_DIR` 不是文件系统根目录、不等于 project root、不位于 project root 内部、不是包含 project root 的父目录、不是文件，也不是非预期的 symlink。
+如果 diagnostics 步骤失败，对比 `adp doctor [workspace]` 和 `adp workspace doctor [name]`，并检查本地 workspace registry、project root、`ADP_RUNTIME_DIR`、引用的 prompt、memory、MCP、profile 文件和 agent command 设置。对于 runtime parent 失败，确认 `ADP_RUNTIME_DIR` 不是文件系统根目录、不等于 project root、不位于 project root 内部、不是包含 project root 的父目录、不是文件，也不是非预期的 symlink。对于 agent command/profile warning，检查 enabled agent 是否有 adapter default、`command` 是否包含应该放到 `--` 之后或移入 wrapper 的 inline arguments、路径型 command wrapper 是否存在且可执行、非 default profile 文件是否缺失或重复，以及 profile 文件是否通过 symlink 或 path traversal 逃逸出 workspace。
 
 如果 completion value 步骤失败，检查 `$ADP_HOME/workspaces` 下的本地 workspace 名称发现、`ADP_WORKSPACE` 或 `--workspace` 解析、workspace agent profiles，以及 workspace `profiles/` 目录下的文件。completion value endpoints 必须保持只读和本地化。
 

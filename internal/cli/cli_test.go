@@ -186,6 +186,38 @@ func TestWorkspaceDoctorCommandReturnsTwoWhenDiagnosticsHaveErrors(t *testing.T)
 	}
 }
 
+func TestWorkspaceDoctorCommandKeepsZeroForWarningDiagnostics(t *testing.T) {
+	store := &fakeStore{
+		diagnoseReport: workspace.DiagnosticReport{
+			Workspace:    "game-a",
+			WorkspaceDir: "/tmp/adp-home/workspaces/game-a",
+			Diagnostics: []workspace.Diagnostic{{
+				Level:   workspace.DiagnosticLevelWarning,
+				Code:    workspace.DiagnosticCodeAgentCommandArguments,
+				Message: "agent command looks like it contains arguments",
+				Path:    "/tmp/adp-home/workspaces/game-a/workspace.yaml",
+			}},
+		},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &stderr).Execute(context.Background(), []string{"workspace", "doctor", "game-a"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{"game-a", "warning", workspace.DiagnosticCodeAgentCommandArguments, "/tmp/adp-home/workspaces/game-a/workspace.yaml"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("workspace doctor output missing %q: %q", want, output)
+		}
+	}
+}
+
 func TestWorkspaceDoctorCommandReturnsTwoWhenNamedRuntimeParentDiagnosticsFail(t *testing.T) {
 	store := &fakeStore{
 		diagnoseReport: workspace.DiagnosticReport{
