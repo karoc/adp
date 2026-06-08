@@ -86,7 +86,7 @@ func (r *Registry) Diagnose(ctx context.Context, name string) (DiagnosticReport,
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
-	return diagnoseWorkspaceDir(ctx, name, workspaceDir)
+	return diagnoseWorkspaceDir(ctx, name, workspaceDir, r.Layout.RuntimeParent)
 }
 
 func (r *Registry) DiagnoseAll(ctx context.Context) ([]DiagnosticReport, error) {
@@ -110,7 +110,7 @@ func (r *Registry) DiagnoseAll(ctx context.Context) ([]DiagnosticReport, error) 
 
 		name := entry.Name()
 		workspaceDir := filepath.Join(r.Layout.WorkspacesDir, name)
-		report, err := diagnoseWorkspaceDir(ctx, name, workspaceDir)
+		report, err := diagnoseWorkspaceDir(ctx, name, workspaceDir, r.Layout.RuntimeParent)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +131,7 @@ func (r *Registry) DiagnoseAll(ctx context.Context) ([]DiagnosticReport, error) 
 	return reports, nil
 }
 
-func diagnoseWorkspaceDir(ctx context.Context, name string, workspaceDir string) (DiagnosticReport, error) {
+func diagnoseWorkspaceDir(ctx context.Context, name string, workspaceDir string, runtimeParent string) (DiagnosticReport, error) {
 	report := DiagnosticReport{
 		Workspace:    name,
 		WorkspaceDir: workspaceDir,
@@ -173,6 +173,7 @@ func diagnoseWorkspaceDir(ctx context.Context, name string, workspaceDir string)
 	}
 
 	checkProjectRoot(&report, cfg.Project.Root)
+	checkRuntimeParent(&report, runtimeParent, cfg.Project.Root)
 	checkWorkspaceFile(&report, fileCheck{
 		Label:        "base prompt",
 		RelPath:      cfg.Prompts.Base,

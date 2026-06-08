@@ -35,6 +35,40 @@ func TestDoctorCommandDelegatesToWorkspaceDiagnostics(t *testing.T) {
 	}
 }
 
+func TestDoctorCommandReturnsTwoWhenRuntimeParentDiagnosticsFail(t *testing.T) {
+	store := &fakeStore{
+		diagnoseReport: workspace.DiagnosticReport{
+			Workspace:    "game-a",
+			WorkspaceDir: "/tmp/adp-home/workspaces/game-a",
+			Diagnostics: []workspace.Diagnostic{{
+				Level:   workspace.DiagnosticLevelError,
+				Code:    workspace.DiagnosticCodeRuntimeParentProjectRoot,
+				Message: "runtime parent must not be the project root",
+				Path:    "/srv/game-a",
+			}},
+		},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &stderr).Execute(
+		context.Background(),
+		[]string{"doctor", "game-a"},
+	)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	for _, want := range []string{"game-a", "error", workspace.DiagnosticCodeRuntimeParentProjectRoot, "/srv/game-a"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("doctor output missing %q: %q", want, stdout.String())
+		}
+	}
+}
+
 func TestVersionCommandPrintsVersionMetadata(t *testing.T) {
 	withVersion("1.2.3", "abc123", "2026-06-08T00:00:00Z", func() {
 		var stdout bytes.Buffer

@@ -148,7 +148,7 @@ adp/
 测试和开发必须支持：
 
 - `ADP_HOME` 覆盖默认 home。
-- `ADP_RUNTIME_DIR` 覆盖默认临时 runtime 根目录。
+- `ADP_RUNTIME_DIR` 覆盖默认 runtime parent 目录。
 
 仓库也包含 `examples/basic-workspace`，作为可复制的 workspace 配置示例，内含 base prompt、shared memory、MCP config 和 Codex/Claude profiles。它是 local-first workspace 配置的文档和测试材料，不是托管模板服务。
 
@@ -207,7 +207,7 @@ MVP 默认 backend：symlink materialization。
 运行时目录示例：
 
 ```txt
-${ADP_RUNTIME_DIR:-/tmp}/adp-runtime/
+${ADP_RUNTIME_DIR:-/tmp/adp-runtime}/
 └── game-a-20260608T120102-8f3a/
     ├── .adp-runtime.yaml
     ├── AGENTS.md
@@ -229,7 +229,7 @@ ${ADP_RUNTIME_DIR:-/tmp}/adp-runtime/
 - 默认在 `adp run` 结束后清理 runtime 目录。
 - 提供 `--keep-runtime` 便于调试。
 - 保留或过期的 runtime 目录可通过 `adp runtime prune` 检查和清理。
-- runtime prune 只删除包含 `.adp-runtime.yaml` 且 `generated_by: adp` 的 ADP runtime 目录。
+- runtime prune 只删除包含当前版本且结构自洽的 `.adp-runtime.yaml` 的直接子目录；manifest 必须包含 `generated_by: adp`、非空 workspace 和 session ID、绝对 `project_root`、与目录一致的 `runtime_root`，以及有效的 `created_at`。
 - 默认保留 `keep: true` 的 runtime，只有传入 `--include-kept` 才会纳入清理候选。
 
 后续 backend 预留：
@@ -352,7 +352,7 @@ MVP adapter 输出：
 职责：
 
 - 不传 name 时检查全部已注册 workspace；传 name 时只检查指定 workspace。
-- 检查 config load/validation、project root 是否可访问、prompt、memory、MCP、profile 文件引用、路径逃逸和 agent command 默认值。
+- 检查 config load/validation、project root 是否可访问、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、路径逃逸和 agent command 默认值。
 - 以稳定终端表格输出 diagnostics。
 
 验收：
@@ -526,13 +526,15 @@ MVP adapter 输出：
 职责：
 
 - 扫描 `$ADP_RUNTIME_DIR` 的直接子目录。
-- 只把包含 `.adp-runtime.yaml` 且 `generated_by: adp` 的目录视为 ADP-owned runtime。
-- 清理过期 runtime 目录。
+- 只把包含当前版本且结构自洽的 `.adp-runtime.yaml`，并且其中 `generated_by: adp`、非空 workspace 和 session ID、绝对 `project_root`、`runtime_root` 与目录一致、`created_at` 有效的目录视为 prune 候选。
+- 清理超过 `--older-than` 的 ADP-owned runtime 目录，默认跳过 `keep: true`，只有传入 `--include-kept` 才纳入候选。
 
 验收：
 
 - 默认跳过 `keep: true` 的 runtime。
+- `--include-kept` 会将 `keep: true` runtime 纳入候选。
 - `--dry-run` 只报告候选项，不删除。
+- 不兼容、格式错误、外部系统生成或自相矛盾的 manifest 会被跳过。
 - 删除目标只能是扫描到的 runtime 子目录，不能来自 manifest 中的 project root。
 
 ### `adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]`
@@ -706,7 +708,7 @@ adp workspace remove game-renamed
 - `adp events list` 能查询 run start/finish 历史。
 - `adp sessions list` / `show` 能从 event log 查询 session history。
 - `adp run --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
-- `adp runtime prune` 只报告或删除 ADP-owned runtime 目录。
+- `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
 - `adp workspace rename` / `remove` 只修改 ADP workspace registry。
 - `examples/basic-workspace` 保持为有效本地 workspace 示例，其中 Markdown prompt 和 memory 文件保持英文默认与简体中文 counterpart 配对。
 - runtime root 中存在 ADP 生成的 Agent 配置文件。
@@ -754,7 +756,8 @@ symlink overlay 与真实项目已有配置冲突：
 - P3 Phase Gate MVP 已完成：项目规划与执行进度管理现在具备 phase records、task claim 和 owner records、acceptance 或 gate records、commit records、push records，并已纳入 task-manager smoke。
 - P3 planning coordination hardening 已完成：会用本地 lock 保护 planning 修改操作，task claim 会强制 owner conflict 和可选 lease，release 支持 owner 校验；phase ledger 存在后 task 会校验 phase ID；phase lifecycle guards 会强制 accept-before-commit、commit-before-push，以及 push-before-next-phase 纪律。
 - P4 runtime manifest compatibility 已完成：runtime manifest 现在使用显式 manifest version，runtime smoke 会检查核心 manifest 字段，pruning 会跳过不兼容或自相矛盾的 manifest，而不是把每个 `generated_by: adp` 文件都当作可安全删除的证据。
-- P4 下一优先级：继续加强 workspace diagnostics，同时保持当前 terminal-first、local-first 边界。候选切片包括 reserved-path diagnostics、agent command readiness detail、profile consistency checks、session restore 设计，以及聚焦的 examples/docs polish。
+- P4 workspace runtime-parent diagnostics 已完成：workspace 和全局 doctor 现在会拒绝位于文件系统根目录、等于 project root、位于 project root 内部或包含 project root 的 runtime parent，并对 symlink runtime parent 发出 warning。
+- P4 下一优先级：继续加强 agent command 和 profile diagnostics，同时保持当前 terminal-first、local-first 边界。候选切片包括 agent command readiness detail、profile consistency checks、reserved-path diagnostics、session restore 设计，以及聚焦的 examples/docs polish。
 - P3/P4 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration 或远程 issue-service 集成。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

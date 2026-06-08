@@ -56,6 +56,7 @@ The fake runtime smoke verifies:
 - Event log writes.
 - Session history queries.
 - Workspace diagnostics.
+- Runtime parent safety diagnostics for filesystem-root, project-root overlap, symlink, and non-directory risks.
 - Shell export rendering.
 - Bash and zsh completion rendering.
 - Dynamic completion value endpoints for local workspaces and profiles.
@@ -120,7 +121,7 @@ If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The
 
 If a task-bound runtime smoke step fails, inspect workspace resolution, task lookup under `$ADP_HOME/workspaces/<workspace>/planning`, generated task context in `AGENTS.md` or `CLAUDE.md`, `ADP_TASK_ID` in the runtime environment, and task IDs in events and sessions.
 
-If a diagnostics step fails, compare `adp doctor [workspace]` with `adp workspace doctor [name]` and inspect the local workspace registry, project root, referenced prompts, memory files, MCP files, profile files, and agent command settings.
+If a diagnostics step fails, compare `adp doctor [workspace]` with `adp workspace doctor [name]` and inspect the local workspace registry, project root, `ADP_RUNTIME_DIR`, referenced prompts, memory files, MCP files, profile files, and agent command settings. For runtime parent failures, confirm `ADP_RUNTIME_DIR` is not the filesystem root, not equal to the project root, not inside the project root, not a parent directory containing the project root, not a file, and not an unintended symlink.
 
 If a completion value step fails, inspect local workspace name discovery under `$ADP_HOME/workspaces`, `ADP_WORKSPACE` or `--workspace` resolution, workspace agent profiles, and files under the workspace `profiles/` directory. Completion value endpoints must stay read-only and local.
 

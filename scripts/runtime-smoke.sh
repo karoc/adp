@@ -270,6 +270,18 @@ run_fake_smoke() (
   assert_contains "$output" "game-a" "doctor all output"
   assert_contains "$output" "ok" "doctor all output"
 
+  output=$(
+    export ADP_RUNTIME_DIR="$project_root"
+    run_adp_expect_fail "$REPO_ROOT" doctor game-a
+  )
+  assert_contains "$output" "workspace.runtime.parent.project_root" "doctor runtime parent output"
+
+  output=$(
+    export ADP_RUNTIME_DIR="$project_root/.adp-runtime-parent"
+    run_adp_expect_fail "$REPO_ROOT" workspace doctor game-a
+  )
+  assert_contains "$output" "workspace.runtime.parent.inside_project_root" "workspace doctor runtime parent output"
+
   version_output=$(run_adp "$REPO_ROOT" version)
   assert_contains "$version_output" "adp dev" "version output"
 

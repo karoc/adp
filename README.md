@@ -26,7 +26,7 @@ Implemented Phase 1 foundations:
 - `adp events list [--workspace <name>] [--task <task-id>]`
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 - `adp sessions show <session-id>`
-- `adp runtime prune [--older-than <duration>] [--dry-run]`
+- `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 - `adp tasks add/list/show/update/claim/release/done/block`
 - `adp phase add/list/show/start/accept/commit/push`
 - `adp progress [--workspace <name>]`
@@ -73,7 +73,7 @@ go run ./cmd/adp enter game-a
 Useful environment variables:
 
 - `ADP_HOME`: ADP home directory. Defaults to `~/.adp`.
-- `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`.
+- `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`. Do not point it at the filesystem root, a project root, a directory inside a project root, or a directory that contains the project root. Prefer a direct local directory; symlink runtime parents are reported as warnings by doctor commands.
 - `ADP_WORKSPACE`: default workspace for commands that accept a workspace.
 - `ADP_TASK_ID`, `ADP_TASK_TITLE`, `ADP_TASK_STATUS`, `ADP_TASK_PRIORITY`, and `ADP_TASK_PHASE`: available inside runtimes launched with `adp run --task <task-id>`.
 
@@ -108,13 +108,13 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp sessions show <session-id>` prints the ordered events for one recorded session, including start, finish, workspace, agent, task ID, runtime path, exit code, and duration data when those fields are available.
 
-`adp workspace doctor [name]` validates workspace configuration, project root reachability, referenced prompt, memory, MCP, and profile files, and agent command settings. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
+`adp workspace doctor [name]` validates workspace configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, and agent command settings. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
 
 `adp doctor [workspace]` is the global diagnostics entry point for the same local workspace checks. It is intended for terminal workflows where diagnostics should be available without first entering the `workspace` command group.
 
 `adp version` and `adp --version` print the CLI build identity. Packaged binaries can inject version, commit, and build-date values at build time; development builds fall back to `dev`.
 
-`adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered ADP-owned only when it contains `.adp-runtime.yaml` with `generated_by: adp`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
+`adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered pruneable only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp` and a matching `runtime_root`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
 `adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. `adp run --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
 

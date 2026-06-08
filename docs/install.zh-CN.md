@@ -77,7 +77,7 @@ go install github.com/karoc/adp/cmd/adp@<version>
 ADP 可以使用默认值运行，但以下变量对本地 bootstrap 和可复验测试很有用：
 
 - `ADP_HOME`：ADP home 目录，默认 `~/.adp`。Workspace 配置位于 `$ADP_HOME/workspaces`，本地事件日志位于 `$ADP_HOME/logs`。
-- `ADP_RUNTIME_DIR`：临时 runtime overlay 的父目录，默认是系统临时目录下的 `adp-runtime`。
+- `ADP_RUNTIME_DIR`：临时 runtime overlay 的父目录，默认是系统临时目录下的 `adp-runtime`。不要把它指向文件系统根目录、project root、project root 内部目录，或包含 project root 的父目录。优先使用直接的本地目录；symlink runtime parent 会被 `adp doctor` 和 `adp workspace doctor` 作为 warning 报告。
 - `ADP_WORKSPACE`：接受 workspace 的命令所使用的默认 workspace。`adp run` 会先使用 `--workspace`，其次使用 `ADP_WORKSPACE`，最后在当前目录位于已注册 project root 内时尝试匹配。
 
 如果需要隔离验证，可以使用临时目录：
@@ -109,7 +109,7 @@ adp workspace show game-a
 adp workspace doctor game-a
 ```
 
-`adp workspace doctor` 会检查本地配置、project root 可访问性、prompt、memory、MCP、profile 文件引用以及 agent command 设置。运行真实 Agent 前应先修复 doctor error。
+`adp workspace doctor` 会检查本地配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用以及 agent command 设置。运行真实 Agent 前应先修复 doctor error。
 
 ## 进入或运行 Runtime
 

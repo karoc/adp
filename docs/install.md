@@ -77,7 +77,7 @@ Use an explicit version for repeatable installs.
 ADP can run with defaults, but these variables are useful for local bootstrap and repeatable testing:
 
 - `ADP_HOME`: ADP home directory. Defaults to `~/.adp`. Workspace configs live under `$ADP_HOME/workspaces`, and local event logs live under `$ADP_HOME/logs`.
-- `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`.
+- `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`. Do not point it at the filesystem root, a project root, a directory inside a project root, or a directory that contains the project root. Prefer a direct local directory; symlink runtime parents are reported as warnings by `adp doctor` and `adp workspace doctor`.
 - `ADP_WORKSPACE`: default workspace for commands that accept a workspace. `adp run` resolves the workspace from `--workspace`, then `ADP_WORKSPACE`, then the current directory if it is inside a registered project root.
 
 For isolated validation, use temporary directories:
@@ -109,7 +109,7 @@ adp workspace show game-a
 adp workspace doctor game-a
 ```
 
-`adp workspace doctor` checks local configuration, project root reachability, referenced prompt, memory, MCP, and profile files, and agent command settings. Fix doctor errors before running real agents.
+`adp workspace doctor` checks local configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, and agent command settings. Fix doctor errors before running real agents.
 
 ## Enter Or Run A Runtime
 

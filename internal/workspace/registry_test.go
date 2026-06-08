@@ -382,7 +382,9 @@ func newTestRegistry(t *testing.T) (*Registry, paths.Layout) {
 	})
 
 	adpHome := filepath.Join(t.TempDir(), "adp-home")
+	runtimeParent := filepath.Join(t.TempDir(), "runtime-parent")
 	t.Setenv(paths.EnvHome, adpHome)
+	t.Setenv(paths.EnvRuntimeDir, runtimeParent)
 
 	layout, err := paths.FromEnv()
 	if err != nil {
@@ -390,6 +392,9 @@ func newTestRegistry(t *testing.T) (*Registry, paths.Layout) {
 	}
 	if layout.Home != adpHome {
 		t.Fatalf("layout home = %q, want %q", layout.Home, adpHome)
+	}
+	if layout.RuntimeParent != runtimeParent {
+		t.Fatalf("runtime parent = %q, want %q", layout.RuntimeParent, runtimeParent)
 	}
 
 	return NewRegistry(layout), layout

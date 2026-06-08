@@ -227,7 +227,7 @@ Design choices:
 - The real project root is never modified.
 - Runtime directories are cleaned after `adp run` and `adp enter` unless `--keep-runtime` is set.
 - Kept or stale runtime directories can be inspected and removed with `adp runtime prune`.
-- Runtime pruning only deletes ADP-owned runtime directories that contain `.adp-runtime.yaml` with `generated_by: adp`.
+- Runtime pruning only deletes direct child directories that contain a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp`, non-empty workspace and session IDs, an absolute `project_root`, a matching `runtime_root`, and a valid `created_at`.
 - Kept runtimes are preserved by default and are pruned only when `--include-kept` is passed.
 
 Reserved future backends:
@@ -290,7 +290,7 @@ Prints operational details for one workspace, including project root, workspace 
 
 ### `adp workspace doctor [name]`
 
-Checks one workspace, or all registered workspaces when no name is supplied. Diagnostics cover config loading and validation, project root reachability, prompt, memory, MCP, profile file references, path escapes, and agent command defaults. Error-level diagnostics should be terminal-readable and return a non-zero process exit code.
+Checks one workspace, or all registered workspaces when no name is supplied. Diagnostics cover config loading and validation, project root reachability, runtime parent safety, prompt, memory, MCP, profile file references, path escapes, and agent command defaults. Error-level diagnostics should be terminal-readable and return a non-zero process exit code.
 
 ### `adp doctor [workspace]`
 
@@ -338,7 +338,7 @@ Prints the ordered events for one session. Missing sessions return a clear not-f
 
 ### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 
-Scans `$ADP_RUNTIME_DIR` for direct child directories containing an ADP runtime manifest. It removes stale ADP-owned runtime directories, never the real project root. `--dry-run` reports candidates without deleting, and kept runtimes require `--include-kept`.
+Scans direct child directories under `$ADP_RUNTIME_DIR`. A directory becomes a prune candidate only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp`, non-empty workspace and session IDs, an absolute `project_root`, a matching `runtime_root`, and a valid `created_at`. The command removes ADP-owned runtime directories older than `--older-than`, skips `keep: true` by default unless `--include-kept` is passed, reports candidates without deleting when `--dry-run` is set, skips incompatible or self-inconsistent manifests, and never removes a target derived from the manifest project root.
 
 ### `adp run <agent> [--workspace <name>] [--profile <profile>] [--keep-runtime] [-- <agent-args>...]`
 
@@ -425,7 +425,7 @@ End-to-end expectations:
 - `adp version` reports the CLI build identity.
 - `adp events list` prints filtered run history from JSONL events.
 - `adp sessions list` and `adp sessions show` expose local session history derived from JSONL events.
-- `adp runtime prune` reports and removes only ADP-owned runtime directories.
+- `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
 - Fake agent tests can assert cwd, env, generated files, symlinks, args, exit code, logs, and cleanup.
@@ -441,7 +441,8 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P3 Phase Gate MVP completed: Project planning and execution progress management now has phase records, task claim and owner records, acceptance or gate records, commit records, push records, and task-manager smoke coverage.
 - P3 planning coordination hardening completed: Mutating planning operations use a local lock, task claims enforce owner conflicts and optional leases, owner-checked release is available, tasks validate phase IDs once a phase ledger exists, and phase lifecycle guards enforce accept-before-commit, commit-before-push, and push-before-next-phase discipline.
 - P4 runtime manifest compatibility completed: runtime manifests now use an explicit manifest version, runtime smoke checks core manifest fields, and pruning skips incompatible or self-inconsistent manifests instead of treating every `generated_by: adp` file as safe deletion evidence.
-- P4 next priority: strengthen workspace diagnostics while preserving the current terminal-first, local-first boundary. Candidate slices include reserved-path diagnostics, agent command readiness detail, profile consistency checks, session restore design, and focused examples/docs polish.
+- P4 workspace runtime-parent diagnostics completed: workspace and global doctor now reject runtime parents placed at the filesystem root, equal to the project root, inside the project root, or containing the project root, and warn on symlinked runtime parents.
+- P4 next priority: strengthen agent command and profile diagnostics while preserving the current terminal-first, local-first boundary. Candidate slices include agent command readiness detail, profile consistency checks, reserved-path diagnostics, session restore design, and focused examples/docs polish.
 - P3/P4 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, or remote issue-service integration.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

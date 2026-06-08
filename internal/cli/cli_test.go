@@ -186,6 +186,41 @@ func TestWorkspaceDoctorCommandReturnsTwoWhenDiagnosticsHaveErrors(t *testing.T)
 	}
 }
 
+func TestWorkspaceDoctorCommandReturnsTwoWhenNamedRuntimeParentDiagnosticsFail(t *testing.T) {
+	store := &fakeStore{
+		diagnoseReport: workspace.DiagnosticReport{
+			Workspace:    "game-a",
+			WorkspaceDir: "/tmp/adp-home/workspaces/game-a",
+			Diagnostics: []workspace.Diagnostic{{
+				Level:   workspace.DiagnosticLevelError,
+				Code:    workspace.DiagnosticCodeRuntimeParentInsideProjectRoot,
+				Message: "runtime parent must not be inside the project root",
+				Path:    "/srv/game-a/.adp-runtime-parent",
+			}},
+		},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &stderr).Execute(context.Background(), []string{"workspace", "doctor", "game-a"})
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if store.diagnoseName != "game-a" {
+		t.Fatalf("Diagnose called with %q", store.diagnoseName)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{"game-a", "error", workspace.DiagnosticCodeRuntimeParentInsideProjectRoot, "/srv/game-a/.adp-runtime-parent"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("workspace doctor output missing %q: %q", want, output)
+		}
+	}
+}
+
 func TestExecuteReportsUnknownCommand(t *testing.T) {
 	var stderr bytes.Buffer
 

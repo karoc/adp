@@ -78,7 +78,7 @@ The fake Codex and Claude commands assert that:
 
 The script also checks the local CLI hardening surface:
 
-- `adp doctor [workspace]` reports the same workspace diagnostics as the workspace command group and works for one workspace or all registered workspaces.
+- `adp doctor [workspace]` reports the same workspace diagnostics as the workspace command group, works for one workspace or all registered workspaces, and the fake smoke exercises runtime parent rejection for project-root and inside-project-root values. Go tests cover the broader runtime parent guard set: filesystem root, project root, inside project root, containing project root, symlink warning, and non-directory paths.
 - `adp version` and `adp --version` print the CLI build identity without requiring network access or provider CLIs.
 - Bash and zsh completion scripts include dynamic value endpoint calls.
 - `adp completion values workspaces` returns registered workspace names from local state.
@@ -172,6 +172,7 @@ This smoke validates ADP's runtime responsibilities:
 - Shell completion rendering for bash and zsh.
 - Dynamic local completion value endpoints for workspaces and profiles.
 - Global workspace diagnostics through `adp doctor`.
+- Runtime parent safety diagnostics through workspace and global doctor commands, covering filesystem root, project-root overlap, symlink warning, and non-directory cases.
 - Local build identity output through `adp version`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
 - Phase Gate ledger evidence, claim leases, release owner checks, and lifecycle ordering.
