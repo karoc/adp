@@ -35,7 +35,7 @@ Phase 1 明确不做：
 
 建议依赖：
 
-- CLI：优先使用 Go 标准库手写命令解析；只有命令面复杂到明显需要时再引入 CLI 框架。
+- CLI：Phase 1 继续使用 Go 标准库手写命令解析。P16 增加本地 command metadata contract，用来防止 usage text、dispatch wiring 和 bash/zsh completion 之间漂移，并且不引入新的 CLI 框架。
 - YAML：`gopkg.in/yaml.v3`。
 - 测试：Go 标准库 `testing`，CLI 集成测试使用临时 HOME、临时 PATH 和 fake agent binary。
 
@@ -110,6 +110,7 @@ adp/
 
 关键包职责：
 
+- `internal/cli`：维护手写 command dispatcher、usage text、command metadata contract 和命令聚焦测试。
 - `internal/paths`：解析 `ADP_HOME`、runtime tmp dir、workspace 路径、日志路径。
 - `internal/schema`：统一 YAML schema，仅定义数据结构和校验。
 - `internal/workspace`：workspace registry 的创建、查询、列表、读写。
@@ -457,6 +458,7 @@ MVP adapter 输出：
 - 覆盖当前 CLI 命令面，包括 workspace、events、runtime、sessions 等嵌套子命令。
 - 可选 command name 支持打包后的二进制名或别名，不把 `adp` 写死为唯一命令名。
 - 通过只读本地端点提供动态候选值：`adp completion values workspaces` 和 `adp completion values profiles [--workspace <name>]`。
+- P16 增加一份面向命令面的本地 command metadata contract。Usage text、dispatch wiring 和 bash/zsh completion 都应对照这份 metadata 检查，避免某个命令在一处可达、在另一处缺失。该 contract 只用于本地 drift prevention；不能变成 CLI framework migration、hosted command registry、Web UI、SaaS tracker、automatic Git path、automatic task 或 phase closure path、provider-native resume path，或 project-root export mechanism。
 
 验收：
 
@@ -775,6 +777,7 @@ adp workspace remove game-renamed
 - `adp env` 能输出 shell-safe exports，并保留 runtime manifest。
 - `adp shell-hook` 能输出稳定 shell 函数。
 - `adp completion` 能输出 `bash` 和 `zsh` 的稳定 completion，`adp completion values` 能返回本地 workspace 和 profile 候选值。
+- P16 command metadata drift check 能证明本地命令清单、usage text、dispatch wiring 和 bash/zsh completion 保持一致，并且不引入新的 CLI 框架。
 - `adp version` 能输出 CLI build identity。
 - `adp events list` 能查询 run start/finish 历史。
 - `adp sessions list` / `show` / `restore-plan` 能从 event log 查询 session history 和只读 restore planning。
@@ -845,7 +848,7 @@ symlink overlay 与真实项目已有配置冲突：
 - P13 CLI base test split 已完成：在 `internal/cli/cli_test.go` 基础 CLI 测试覆盖触及 700 行代码文件限制前，已将其拆分为更聚焦的测试文件。P13 只属于维护：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
 - P14 local planning intake preview/apply 已完成：`adp plan preview --workspace <name> --file <path|-> [--format text|json]` 和 `adp plan apply --workspace <name> --file <path|-> [--format text|json]` 接收结构化 YAML/JSON phase 和 task 输入。Preview 保持只读；apply 必须显式执行，并且只写入 `$ADP_HOME/workspaces/<workspace>/planning`；JSON 输出不能成为第二份 planning store；第一版 ADP 不做自由文本自然语言拆任务。
 - P15 MVP completion audit 已完成：已审计 command/runtime coverage、release-gate 文档、maintainability pressure 和双语 roadmap 漂移。该审计把下一批本地 planning backlog 写入 planned phases P16-P23，但没有启动任何后续阶段。
-- P16 planned：command surface metadata 和 usage、dispatch、completion、tests、smoke documentation 的 drift checks。
+- P16 command surface hardening 已完成：本地 command metadata contract 已让 usage text、dispatch wiring、bash/zsh completion、聚焦测试、smoke 或文档验收保持一致。该阶段只属于本地 CLI 维护，不引入新的 CLI 框架或 hosted command surface。
 - P17 planned：在不改变公开入口的前提下拆分 `scripts/runtime-smoke.sh`，再继续增加 runtime acceptance 覆盖。
 - P18 planned：拆分剩余的大型混合 CLI command tests。
 - P19 planned：为 workspace rename/remove 和非交互式 `adp enter` 增加 runtime acceptance。
@@ -853,6 +856,6 @@ symlink overlay 与真实项目已有配置冲突：
 - P21 planned：按 model、persistence、events、ranking 和 lifecycle responsibilities 拆分 taskstore core 文件。
 - P22 planned：从内容层面对齐 Phase 1 英文默认 roadmap 与简体中文 counterpart。
 - P23 planned：增加非阻断 line pressure audit tooling，在文件接近 700 行硬限制前规划拆分。
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
+- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16 非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
 每个阶段切片必须先验收、提交并推送，然后再开始下一阶段。

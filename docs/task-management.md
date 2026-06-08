@@ -41,6 +41,14 @@ The first task-management slice provides:
 
 Smoke scripts should assert only the task-management commands that exist in the current tree, and should not add placeholder checks for planned commands.
 
+## Command Surface Metadata And Drift Checks
+
+P16 is a command-surface hardening slice, not a new task-management feature. It adds a local command metadata contract so usage text, dispatch wiring, and bash/zsh completion can be checked against the same command inventory instead of drifting independently.
+
+The metadata contract is local maintenance evidence for the existing hand-written CLI. It is not a new CLI framework, Web dashboard, SaaS tracker, hosted orchestration service, hosted tracker sync, automatic Git workflow, automatic task closure path, provider-native resume mechanism, or project-root planning export.
+
+Future command changes should update the metadata contract, usage text, dispatch path, bash/zsh completion, focused tests, and smoke or documentation acceptance in the same phase. Read-only command metadata must not claim tasks, close tasks, accept phases, append planning events, run Git, start agents, mutate runtime state, write project-root files, or become a second planning store.
+
 ## Progress Report Scope
 
 P6 added Markdown reporting, and P8 extends the same read-only command with a JSON handoff snapshot:

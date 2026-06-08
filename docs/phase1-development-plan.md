@@ -35,7 +35,7 @@ Primary language: Go.
 
 Dependencies should stay small and stable:
 
-- CLI command wiring can use Go standard library first; add a CLI framework only when the command surface justifies it.
+- CLI command wiring remains hand-written with the Go standard library for Phase 1. P16 adds a local command metadata contract to prevent drift between usage text, dispatch wiring, and bash/zsh completion without adopting a new CLI framework.
 - YAML: `gopkg.in/yaml.v3`.
 - Tests: Go standard `testing`, with CLI integration tests using temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, and fake agent binaries.
 
@@ -110,6 +110,7 @@ adp/
 
 Package responsibilities:
 
+- `internal/cli`: wire the hand-written command dispatcher, usage text, command metadata contract, and command-focused tests.
 - `internal/paths`: resolve `ADP_HOME`, runtime temp roots, workspace paths, and log paths.
 - `internal/schema`: define and validate the unified workspace schema.
 - `internal/workspace`: create, load, and manage the workspace registry.
@@ -321,6 +322,8 @@ Prints a shell function that calls `adp env <workspace> --cd` and evaluates the 
 
 Prints deterministic shell completion for supported shells, defaulting to bash when `--shell` is omitted. The completion script should cover the current command surface, including nested workspace, event, runtime, and session subcommands. The optional command name supports packaged binaries or aliases without hard-coding `adp`. Dynamic suggestions should be provided through read-only local endpoints: `adp completion values workspaces` and `adp completion values profiles [--workspace <name>]`.
 
+P16 adds a local command metadata contract for the command surface. Usage text, dispatch wiring, and bash/zsh completion should be checked against that metadata so a command cannot be reachable in one place and missing from another. The contract is for local drift prevention only; it must not become a CLI framework migration, hosted command registry, Web UI, SaaS tracker, automatic Git path, automatic task or phase closure path, provider-native resume path, or project-root export mechanism.
+
 ### `adp version`
 
 Prints the local CLI build identity. Development builds may report `dev`; preview release binaries should inject version, commit, and build-date values with Go linker flags.
@@ -461,6 +464,7 @@ End-to-end expectations:
 - `adp env` prints shell-safe exports for a kept runtime overlay.
 - `adp shell-hook` prints a deterministic shell function for `sh`, `bash`, and `zsh`.
 - `adp completion` prints deterministic completion for `bash` and `zsh`, and `adp completion values` returns local workspace and profile candidates.
+- The P16 command metadata drift check proves the local command inventory, usage text, dispatch wiring, and bash/zsh completion remain aligned without adopting a new CLI framework.
 - `adp version` reports the CLI build identity.
 - `adp events list` prints filtered run history from JSONL events.
 - `adp sessions list`, `adp sessions show`, and `adp sessions restore-plan` expose local session history and read-only restore planning derived from JSONL events.
@@ -498,7 +502,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P13 CLI base test split completed: the growing `internal/cli/cli_test.go` base CLI coverage is split before it breaches the 700-line code-file limit. P13 is maintenance-only: no runtime behavior change, no new product command, no Web/SaaS/hosted orchestration drift, no Git automation, and no change to the terminal-first local planning boundary.
 - P14 local planning intake preview/apply completed: `adp plan preview --workspace <name> --file <path|-> [--format text|json]` and `adp plan apply --workspace <name> --file <path|-> [--format text|json]` accept structured YAML/JSON phase and task input. Preview is read-only; apply explicitly writes only `$ADP_HOME/workspaces/<workspace>/planning`; JSON output is not a second planning store; ADP does not split free-text natural language into tasks in this first version.
 - P15 MVP completion audit completed: command/runtime coverage, release-gate documentation, maintainability pressure, and bilingual roadmap drift were audited. The audit seeded the next local planning backlog as planned phases P16-P23 without starting any later phase.
-- P16 planned: command surface metadata and drift checks across usage, dispatch, completion, tests, and smoke documentation.
+- P16 command surface hardening completed: the local command metadata contract now keeps usage text, dispatch wiring, bash/zsh completion, focused tests, and smoke or documentation acceptance aligned. This is local CLI maintenance only and does not introduce a new CLI framework or hosted command surface.
 - P17 planned: split `scripts/runtime-smoke.sh` behind the same public entrypoint before adding more runtime acceptance coverage.
 - P18 planned: split the remaining large mixed CLI command tests.
 - P19 planned: add runtime acceptance for workspace rename/remove and non-interactive `adp enter`.
@@ -506,6 +510,6 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P21 planned: split taskstore core files by model, persistence, events, ranking, and lifecycle responsibilities.
 - P22 planned: normalize the Phase 1 English default roadmap and Simplified Chinese counterpart at the content level.
 - P23 planned: add non-blocking line pressure audit tooling before files approach the hard 700-line cap.
-- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
+- P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 
 Each phase slice must be validated, committed, and pushed before the next slice starts.

@@ -111,6 +111,8 @@ Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 sym
 
 `adp completion [--shell <bash|zsh>] [--command <name>]` 会为当前 CLI 命令面输出稳定的 shell completion。省略 `--shell` 时默认输出 bash completion。可选 command name 用于给打包后的二进制名或别名生成非 `adp` 名称的 completion。生成的 completion 脚本会调用只读的本地值端点 `adp completion values workspaces` 和 `adp completion values profiles [--workspace <name>]`，用于补全已注册 workspace 名称和 workspace profile 名称。
 
+P16 会用本地 metadata contract 强化命令面，防止 usage text、dispatch wiring 与 bash/zsh completion 彼此漂移。这仍属于现有手写 CLI 实现的一部分；不会引入新的 CLI 框架，也不会增加 Web UI、dashboard、SaaS tracker、hosted orchestration、automatic Git workflow、automatic task closure 或 provider-native resume 路径。
+
 `adp events list` 会读取 `$ADP_HOME/logs/events.jsonl`，按 workspace、session、task、事件类型和数量限制输出最近的 runtime 事件。
 
 `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]` 会按 session 聚合本地 event log，方便在终端中查看最近的 Agent 运行记录。

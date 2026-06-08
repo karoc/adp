@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/karoc/adp/internal/adapters"
+	"github.com/karoc/adp/internal/commandmeta"
 	"github.com/karoc/adp/internal/events"
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/runner"
@@ -17,51 +18,6 @@ import (
 	taskstore "github.com/karoc/adp/internal/tasks"
 	"github.com/karoc/adp/internal/workspace"
 )
-
-const usage = `adp - Agent Development Platform
-
-Usage:
-  adp init
-  adp doctor [workspace]
-  adp version
-  adp workspace add <name> <project-root>
-  adp workspace list
-  adp workspace show <name>
-  adp workspace remove <name>
-  adp workspace rename <old-name> <new-name>
-  adp workspace doctor [name]
-  adp enter <workspace> [--keep-runtime]
-  adp env <workspace> [--cd]
-  adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]
-  adp completion [--shell <bash|zsh>] [--command <name>]
-  adp completion values <workspaces|profiles> [--workspace <name>]
-  adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]
-	  adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]
-	  adp sessions show <session-id>
-	  adp sessions restore-plan <session-id>
-	  adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]
-	  adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>
-	  adp tasks list [--workspace <name>] [--format <text|json>]
-	  adp tasks next [--workspace <name>] [--limit <n>] [--format <text|json>]
-	  adp tasks show [--workspace <name>] <task-id> [--format <text|json>]
-	  adp tasks update [--workspace <name>] <task-id> --status <status>
-	  adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]
-	  adp tasks release [--workspace <name>] <task-id> [--owner <owner>]
-	  adp tasks done [--workspace <name>] <task-id>
-	  adp tasks block [--workspace <name>] <task-id> --reason <reason>
-	  adp plan preview [--workspace <name>] --file <path|-> [--format <text|json>]
-	  adp plan apply [--workspace <name>] --file <path|-> [--format <text|json>]
-	  adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>
-	  adp phase list [--workspace <name>] [--format <text|json>]
-	  adp phase show [--workspace <name>] <phase-id> [--format <text|json>]
-	  adp phase start [--workspace <name>] <phase-id>
-	  adp phase accept [--workspace <name>] <phase-id> [--command <cmd>] [--result <result>] [--notes <text>]
-	  adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]
-	  adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]
-	  adp progress [--workspace <name>] [--format <text|json>]
-	  adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format <markdown|json>]
-	  adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]
-	`
 
 var (
 	Version   = "dev"
@@ -136,6 +92,8 @@ type App struct {
 	stderr io.Writer
 }
 
+type commandHandler func(context.Context, []string) error
+
 func Execute(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	app := NewApp(DefaultDependencies(), stdout, stderr)
 	return app.Execute(ctx, args)
@@ -178,7 +136,7 @@ func DefaultDependencies() Dependencies {
 
 func (a *App) Execute(ctx context.Context, args []string) int {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
-		fmt.Fprint(a.stdout, usage)
+		fmt.Fprint(a.stdout, commandmeta.Usage())
 		return 0
 	}
 	if args[0] == "--version" || args[0] == "-v" {
@@ -189,43 +147,11 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.fail(a.deps.InitError)
 	}
 
-	var err error
-	switch args[0] {
-	case "init":
-		err = a.init(ctx, args[1:])
-	case "doctor":
-		err = a.doctor(ctx, args[1:])
-	case "version":
-		err = a.version(ctx, args[1:])
-	case "workspace":
-		err = a.workspace(ctx, args[1:])
-	case "enter":
-		err = a.enter(ctx, args[1:])
-	case "env":
-		err = a.env(ctx, args[1:])
-	case "shell-hook":
-		err = a.shellHook(ctx, args[1:])
-	case "completion":
-		err = a.completion(ctx, args[1:])
-	case "events":
-		err = a.events(ctx, args[1:])
-	case "sessions":
-		err = a.sessions(ctx, args[1:])
-	case "runtime":
-		err = a.runtime(ctx, args[1:])
-	case "tasks":
-		err = a.tasks(ctx, args[1:])
-	case "plan":
-		err = a.plan(ctx, args[1:])
-	case "phase":
-		err = a.phase(ctx, args[1:])
-	case "progress":
-		err = a.progress(ctx, args[1:])
-	case "run":
-		err = a.run(ctx, args[1:])
-	default:
-		err = fmt.Errorf("unknown command %q", args[0])
+	handler, ok := a.commandHandlers()[args[0]]
+	if !ok {
+		return a.fail(fmt.Errorf("unknown command %q", args[0]))
 	}
+	err := handler(ctx, args[1:])
 	if err != nil {
 		var processExit processExitError
 		if errors.As(err, &processExit) {
@@ -238,6 +164,27 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.fail(err)
 	}
 	return 0
+}
+
+func (a *App) commandHandlers() map[string]commandHandler {
+	return map[string]commandHandler{
+		"init":       a.init,
+		"doctor":     a.doctor,
+		"version":    a.version,
+		"workspace":  a.workspace,
+		"enter":      a.enter,
+		"env":        a.env,
+		"shell-hook": a.shellHook,
+		"completion": a.completion,
+		"events":     a.events,
+		"sessions":   a.sessions,
+		"runtime":    a.runtime,
+		"tasks":      a.tasks,
+		"plan":       a.plan,
+		"phase":      a.phase,
+		"progress":   a.progress,
+		"run":        a.run,
+	}
 }
 
 func (a *App) fail(err error) int {

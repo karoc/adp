@@ -98,6 +98,7 @@ Read-only review agents must be told not to edit files.
 - Prefer existing package boundaries and local patterns over new abstractions.
 - Keep changes scoped to the requested behavior.
 - Use structured parsers and typed APIs where available.
+- Keep CLI command changes aligned through the local command metadata contract. Usage text, dispatch wiring, bash/zsh completion, tests, and smoke or documentation acceptance must describe the same command surface; P16 hardens this without adopting a new CLI framework.
 - Add tests proportional to risk. Broaden tests when changing shared behavior, CLI contracts, runtime behavior, or workspace safety.
 - Preserve local-first behavior. Tests should use temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, fake binaries, and temporary project roots.
 - Avoid real external CLI calls in default tests. Real Codex/Claude checks must be explicit opt-in.

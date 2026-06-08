@@ -98,6 +98,7 @@ git diff --check
 - 优先沿用现有 package 边界和本地模式，不轻易引入新抽象。
 - 修改范围紧贴请求的行为。
 - 有结构化 parser 和 typed API 时优先使用。
+- CLI 命令变更必须通过本地 command metadata contract 保持一致。Usage text、dispatch wiring、bash/zsh completion、tests 以及 smoke 或文档验收必须描述同一套命令面；P16 会在不引入新 CLI 框架的前提下强化这一点。
 - 测试规模随风险增加。改动 shared behavior、CLI contract、runtime behavior 或 workspace safety 时必须扩大测试。
 - 保持 local-first。测试应使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、fake binary 和临时 project root。
 - 默认测试不能调用真实外部 CLI。真实 Codex/Claude 检查必须显式 opt-in。
