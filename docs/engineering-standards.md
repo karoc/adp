@@ -32,10 +32,22 @@ Run the local check before handoff:
 scripts/check-file-lines.sh
 ```
 
-The check defaults to 700 lines. For local experiments, override it with:
+The required check defaults to 700 lines and fails when a code file exceeds that hard limit. For local experiments, override it with:
 
 ```bash
 MAX_FILE_LINES=700 scripts/check-file-lines.sh
+```
+
+Run a non-blocking line pressure audit before planning split or hardening phases:
+
+```bash
+scripts/check-file-lines.sh --audit
+```
+
+The audit reports hand-written code files at or above `LINE_PRESSURE_WARN_LINES`, defaulting to 600, and exits zero. It is planning evidence only; it does not replace the required hard gate. Adjust the warning threshold when a phase needs earlier split planning:
+
+```bash
+LINE_PRESSURE_WARN_LINES=550 scripts/check-file-lines.sh --audit
 ```
 
 ## Bilingual Documentation

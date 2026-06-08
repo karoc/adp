@@ -99,6 +99,8 @@ phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership
 
 `scripts/check-file-lines.sh` 执行项目规则：代码文件必须控制在 700 物理行以内。它会检查 tracked 文件以及未被 ignored 的 untracked 文件。
 
+`scripts/check-file-lines.sh --audit` 是非阻断 line pressure report，用于在文件接近硬上限前规划后续拆分。它会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的文件，默认阈值为 600 行，并且退出码保持为零。该 audit 默认不属于 `scripts/check-all.sh`，也不能替代硬性的行数门禁。
+
 `scripts/check-docs-bilingual.sh` 执行 tracked Markdown 文件以及未被 ignored 的 untracked Markdown 文件的文档配对规则。英文是默认文档，维护中的 Markdown 文件需要使用 `*.zh-CN.md` 作为简体中文 counterpart。
 
 `git diff --check` 检查当前 diff 中的空白错误。

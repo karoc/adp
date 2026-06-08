@@ -18,6 +18,7 @@ ADP 是 terminal-first、local-first 的 Agent Runtime Environment 和 Agent Wor
 ## 硬约束
 
 - 代码文件必须控制在 700 个物理行以内，超过前先拆分。
+- 规划拆分或 hardening 阶段时，可用 `scripts/check-file-lines.sh --audit` 做非阻断 pressure report。它不能替代必跑硬门禁。
 - 文档默认语言为英文。每个维护中的 Markdown 文档都必须有 `*.zh-CN.md` 简体中文 counterpart。
 - `.envrc` 和 `mvp.md` 必须保持 ignored，不提交。
 - 不配置仓库本地 Git `user.name` 或 `user.email`。

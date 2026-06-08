@@ -18,6 +18,7 @@ Keep work aligned with this boundary:
 ## Hard Constraints
 
 - Code files must stay at or below 700 physical lines. Split before exceeding the limit.
+- Use `scripts/check-file-lines.sh --audit` as a non-blocking pressure report when planning split or hardening phases. It does not replace the required hard gate.
 - Documentation defaults to English. Every maintained Markdown document must have a Simplified Chinese counterpart using `*.zh-CN.md`.
 - Keep `.envrc` and `mvp.md` ignored and uncommitted.
 - Do not configure repository-local Git `user.name` or `user.email`.

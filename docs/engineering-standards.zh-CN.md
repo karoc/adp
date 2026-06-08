@@ -32,10 +32,22 @@ English: [engineering-standards.md](engineering-standards.md)
 scripts/check-file-lines.sh
 ```
 
-默认限制为 700 行。本地实验可以覆盖：
+必跑检查默认限制为 700 行，当代码文件超过该硬限制时失败。本地实验可以覆盖：
 
 ```bash
 MAX_FILE_LINES=700 scripts/check-file-lines.sh
+```
+
+规划拆分或 hardening 阶段前，可以运行非阻断 line pressure audit：
+
+```bash
+scripts/check-file-lines.sh --audit
+```
+
+Audit 会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的手写代码文件，默认阈值为 600，并且退出码保持为零。它只作为规划证据，不能替代必跑硬门禁。某个阶段需要更早规划拆分时，可以调整 warning threshold：
+
+```bash
+LINE_PRESSURE_WARN_LINES=550 scripts/check-file-lines.sh --audit
 ```
 
 ## 双语文档

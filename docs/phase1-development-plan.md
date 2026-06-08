@@ -72,6 +72,7 @@ Code size rule:
 - Split files by responsibility before they exceed the limit.
 - Generated files, vendored code, lockfiles, license files, and long-form documentation are exempt.
 - Local check: `scripts/check-file-lines.sh`.
+- Non-blocking pressure audit for split planning: `scripts/check-file-lines.sh --audit`, with `LINE_PRESSURE_WARN_LINES` defaulting to 600.
 
 ## 3. Directory Structure
 
@@ -819,8 +820,8 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P19 workspace lifecycle and enter acceptance completed: runtime smoke now covers workspace rename/remove with project-root sentinel preservation, stale workspace completion checks, and controlled non-interactive `adp enter` execution through a fake `SHELL`. The enter smoke verifies runtime env/cwd, project symlinks, cleanup versus `--keep-runtime`, and no event-log mutation without launching a real interactive shell.
 - P20 plan stdin coverage completed: focused CLI tests and plan-intake smoke now cover `adp plan preview --file -` and `adp plan apply --file -` with piped YAML/JSON, preserving preview read-only behavior, explicit apply boundaries, local planning-ledger writes only, JSON inspection semantics, and no runtime/Git/event-log/project-root side effects.
 - P21 taskstore maintainability split completed: `internal/tasks` core responsibilities are now separated into same-package store, task model, task lifecycle, task persistence, progress events, task ranking, phase model, phase lifecycle, phase persistence, and phase helper files. The split is mechanical and preserves public APIs, local ledger semantics, plan-import atomic staging, phase-gate lifecycle behavior, and runtime acceptance coverage while keeping all touched code files well below the 700-line cap.
-- P22 planned: normalize the Phase 1 English default roadmap and Simplified Chinese counterpart at the content level.
-- P23 planned: add non-blocking line pressure audit tooling before files approach the hard 700-line cap.
+- P22 Phase 1 bilingual roadmap normalization completed: the English default roadmap and Simplified Chinese counterpart now share the same section tree, current command surface, directory responsibilities, local-first non-goals, validation gates, E2E expectations, and validate/accept/commit/push/record phase discipline.
+- P23 line pressure audit tooling completed: `scripts/check-file-lines.sh --audit` reports files at or above `LINE_PRESSURE_WARN_LINES`, defaulting to 600, and exits zero so split phases can be planned before the hard 700-line cap is breached. The required `scripts/check-file-lines.sh` hard gate and `scripts/check-all.sh` pass/fail semantics remain unchanged.
 - P3/P4/P5/P6/P7/P8/P9/P10/P11/P12/P13/P14/P15/P16/P17/P18/P19/P20/P21 non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 
 Each phase slice must be validated, accepted, committed, pushed, and recorded before the next slice starts.

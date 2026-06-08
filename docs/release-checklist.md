@@ -99,6 +99,8 @@ The phase gate smoke path covers phase records, task claim ownership with leases
 
 `scripts/check-file-lines.sh` enforces the project rule that code files stay at or below 700 physical lines. It checks tracked files and non-ignored untracked files.
 
+`scripts/check-file-lines.sh --audit` is a non-blocking line pressure report for planning future splits before files approach the hard cap. It reports files at or above `LINE_PRESSURE_WARN_LINES`, defaults to 600 lines, and exits zero. The audit is not part of `scripts/check-all.sh` by default and must not replace the hard line-count gate.
+
 `scripts/check-docs-bilingual.sh` enforces the documentation pairing rule for tracked Markdown files and non-ignored untracked Markdown files. English is the default document, and maintained Markdown files need Simplified Chinese counterparts using `*.zh-CN.md`.
 
 `git diff --check` catches whitespace errors in the current diff.
