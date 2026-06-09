@@ -204,7 +204,7 @@ assert_help "enter help" "adp enter <workspace>" enter --help
 assert_help "env help" "adp env <workspace>" env --help
 assert_help "shell-hook help" "adp shell-hook" shell-hook --help
 assert_help "completion help" "adp completion values" completion --help
-assert_help "completion values help" "adp completion values <agents|workspaces|profiles>" completion values --help
+assert_help "completion values help" "adp completion values <agents|workspaces|profiles|tasks|phases|sessions|owners|statuses>" completion values --help
 assert_help "events help" "adp events list" events --help
 assert_help "events list help" "adp events list" events list --help
 assert_help "sessions help" "adp sessions restore-plan" sessions --help
@@ -255,6 +255,8 @@ assert_contains "$output" "adp env" "shell-hook output"
 info "auditing task and phase lifecycle commands"
 output=$(run_adp "$REPO_ROOT" phase add --workspace game-a --goal "Audit local phase gates" p-audit "Audit phase")
 assert_contains "$output" "phase p-audit added" "phase add output"
+output=$(run_adp "$REPO_ROOT" completion values phases --workspace game-a)
+assert_contains "$output" "p-audit" "completion phase values output"
 output=$(run_adp "$REPO_ROOT" phase status --workspace game-a --format json)
 assert_json_valid "$output" "phase status json output"
 assert_contains "$output" '"can_start_next": true' "phase status json output"
@@ -267,6 +269,11 @@ if [ -z "$task_id" ]; then
   fail "could not parse task id from: $output"
 fi
 export ADP_EXPECT_TASK_ID="$task_id"
+output=$(run_adp "$REPO_ROOT" completion values tasks --workspace game-a)
+assert_contains "$output" "$task_id" "completion task values output"
+output=$(run_adp "$REPO_ROOT" completion values statuses)
+assert_contains "$output" "review" "completion status values output"
+assert_contains "$output" "done" "completion status values output"
 output=$(run_adp "$REPO_ROOT" tasks list --workspace game-a --format json)
 assert_json_valid "$output" "tasks list json output"
 assert_contains "$output" "$task_id" "tasks list json output"
@@ -278,6 +285,8 @@ assert_json_valid "$output" "tasks show json output"
 assert_contains "$output" "Bind runtime session to task" "tasks show json output"
 output=$(run_adp "$REPO_ROOT" tasks claim --workspace game-a "$task_id" --owner audit-agent --lease 10m)
 assert_contains "$output" "claimed by audit-agent" "tasks claim output"
+output=$(run_adp "$REPO_ROOT" completion values owners --workspace game-a)
+assert_contains "$output" "audit-agent" "completion owner values output"
 output=$(run_adp "$REPO_ROOT" tasks release --workspace game-a "$task_id" --owner audit-agent)
 assert_contains "$output" "released" "tasks release output"
 output=$(run_adp "$REPO_ROOT" tasks update --workspace game-a "$task_id" --status review)
@@ -352,6 +361,8 @@ if [ -z "$codex_session" ]; then
 fi
 output=$(run_adp "$REPO_ROOT" sessions list --workspace game-a --agent codex --task "$task_id")
 assert_contains "$output" "$codex_session" "sessions list output"
+output=$(run_adp "$REPO_ROOT" completion values sessions --workspace game-a)
+assert_contains "$output" "$codex_session" "completion session values output"
 output=$(run_adp "$REPO_ROOT" sessions show "$codex_session")
 assert_contains "$output" "session_id: $codex_session" "sessions show output"
 before_restore_lines=$(line_count "$EVENTS_FILE")

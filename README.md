@@ -21,7 +21,7 @@ Implemented Phase 1 foundations:
 - `adp env <workspace> [--cd]`
 - `adp shell-hook [--shell <sh|bash|zsh>] [--name <function-name>]`
 - `adp completion [--shell <bash|zsh>] [--command <name>]`
-- `adp completion values <agents|workspaces|profiles> [--workspace <name>]`
+- `adp completion values <agents|workspaces|profiles|tasks|phases|sessions|owners|statuses> [--workspace <name>]`
 - `adp version`
 - `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]`
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
@@ -90,8 +90,10 @@ export PATH="${ADP_SMOKE_ROOT}/fake-bin:${PATH}"
 "$ADP_BIN" completion values agents
 "$ADP_BIN" completion values workspaces
 "$ADP_BIN" completion values profiles --workspace game-a
+"$ADP_BIN" completion values statuses
 TASK_ID=$("$ADP_BIN" tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 test -n "$TASK_ID"
+"$ADP_BIN" completion values tasks --workspace game-a
 "$ADP_BIN" run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
 "$ADP_BIN" events list --workspace game-a --task "$TASK_ID" --limit 5
 "$ADP_BIN" tasks list --workspace game-a --format json
@@ -101,6 +103,7 @@ test -n "$TASK_ID"
 "$ADP_BIN" progress report --workspace game-a
 "$ADP_BIN" progress report --workspace game-a --format json
 "$ADP_BIN" sessions list --workspace game-a --agent codex --task "$TASK_ID"
+"$ADP_BIN" completion values sessions --workspace game-a
 "$ADP_BIN" runtime prune --older-than 24h --dry-run
 ROOT_LEAKS="$(find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name .adp-runtime.yaml -o -name planning -o -name tasks.yaml -o -name phases.yaml -o -name progress.jsonl \) -print)"
 test -z "$ROOT_LEAKS"
@@ -138,7 +141,7 @@ Agent-specific files are generated from the ADP workspace config. Real project f
 
 `adp shell-hook --shell bash` prints a shell function that calls `adp env <workspace> --cd` and evaluates the result in the parent shell. `sh`, `bash`, and `zsh` are supported.
 
-`adp completion [--shell <bash|zsh>] [--command <name>]` prints deterministic shell completion for the current CLI surface. It defaults to bash when `--shell` is omitted. The optional command name lets packaged binaries or aliases render completion for a command name other than `adp`. Generated completion scripts call the read-only local value endpoints `adp completion values agents`, `adp completion values workspaces`, and `adp completion values profiles [--workspace <name>]` to complete registered adapter names, workspace names, and workspace profile names.
+`adp completion [--shell <bash|zsh>] [--command <name>]` prints deterministic shell completion for the current CLI surface. It defaults to bash when `--shell` is omitted. The optional command name lets packaged binaries or aliases render completion for a command name other than `adp`; that command must be available in the shell because generated scripts call it for dynamic values. Completion covers root commands, subcommands, options, finite option values such as shells, formats, languages, event types, and runtime ages, and read-only local candidates such as agents, workspaces, workspace profiles, task IDs, phase IDs, session IDs, task statuses, and owners. Dynamic candidates read `$ADP_HOME` state only and must not mutate planning, runtime, provider, Git, or project-root state.
 
 P16 hardens the command surface with a local metadata contract that keeps usage text, dispatch wiring, and bash/zsh completion from drifting apart. This remains part of the existing hand-written CLI implementation; it does not adopt a new CLI framework or add a Web UI, dashboard, SaaS tracker, hosted orchestration, automatic Git workflow, automatic task closure, or provider-native resume path.
 

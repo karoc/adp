@@ -442,7 +442,7 @@ Behavior:
 - Prints deterministic shell completion for supported shells, defaulting to bash when `--shell` is omitted.
 - Covers the current command surface, including nested workspace, event, runtime, session, task, phase, progress, and plan subcommands.
 - Supports packaged binary names or aliases through `--command`.
-- Uses read-only dynamic endpoints for local candidates: `adp completion values agents`, `adp completion values workspaces`, and `adp completion values profiles [--workspace <name>]`.
+- Uses read-only dynamic endpoints for local candidates: `adp completion values agents`, `adp completion values workspaces`, `adp completion values profiles [--workspace <name>]`, `adp completion values tasks [--workspace <name>]`, `adp completion values phases [--workspace <name>]`, `adp completion values sessions [--workspace <name>]`, `adp completion values owners [--workspace <name>]`, and `adp completion values statuses`.
 
 P16 adds a local command metadata contract for the command surface. Usage text, dispatch wiring, and bash/zsh completion should be checked against that metadata so a command cannot be reachable in one place and missing from another. The contract is for local drift prevention only; it must not become a CLI framework migration, hosted command registry, Web UI, SaaS tracker, automatic Git path, automatic task or phase closure path, provider-native resume path, or project-root export mechanism.
 
@@ -772,7 +772,7 @@ adp workspace remove game-renamed
 - `adp workspace remove` and `adp workspace rename` modify only ADP workspace registry data.
 - `adp env` prints shell-safe exports for a kept runtime overlay.
 - `adp shell-hook` prints a deterministic shell function for `sh`, `bash`, and `zsh`.
-- `adp completion` prints deterministic completion for `bash` and `zsh`, and `adp completion values` returns local agent, workspace, and profile candidates.
+- `adp completion` prints deterministic completion for `bash` and `zsh`, and `adp completion values` returns local agent, workspace, profile, task, phase, session, owner, and task status candidates.
 - The P16 command metadata drift check proves the local command inventory, usage text, dispatch wiring, and bash/zsh completion remain aligned without adopting a new CLI framework.
 - `adp version` reports the CLI build identity.
 - `adp events list` prints filtered run history from JSONL events.
@@ -833,6 +833,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 - P23 line pressure audit tooling completed: `scripts/check-file-lines.sh --audit` reports files at or above `LINE_PRESSURE_WARN_LINES`, defaulting to 600, and exits zero so split phases can be planned before the hard 700-line cap is breached. The required `scripts/check-file-lines.sh` hard gate and `scripts/check-all.sh` pass/fail semantics remain unchanged.
 - P24 phase gate status and ordering hardening completed: `adp phase status [--workspace <name>] [--format text|json]` exposes a read-only local gate snapshot, new phases carry explicit local order, phase start rejects skipped earlier planned or unfinished phases, and successful push evidence cannot be overwritten by failed push evidence.
 - P25 shell completion renderer split completed: bash and zsh completion rendering are split into shell-specific files while `RenderCompletion`, command-name validation, metadata-backed candidates, dynamic local value endpoints, and public `adp completion` behavior remain unchanged. This is maintenance-only line-pressure work and does not add commands, shell types, Web/SaaS behavior, automatic Git execution, hosted orchestration, provider-native resume, or project-root exports.
+- P40 deep shell completion hardening completed: bash and zsh completion now cover local task IDs, phase IDs, session IDs, task owners, and task statuses through read-only `adp completion values` endpoints. The endpoints read `$ADP_HOME` planning or event state only; they do not mutate tasks, phases, runtime overlays, providers, Git, or project roots.
 - P26 planning ledger doctor completed: `adp plan doctor [--workspace <name>] [--format text|json]` reports read-only local diagnostics for task, phase, progress-log, lock, and phase-gate invariants; error diagnostics return exit code `2`; healthy and broken ledger paths are covered by focused tests and task-manager smoke without automatic repair, Git execution, runtime mutation, hosted tracker sync, or project-root exports.
 - Completed Phase 1 slices keep the same non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 

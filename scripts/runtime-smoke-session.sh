@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 run_fake_session_checks() {
-  local codex_session sessions_output events_output session_output restore_plan_output
+  local codex_session sessions_output events_output session_output restore_plan_output completion_values
   local before_restore_lines after_restore_lines
 
   info "fake smoke: inspect events and sessions"
@@ -21,6 +21,9 @@ run_fake_session_checks() {
   assert_contains "$sessions_output" "$codex_session" "sessions list output"
   assert_contains "$sessions_output" "codex" "sessions list output"
   assert_contains "$sessions_output" "$task_id" "sessions list output"
+
+  completion_values=$(run_adp "$REPO_ROOT" completion values sessions --workspace game-a)
+  assert_contains "$completion_values" "$codex_session" "completion session values output"
 
   events_output=$(run_adp "$REPO_ROOT" events list --session "$codex_session" --task "$task_id" --limit 2)
   assert_contains "$events_output" "$codex_session" "events list session output"

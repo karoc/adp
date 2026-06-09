@@ -109,6 +109,32 @@ export ADP_HOME="$(mktemp -d)"
 export ADP_RUNTIME_DIR="$(mktemp -d)"
 ```
 
+## Shell Completion
+
+ADP renders shell completion locally for bash and zsh. The generated script completes commands, subcommands, options, finite option values, and read-only local candidates. The command name in the completion script must resolve in the operator shell because dynamic candidates are fetched by running `adp completion values ...`.
+
+For a temporary bash session:
+
+```bash
+source <(adp completion --shell bash)
+```
+
+For a temporary zsh session:
+
+```bash
+autoload -Uz compinit
+compinit
+source <(adp completion --shell zsh)
+```
+
+When the binary is installed under another command name, render the script for that name:
+
+```bash
+source <(adp-dev completion --shell bash --command adp-dev)
+```
+
+For durable setup, place the rendered script in the completion directory loaded by the operator shell, or source it from the shell startup file after `adp` is on `PATH`. Completion is terminal-first and local-first: dynamic candidates read local adapter, workspace, profile, planning, and session state under `$ADP_HOME`, including task IDs, phase IDs, session IDs, task statuses, and owners. Completion must not run agents, call provider CLIs, run Git, create runtime overlays, write project-root files, or mutate task and phase state.
+
 ## Isolated First-Run Rehearsal
 
 After using one of the install paths above, run a provider-free rehearsal from a shell where the chosen `adp` command is available. If you built `./bin/adp` instead of installing `adp` on `PATH`, replace `adp` with `./bin/adp` in this block.

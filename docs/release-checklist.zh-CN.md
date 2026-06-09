@@ -84,7 +84,7 @@ fake runtime smoke 验证：
 - agent command/profile diagnostics：fake smoke 覆盖 project root 中的保留路径、adapter default command fallback、inline command arguments、缺失的非 default profile、逃逸到 workspace 外部的 profile symlink，以及 enabled 但未知的 agent 配置；Go 测试覆盖缺失或不可执行的路径型 command wrapper 和重复 profile 文件。
 - shell export 渲染。
 - bash 和 zsh completion 渲染。
-- 本地 agent、workspace 和 profile 的动态 completion 值端点。
+- 本地 agent、workspace、profile、task ID、phase ID、session ID、task owner 和 task status 的动态 completion 值端点。
 - 全局 `adp doctor [workspace]` diagnostics。
 - `adp version` 和 `adp --version` 输出。
 - ADP-owned runtime 清理。

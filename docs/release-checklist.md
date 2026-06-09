@@ -84,7 +84,7 @@ The fake runtime smoke verifies:
 - Agent command/profile diagnostics: fake smoke covers reserved project-root paths, adapter default command fallback, inline command arguments, missing non-default profiles, escaping profile symlinks, and unknown enabled agent entries; Go tests cover path-like missing or non-executable command wrappers and ambiguous profile files.
 - Shell export rendering.
 - Bash and zsh completion rendering.
-- Dynamic completion value endpoints for local agents, workspaces, and profiles.
+- Dynamic completion value endpoints for local agents, workspaces, profiles, task IDs, phase IDs, session IDs, task owners, and task statuses.
 - Global `adp doctor [workspace]` diagnostics.
 - `adp version` and `adp --version` output.
 - ADP-owned runtime pruning.

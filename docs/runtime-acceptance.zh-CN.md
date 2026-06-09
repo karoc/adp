@@ -59,6 +59,11 @@ adp completion --shell zsh
 adp completion values agents
 adp completion values workspaces
 adp completion values profiles --workspace game-a
+adp completion values statuses
+adp completion values tasks --workspace game-a
+adp tasks claim --workspace game-a <task-id> --owner smoke-agent --lease 1m
+adp completion values owners --workspace game-a
+adp tasks release --workspace game-a <task-id> --owner smoke-agent
 adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
 adp run claude --task <task-id> -- --probe claude-payload
 adp run codex --workspace game-a --task missing-task -- --probe codex-payload
@@ -66,6 +71,7 @@ adp enter game-a
 adp enter game-a --keep-runtime
 adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
 adp sessions list --workspace game-a --agent codex --task <task-id>
+adp completion values sessions --workspace game-a
 adp sessions show <session-id>
 adp sessions restore-plan <session-id>
 adp runtime prune --older-than 0s --include-kept --dry-run
@@ -97,6 +103,11 @@ fake Codex 和 Claude 命令会断言：
 - `adp completion values agents` 从本地 registry 返回已注册 adapter 名称。
 - `adp completion values workspaces` 从本地状态返回已注册 workspace 名称。
 - `adp completion values profiles --workspace <name>` 从 workspace 配置和 profile 文件中返回本地 profile 名称。
+- `adp completion values tasks --workspace <name>` 从 workspace planning ledger 返回本地 task ID。
+- `adp completion values phases --workspace <name>` 从 workspace planning ledger 返回本地 phase ID。
+- `adp completion values owners --workspace <name>` 从 workspace planning ledger 返回当前 task owner，不会 claim 或 release task。
+- `adp completion values statuses` 返回 `adp tasks update --status` 使用的 task status enum。
+- `adp completion values sessions --workspace <name>` 从 JSONL runtime events 返回本地 session ID。
 - `adp workspace rename` 和 `adp workspace remove` 只修改临时 `ADP_HOME` 下的 ADP workspace registry；lifecycle smoke 会保留 sentinel project 文件，通过 project-root entry snapshot 比对确认不会新增项目文件，验证 add/rename/remove 后 runtime directory entry count 都保持不变，并确认 completion values 不会保留 stale workspace names。
 - `adp enter` 会通过把 `SHELL` 设置为临时可执行 wrapper 来验收受控 child shell。该 wrapper 证明 child shell 启动在 `ADP_RUNTIME_ROOT` 中，收到 ADP runtime 环境，可以通过 runtime symlink 看到 project 文件，并且不会收到 task-bound runtime 变量。smoke 会检查默认 `enter` 会清理 runtime，`enter --keep-runtime` 会保留 runtime 直到 smoke 手动移除，project root entry snapshot 保持不变，并且两个路径都不会改变 event log 内容。
 
@@ -263,7 +274,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 基于非敏感 invocation snapshot 打印只读 session restore plan。
 - 为 parent-shell workflow 渲染 shell exports。
 - 为 bash 和 zsh 渲染 shell completion。
-- 为 agent、workspace 和 profile 提供动态本地 completion 值端点。
+- 为 agent、workspace、profile、task、phase、session、owner 和 task status 提供动态本地 completion 值端点。
 - 通过 `adp doctor` 提供全局 workspace diagnostics。
 - 通过 workspace 和全局 doctor 命令检查 runtime parent 安全性，覆盖文件系统根目录、project-root overlap、symlink warning 和非目录场景。
 - 通过 workspace 和全局 doctor 命令检查 agent command/profile diagnostics，覆盖 adapter default fallback、inline command arguments、路径型 command wrapper、缺失或重复的 profile 文件、profile path escape、未知 enabled agent，以及 project root 中的保留路径。

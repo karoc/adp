@@ -59,6 +59,11 @@ adp completion --shell zsh
 adp completion values agents
 adp completion values workspaces
 adp completion values profiles --workspace game-a
+adp completion values statuses
+adp completion values tasks --workspace game-a
+adp tasks claim --workspace game-a <task-id> --owner smoke-agent --lease 1m
+adp completion values owners --workspace game-a
+adp tasks release --workspace game-a <task-id> --owner smoke-agent
 adp run codex --workspace game-a --task <task-id> -- --probe codex-payload
 adp run claude --task <task-id> -- --probe claude-payload
 adp run codex --workspace game-a --task missing-task -- --probe codex-payload
@@ -66,6 +71,7 @@ adp enter game-a
 adp enter game-a --keep-runtime
 adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
 adp sessions list --workspace game-a --agent codex --task <task-id>
+adp completion values sessions --workspace game-a
 adp sessions show <session-id>
 adp sessions restore-plan <session-id>
 adp runtime prune --older-than 0s --include-kept --dry-run
@@ -97,6 +103,11 @@ The script also checks the local CLI hardening surface:
 - `adp completion values agents` returns registered adapter names from the local registry.
 - `adp completion values workspaces` returns registered workspace names from local state.
 - `adp completion values profiles --workspace <name>` returns local profile names from workspace configuration and profile files.
+- `adp completion values tasks --workspace <name>` returns local task IDs from the workspace planning ledger.
+- `adp completion values phases --workspace <name>` returns local phase IDs from the workspace planning ledger.
+- `adp completion values owners --workspace <name>` returns current task owners from the workspace planning ledger without claiming or releasing tasks.
+- `adp completion values statuses` returns the task status enum used by `adp tasks update --status`.
+- `adp completion values sessions --workspace <name>` returns local session IDs from JSONL runtime events.
 - `adp workspace rename` and `adp workspace remove` mutate only the ADP workspace registry under the temporary `ADP_HOME`; the lifecycle smoke keeps sentinel project files in place, compares project-root entry snapshots so no new project files appear, verifies the runtime directory entry count stays unchanged after add/rename/remove, and checks completion values do not retain stale workspace names.
 - `adp enter` is exercised through a controlled shell wrapper by setting `SHELL` to a temporary executable. The wrapper proves the child shell starts in `ADP_RUNTIME_ROOT`, receives the ADP runtime environment, sees project files through runtime symlinks, and does not receive task-bound runtime variables. The smoke checks default `enter` cleanup removes its runtime, `enter --keep-runtime` leaves a kept runtime until the smoke removes it, the project root entry snapshot stays unchanged, and neither path changes event log contents.
 
@@ -263,7 +274,7 @@ This smoke validates ADP's runtime responsibilities:
 - Read-only session restore planning from non-sensitive invocation snapshots.
 - Shell export rendering for parent-shell workflows.
 - Shell completion rendering for bash and zsh.
-- Dynamic local completion value endpoints for agents, workspaces, and profiles.
+- Dynamic local completion value endpoints for agents, workspaces, profiles, tasks, phases, sessions, owners, and task statuses.
 - Global workspace diagnostics through `adp doctor`.
 - Runtime parent safety diagnostics through workspace and global doctor commands, covering filesystem root, project-root overlap, symlink warning, and non-directory cases.
 - Agent command/profile diagnostics through workspace and global doctor commands, covering adapter default fallback, inline command arguments, path-like command wrappers, missing or ambiguous profile files, profile path escapes, unknown enabled agents, and reserved project-root paths.

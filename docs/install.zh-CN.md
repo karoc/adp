@@ -109,6 +109,32 @@ export ADP_HOME="$(mktemp -d)"
 export ADP_RUNTIME_DIR="$(mktemp -d)"
 ```
 
+## Shell Completion
+
+ADP 会在本地为 bash 和 zsh 渲染 shell completion。生成的脚本会补全 command、subcommand、option、有限 option 值和只读本地候选。Completion 脚本里的 command name 必须能在 operator shell 中解析，因为动态候选会通过运行 `adp completion values ...` 获取。
+
+临时 bash session：
+
+```bash
+source <(adp completion --shell bash)
+```
+
+临时 zsh session：
+
+```bash
+autoload -Uz compinit
+compinit
+source <(adp completion --shell zsh)
+```
+
+如果二进制以其他命令名安装，需要为该名称渲染脚本：
+
+```bash
+source <(adp-dev completion --shell bash --command adp-dev)
+```
+
+持久配置时，把渲染出的脚本放到 operator shell 会加载的 completion 目录，或在 `adp` 已经进入 `PATH` 后从 shell startup file 中 source。Completion 保持 terminal-first 和 local-first：动态候选只读取 `$ADP_HOME` 下的本地 adapter、workspace、profile、planning 和 session 状态，包括 task ID、phase ID、session ID、task status 和 owner。Completion 不得运行 Agent、调用 provider CLI、运行 Git、创建 runtime overlay、写入 project-root 文件，或修改 task 和 phase 状态。
+
 ## 隔离首次运行演练
 
 使用上面任一安装路径后，在选定的 `adp` 命令可用的 shell 中运行一次不依赖 provider 的演练。如果你构建的是 `./bin/adp`，而不是把 `adp` 安装到 `PATH`，则把下面命令块中的 `adp` 替换为 `./bin/adp`。

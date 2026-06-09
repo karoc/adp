@@ -9,7 +9,7 @@ run_fake_smoke() (
   local runtime_dir="$smoke_root/runtime"
   local events_file="$adp_home/logs/events.jsonl"
   local output env_output runtime_root task_output task_id codex_output claude_output
-  local completion_output zsh_completion_output workspace_values profile_values agent_values version_output events_output
+  local completion_output zsh_completion_output completion_script completion_probe workspace_values profile_values agent_values task_values owner_values status_values version_output events_output
   local invalid_output task_event_count
 
   mkdir -p "$project_root" "$diag_project_root" "$fake_bin" "$adp_home" "$runtime_dir"
@@ -20,6 +20,7 @@ run_fake_smoke() (
 
   write_fake_agent "$fake_bin/codex" codex AGENTS.md .codex/config.toml go.mod
   write_fake_agent "$fake_bin/claude" claude CLAUDE.md .claude/settings.json main.go
+  ln -s "$ADP_BIN" "$fake_bin/adp"
 
   export ADP_HOME="$adp_home"
   export ADP_RUNTIME_DIR="$runtime_dir"
@@ -77,6 +78,11 @@ run_fake_smoke() (
   assert_contains "$agent_values" "codex" "completion agent values output"
   assert_contains "$agent_values" "claude" "completion agent values output"
 
+  status_values=$(run_adp "$REPO_ROOT" completion values statuses)
+  assert_contains "$status_values" "ready" "completion status values output"
+  assert_contains "$status_values" "in_progress" "completion status values output"
+  assert_contains "$status_values" "done" "completion status values output"
+
   info "fake smoke: create task for runtime binding"
   task_output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority high --phase p1 --description "runtime binding smoke" "Bind runtime session to task")
   assert_contains "$task_output" "task task-" "tasks add output"
@@ -85,6 +91,16 @@ run_fake_smoke() (
     fail "could not parse task id from: $task_output"
   fi
   export ADP_EXPECT_TASK_ID="$task_id"
+
+  task_values=$(run_adp "$REPO_ROOT" completion values tasks --workspace game-a)
+  assert_contains "$task_values" "$task_id" "completion task values output"
+
+  task_output=$(run_adp "$REPO_ROOT" tasks claim --workspace game-a "$task_id" --owner smoke-agent --lease 1m)
+  assert_contains "$task_output" "claimed by smoke-agent" "tasks claim output"
+  owner_values=$(run_adp "$REPO_ROOT" completion values owners --workspace game-a)
+  assert_contains "$owner_values" "smoke-agent" "completion owner values output"
+  task_output=$(run_adp "$REPO_ROOT" tasks release --workspace game-a "$task_id" --owner smoke-agent)
+  assert_contains "$task_output" "released" "tasks release output"
 
   info "fake smoke: build kept runtime with env --cd"
   env_output=$(run_adp "$REPO_ROOT" env game-a --cd)
@@ -103,6 +119,29 @@ run_fake_smoke() (
   assert_contains "$completion_output" "completion values workspaces" "bash completion output"
   assert_contains "$completion_output" "completion values profiles" "bash completion output"
   assert_contains "$completion_output" "completion values agents" "bash completion output"
+  assert_contains "$completion_output" "completion values tasks" "bash completion output"
+  assert_contains "$completion_output" "completion values phases" "bash completion output"
+  assert_contains "$completion_output" "completion values sessions" "bash completion output"
+  assert_contains "$completion_output" "completion values owners" "bash completion output"
+  assert_contains "$completion_output" "completion values statuses" "bash completion output"
+  completion_script="$smoke_root/adp-completion.bash"
+  printf '%s\n' "$completion_output" > "$completion_script"
+  completion_probe=$(
+    source "$completion_script"
+    COMP_WORDS=(adp tasks show --workspace game-a "$task_id")
+    COMP_CWORD=5
+    COMPREPLY=()
+    _adp_completion
+    printf '%s\n' "${COMPREPLY[@]}"
+    COMP_WORDS=(adp tasks update --workspace game-a "$task_id" --status r)
+    COMP_CWORD=7
+    COMPREPLY=()
+    _adp_completion
+    printf '%s\n' "${COMPREPLY[@]}"
+  )
+  assert_contains "$completion_probe" "$task_id" "bash completion task probe"
+  assert_contains "$completion_probe" "ready" "bash completion status probe"
+  assert_contains "$completion_probe" "review" "bash completion status probe"
 
   zsh_completion_output=$(run_adp "$REPO_ROOT" completion --shell zsh)
   assert_contains "$zsh_completion_output" "compdef _adp_completion adp" "zsh completion output"
@@ -110,6 +149,11 @@ run_fake_smoke() (
   assert_contains "$zsh_completion_output" "completion values workspaces" "zsh completion output"
   assert_contains "$zsh_completion_output" "completion values profiles" "zsh completion output"
   assert_contains "$zsh_completion_output" "completion values agents" "zsh completion output"
+  assert_contains "$zsh_completion_output" "completion values tasks" "zsh completion output"
+  assert_contains "$zsh_completion_output" "completion values phases" "zsh completion output"
+  assert_contains "$zsh_completion_output" "completion values sessions" "zsh completion output"
+  assert_contains "$zsh_completion_output" "completion values owners" "zsh completion output"
+  assert_contains "$zsh_completion_output" "completion values statuses" "zsh completion output"
 
   info "fake smoke: run codex and claude through runtime overlays"
   codex_output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)

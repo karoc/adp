@@ -14,6 +14,17 @@ func bashProgressTopWords() string {
 	return commandmeta.ShellWords(progressTopValues())
 }
 
+func writeDynamicCompletionEndpointComments(out *strings.Builder, commandName string) {
+	for _, kind := range commandmeta.ValueNames(commandmeta.CompletionKinds) {
+		out.WriteString("# dynamic values: ")
+		out.WriteString(commandName)
+		out.WriteString(" completion values ")
+		out.WriteString(kind)
+		out.WriteByte('\n')
+	}
+	out.WriteByte('\n')
+}
+
 func completionTopValues() []commandmeta.Value {
 	values := commandmeta.Subcommands("completion")
 	values = append(values, completionRootOptions()...)

@@ -61,7 +61,7 @@ var rootCommands = []Command{
 		Description: "render shell completion script",
 		Usage: []string{
 			"adp completion [--shell <bash|zsh>] [--command <name>]",
-			"adp completion values <agents|workspaces|profiles> [--workspace <name>]",
+			"adp completion values <agents|workspaces|profiles|tasks|phases|sessions|owners|statuses> [--workspace <name>]",
 		},
 		Subcommands: describedValues(valueDescriptions{"values": "print dynamic completion values"}, "values"),
 		Options: describedValues(valueDescriptions{
@@ -230,7 +230,16 @@ var (
 	TextJSONFormats     = describedValues(valueDescriptions{"text": "text output", "json": "JSON output"}, "text", "json")
 	MarkdownJSONFormats = describedValues(valueDescriptions{"markdown": "Markdown report", "json": "JSON output"}, "markdown", "json")
 	Languages           = describedValues(valueDescriptions{"en": "English", "zh-CN": "Simplified Chinese"}, "en", "zh-CN")
-	CompletionKinds     = describedValues(valueDescriptions{"agents": "registered agents", "workspaces": "registered workspaces", "profiles": "workspace profiles"}, "agents", "workspaces", "profiles")
+	CompletionKinds     = describedValues(valueDescriptions{
+		"agents":     "registered agents",
+		"workspaces": "registered workspaces",
+		"profiles":   "workspace profiles",
+		"tasks":      "workspace task ids",
+		"phases":     "workspace phase ids",
+		"sessions":   "session ids",
+		"owners":     "task owners",
+		"statuses":   "task statuses",
+	}, "agents", "workspaces", "profiles", "tasks", "phases", "sessions", "owners", "statuses")
 )
 
 func Commands() []Command {
