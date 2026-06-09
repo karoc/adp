@@ -14,6 +14,8 @@ The first task-management slice provides:
 - `adp tasks list`
 - `adp tasks next`
 - `adp tasks take`
+- `adp tasks renew`
+- `adp tasks stale`
 - `adp tasks show`
 - `adp tasks update`
 - `adp tasks claim`
@@ -57,6 +59,8 @@ adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "
 adp tasks take --workspace <workspace> --owner <owner> --lease <duration> --format json
 adp run <agent> --workspace <workspace> --take --owner <owner> --lease <duration> -- <agent-args>
 adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks stale --workspace <workspace> --format json
 adp tasks update --workspace <workspace> <task-id> --status in_progress
 adp tasks block --workspace <workspace> <task-id> --reason "<reason>"
 adp tasks release --workspace <workspace> <task-id> --owner <owner>
@@ -183,6 +187,21 @@ adp run <agent> [--workspace <name>] --take --owner <owner> [--lease <duration>]
 
 The bridge does not complete the task, accept a phase, record commit or push evidence, run Git, infer success from the provider exit code, sync provider-native task panels, or write planning files into the real project root. Provider-native task boxes and plan panels may mirror the active task for local visibility, but ADP remains the authoritative ledger.
 
+## Task Lease Maintenance Scope
+
+P45 defines explicit lease maintenance for long-running and interrupted workers:
+
+```bash
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks stale --workspace <workspace> [--format text|json]
+```
+
+`tasks renew` extends an owned task lease under the workspace planning lock. The caller must provide the current owner and a new lease duration, and ADP updates the local planning ledger instead of relying on any provider-native task state.
+
+`tasks stale` is read-only. It lists `in_progress` tasks whose leases have expired so operators and workers can see interrupted or abandoned work without mutating ownership. It must not append events, change task status, renew a lease, release a task, start an agent, run Git, accept a phase, or write files into the project root.
+
+Workers launched with `adp run --take` should renew during long work before their lease expires. If a session is interrupted, the expired claim becomes visible through `tasks stale`; after expiration, another worker can reclaim the task with `tasks take` or explicit `tasks claim` according to ADP ownership rules. None of these commands automatically mark work done, accept phases, record commit or push evidence, execute Git, scrape provider-private task boxes, or trust provider plan panels as recovery state.
+
 ## Phase Gate Status Scope
 
 P24 adds a read-only phase gate snapshot for local tools and terminal agents:
@@ -290,6 +309,8 @@ Move a task through execution, using atomic pickup for parallel workers:
 adp tasks take --workspace adp --owner codex-main --lease 30m --format json
 adp run codex --workspace adp --take --owner codex-main --lease 30m -- --version
 adp tasks claim --workspace adp <task-id> --owner codex-main --lease 30m
+adp tasks renew --workspace adp <task-id> --owner codex-main --lease 30m
+adp tasks stale --workspace adp --format json
 adp tasks update --workspace adp <task-id> --status in_progress
 adp tasks block --workspace adp <task-id> --reason "waiting for real CLI evidence"
 adp tasks release --workspace adp <task-id> --owner codex-main
@@ -424,6 +445,8 @@ Current claim rules:
 - For parallel workers, prefer `tasks take` because it selects and claims under one planning lock.
 - Claiming a task records ownership before implementation starts.
 - `--lease <duration>` records an optional lease expiration. When the lease has expired, another owner may claim the task.
+- `tasks renew --owner <owner> --lease <duration>` extends the lease for the current owner under the planning lock.
+- `tasks stale` lists expired `in_progress` leases without changing the ledger.
 - A claim without `--lease` is non-expiring until it is released or reclaimed by the same owner.
 - Reclaiming with the same owner refreshes the claim timestamp and lease.
 - A different owner cannot claim a task while the current owner's lease is still active.

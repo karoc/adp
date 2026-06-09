@@ -20,7 +20,7 @@ ADP 负责本地 runtime 边界：
 
 外部 Agent CLI 负责启动后的自身行为，包括认证、模型选择、网络访问、工具权限、prompt 解释和交互行为。
 
-Task ownership 仍由 ADP 管理。Provider 原生 task panel、plan mode 或外部进程成功退出可以镜像或辅助本地工作，但不能被视为 task completion、phase acceptance、commit evidence、push evidence、Git execution，或权威 recovery state。
+Task ownership 和 lease recovery 仍由 ADP 管理。Provider 原生 task panel、plan mode 或外部进程成功退出可以镜像或辅助本地工作，但不能被视为 task completion、phase acceptance、commit evidence、push evidence、Git execution，或权威 recovery state。
 
 ## 共享 Runtime Contract
 
@@ -33,6 +33,8 @@ Task ownership 仍由 ADP 管理。Provider 原生 task panel、plan mode 或外
 - 指向真实项目根目录中文件和目录的 symlink，除非某个生成路径优先生效。
 
 当 operator 传入 `--task <task-id>` 时，ADP 会把这个既有 task 绑定到 runtime。当 operator 传入 `--take --owner <owner> [--lease 4h]` 时，ADP 会在 runtime 创建前原子领取下一个 eligible task，并把被领取的 task 绑定到 runtime。`--take` 与 `--task` 互斥。
+
+对于长时间运行的真实 Agent 工作，owner 使用 `adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>` 续租 ADP task ownership。中断 sessions 通过只读的 `adp tasks stale --workspace <workspace> [--format text|json]` 视图可见；过期工作只能通过 `tasks take` 或显式 `tasks claim` 等 ADP ownership commands 接管。
 
 被启动的进程会收到：
 
@@ -233,6 +235,8 @@ printf 'real-agent-smoke\n' > "$tmp/project/README.md"
 ```
 
 即使对真实 Agent，`sessions restore-plan` 也保持只读。它可以基于本地 invocation metadata 建议一条相似的新 `adp run ...` 命令，但不会恢复 provider 原生 conversation，也不会执行建议命令。
+
+真实 Agent 的 task recovery 与 provider-private session state 保持分离。lease 过期前使用 `tasks renew` 续租，用 `tasks stale` 检查过期的 in-progress claims，过期后用 `tasks take` 或显式 `tasks claim` 接管工作。这些路径都不会 complete tasks、accept phases、commit、push、运行 Git，或抓取原生 task boxes 和 plan panels。
 
 确认真实项目根目录保持干净：
 

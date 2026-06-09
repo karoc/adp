@@ -16,7 +16,7 @@ const tasksNextUsage = "adp tasks next [--workspace <name>] [--limit <n>] [--for
 
 func (a *App) tasks(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: adp tasks <add|list|next|take|show|update|claim|release|done|block>")
+		return errors.New("usage: adp tasks <add|list|next|take|stale|show|update|claim|renew|release|done|block>")
 	}
 
 	switch args[0] {
@@ -28,12 +28,16 @@ func (a *App) tasks(ctx context.Context, args []string) error {
 		return a.tasksNext(ctx, args[1:])
 	case "take":
 		return a.tasksTake(ctx, args[1:])
+	case "stale":
+		return a.tasksStale(ctx, args[1:])
 	case "show":
 		return a.tasksShow(ctx, args[1:])
 	case "update":
 		return a.tasksUpdate(ctx, args[1:])
 	case "claim":
 		return a.tasksClaim(ctx, args[1:])
+	case "renew":
+		return a.tasksRenew(ctx, args[1:])
 	case "release":
 		return a.tasksRelease(ctx, args[1:])
 	case "done":
@@ -217,6 +221,32 @@ func (a *App) tasksTake(ctx context.Context, args []string) error {
 	return nil
 }
 
+func (a *App) tasksStale(ctx context.Context, args []string) error {
+	opts, err := parseTasksStaleArgs(args)
+	if err != nil {
+		return err
+	}
+	store, workspaceName, err := a.loadTaskStore(ctx, opts.workspace)
+	if err != nil {
+		return err
+	}
+	tasks, err := store.Stale(ctx)
+	if err != nil {
+		return err
+	}
+	generatedAt := time.Now().UTC().Truncate(time.Second)
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, taskStaleOutput(workspaceName, generatedAt, tasks))
+	}
+	fmt.Fprintf(a.stdout, "workspace: %s\n", workspaceName)
+	fmt.Fprintf(a.stdout, "stale_count: %d\n", len(tasks))
+	if len(tasks) == 0 {
+		fmt.Fprintln(a.stdout, "stale: -")
+		return nil
+	}
+	return a.printTaskTable(tasks)
+}
+
 func (a *App) tasksRelease(ctx context.Context, args []string) error {
 	opts, err := parseTasksReleaseArgs(args)
 	if err != nil {
@@ -231,6 +261,27 @@ func (a *App) tasksRelease(ctx context.Context, args []string) error {
 		return err
 	}
 	fmt.Fprintf(a.stdout, "task %s released\n", task.ID)
+	return nil
+}
+
+func (a *App) tasksRenew(ctx context.Context, args []string) error {
+	opts, err := parseTasksRenewArgs(args)
+	if err != nil {
+		return err
+	}
+	store, _, err := a.loadTaskStore(ctx, opts.workspace)
+	if err != nil {
+		return err
+	}
+	task, err := store.Renew(ctx, taskstore.RenewRequest{
+		TaskID: opts.taskID,
+		Owner:  opts.owner,
+		Lease:  opts.lease,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(a.stdout, "task %s lease renewed until %s\n", task.ID, formatEventTime(task.LeaseExpiresAt))
 	return nil
 }
 

@@ -56,6 +56,7 @@ Claude 启动使用相同 runtime 模型，但看到的是 `CLAUDE.md` 和 `.cla
 - Workspace metadata：workspace name、真实 project root、adapter name 和 effective profile。
 - Current task：当绑定 task 时，包含 task ID、title、status、priority、phase、description 和 blocked reason。
 - ADP 规划契约：ADP 仍然是权威本地 planning ledger，持久 task state 变更必须使用 ADP task 和 phase commands。
+- Task lease 维护：长时间运行的 owner 通过 ADP 续租，过期的 in-progress claims 通过只读 stale-task commands 检查。
 - 工具任务框桥接：provider 原生 todo 或 task panel 可以为了本地可见性镜像当前 ADP task，但不能成为事实源。
 - 工具 Plan Mode 桥接：provider 原生 plan mode 可以组织 proposal，但只读 ADP plan preview 和明确批准后的 plan apply 才是持久 planning 路径。
 - Base prompt：配置的 `prompts.base` 文件；如果没有可读文件，则使用本地 fallback message。
@@ -121,6 +122,8 @@ adp tasks take --workspace <workspace> --owner <owner> --lease <duration> --form
 adp run <agent> --workspace <workspace> --take --owner <owner> --lease <duration> -- <agent-args>
 adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
 adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks stale --workspace <workspace> --format json
 adp tasks update --workspace <workspace> <task-id> --status in_progress
 adp tasks block --workspace <workspace> <task-id> --reason "<reason>"
 adp tasks release --workspace <workspace> <task-id> --owner <owner>
@@ -132,6 +135,8 @@ adp progress report --workspace <workspace> --format json
 如果外部工具提供原生 task 或 todo panel，Agent 应该为了可见性把当前 ADP task 镜像到那里。对于 `adp run --take`，启动时被选择并领取的 task 就是 active ADP task。镜像可以包含 task ID、title、status、phase、owner 或 lease，以及本地 subtasks，但它只是工作视图。持久状态仍然属于 `$ADP_HOME/workspaces/<workspace>/planning/`。
 
 除非 provider 暴露稳定的本地 API，否则这个 bridge 当前是 instruction-level。ADP 不能抓取 provider-private todo state、把 provider task panel 视为权威状态、根据 agent exit code 推断 completion、自动 accept phase，或自动运行 Git。
+
+对于通过 `adp run --take` 启动的长时间 session，owner 应在 task lease 过期前续租。如果 session 意外中断，`adp tasks stale` 会以只读 recovery evidence 的形式暴露过期的 `in_progress` claim。其他 worker 只能通过 `tasks take` 或显式 `tasks claim` 等 ADP task ownership commands 接管它。
 
 ## 工具 Plan Mode 桥接
 

@@ -20,7 +20,7 @@ ADP owns the local runtime boundary:
 
 The external agent CLI owns its own behavior after launch, including authentication, model selection, network access, tool permissions, prompt interpretation, and interactive behavior.
 
-Task ownership remains ADP-owned. A provider-native task panel, plan mode, or successful external process exit can mirror or inform local work, but it must not be treated as task completion, phase acceptance, commit evidence, push evidence, Git execution, or authoritative recovery state.
+Task ownership and lease recovery remain ADP-owned. A provider-native task panel, plan mode, or successful external process exit can mirror or inform local work, but it must not be treated as task completion, phase acceptance, commit evidence, push evidence, Git execution, or authoritative recovery state.
 
 ## Shared Runtime Contract
 
@@ -33,6 +33,8 @@ For `adp run <agent> --workspace <name> -- <agent-args>`, ADP builds a runtime r
 - Symlinks to files and directories from the real project root, unless a generated path takes precedence.
 
 When the operator passes `--task <task-id>`, ADP binds that existing task to the runtime. When the operator passes `--take --owner <owner> [--lease 4h]`, ADP atomically claims the next eligible task before runtime creation and binds the taken task to the runtime. `--take` and `--task` are mutually exclusive.
+
+For long-running real-agent work, the owner renews ADP task ownership with `adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>`. Interrupted sessions become visible through the read-only `adp tasks stale --workspace <workspace> [--format text|json]` view, and expired work is reclaimed only through ADP ownership commands such as `tasks take` or explicit `tasks claim`.
 
 The launched process receives:
 
@@ -233,6 +235,8 @@ After each run, inspect local ADP evidence:
 ```
 
 `sessions restore-plan` remains read-only for real agents too. It can suggest a similar new `adp run ...` command from local invocation metadata, but it does not resume the provider-native conversation or execute the suggested command.
+
+Task recovery for real agents remains separate from provider-private session state. Use `tasks renew` before leases expire, `tasks stale` to inspect expired in-progress claims, and `tasks take` or explicit `tasks claim` to reclaim work after expiration. None of these paths complete tasks, accept phases, commit, push, run Git, or scrape native task boxes and plan panels.
 
 Confirm the real project root remains clean:
 

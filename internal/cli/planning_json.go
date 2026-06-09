@@ -26,6 +26,13 @@ type taskNextJSON struct {
 	Next           *taskJSON      `json:"next,omitempty"`
 }
 
+type taskStaleJSON struct {
+	Workspace   string     `json:"workspace"`
+	GeneratedAt *string    `json:"generated_at,omitempty"`
+	StaleCount  int        `json:"stale_count"`
+	Tasks       []taskJSON `json:"tasks"`
+}
+
 type taskJSON struct {
 	ID             string  `json:"id"`
 	Title          string  `json:"title"`
@@ -169,6 +176,19 @@ func taskNextOutput(workspace string, source string, generatedAt time.Time, limi
 	if len(out.Candidates) > 0 {
 		next := out.Candidates[0]
 		out.Next = &next
+	}
+	return out
+}
+
+func taskStaleOutput(workspace string, generatedAt time.Time, tasks []taskstore.Task) taskStaleJSON {
+	out := taskStaleJSON{
+		Workspace:   workspace,
+		GeneratedAt: jsonTime(generatedAt),
+		StaleCount:  len(tasks),
+		Tasks:       make([]taskJSON, 0, len(tasks)),
+	}
+	for _, task := range tasks {
+		out.Tasks = append(out.Tasks, taskOutput(task))
 	}
 	return out
 }

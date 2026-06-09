@@ -331,6 +331,14 @@ func (s *runTaskStore) Take(_ context.Context, req taskstore.TakeRequest) (tasks
 	return s.task, nil
 }
 
+func (s *runTaskStore) Renew(context.Context, taskstore.RenewRequest) (taskstore.Task, error) {
+	return taskstore.Task{}, errors.New("not implemented")
+}
+
+func (s *runTaskStore) Stale(context.Context) ([]taskstore.Task, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (s *runTaskStore) Release(context.Context, taskstore.ReleaseRequest) (taskstore.Task, error) {
 	return taskstore.Task{}, errors.New("not implemented")
 }

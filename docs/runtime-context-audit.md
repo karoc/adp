@@ -56,6 +56,7 @@ Both files are generated from the same ADP renderer. The visible sections are:
 - Workspace metadata: workspace name, real project root, adapter name, and effective profile.
 - Current task: task ID, title, status, priority, phase, description, and blocked reason when a task is bound.
 - ADP Planning Contract: ADP remains the authoritative local planning ledger, and durable task state changes must use ADP task and phase commands.
+- Task lease maintenance: long-running owners renew leases through ADP, and expired in-progress claims are inspected through read-only stale-task commands.
 - Tool Taskbox Bridge: provider-native todo or task panels may mirror the active ADP task for local visibility, but they are not the source of truth.
 - Tool Plan Mode Bridge: provider-native plan mode may organize proposals, but read-only ADP plan preview and explicitly approved plan apply are the durable planning path.
 - Base prompt: the configured `prompts.base` file, or a local fallback message when no readable file is configured.
@@ -121,6 +122,8 @@ adp tasks take --workspace <workspace> --owner <owner> --lease <duration> --form
 adp run <agent> --workspace <workspace> --take --owner <owner> --lease <duration> -- <agent-args>
 adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
 adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks stale --workspace <workspace> --format json
 adp tasks update --workspace <workspace> <task-id> --status in_progress
 adp tasks block --workspace <workspace> <task-id> --reason "<reason>"
 adp tasks release --workspace <workspace> <task-id> --owner <owner>
@@ -132,6 +135,8 @@ adp progress report --workspace <workspace> --format json
 If the external tool has a native task or todo panel, the agent should mirror the active ADP task there for visibility. For `adp run --take`, the task selected and claimed at launch is the active ADP task. That mirror can contain the task ID, title, status, phase, owner or lease, and local subtasks, but it is a working view only. Durable state still belongs in `$ADP_HOME/workspaces/<workspace>/planning/`.
 
 This bridge is currently instruction-level unless a provider exposes a stable local API. ADP must not scrape provider-private todo state, treat a provider task panel as authoritative, infer completion from an agent exit code, auto-accept phases, or run Git automatically.
+
+For long-running sessions started with `adp run --take`, the owner should renew the task lease before it expires. If the session is interrupted, `adp tasks stale` exposes the expired `in_progress` claim as read-only recovery evidence. Another worker can reclaim it only through ADP task ownership commands such as `tasks take` or explicit `tasks claim`.
 
 ## Tool Plan Mode Bridge
 

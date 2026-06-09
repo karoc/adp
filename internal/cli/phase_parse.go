@@ -21,6 +21,18 @@ type tasksTakeOptions struct {
 	format    outputFormat
 }
 
+type tasksRenewOptions struct {
+	workspace string
+	taskID    string
+	owner     string
+	lease     time.Duration
+}
+
+type tasksStaleOptions struct {
+	workspace string
+	format    outputFormat
+}
+
 type tasksReleaseOptions struct {
 	workspace string
 	taskID    string
@@ -158,6 +170,83 @@ func parseTasksTakeArgs(args []string) (tasksTakeOptions, error) {
 	}
 	if opts.owner == "" {
 		return tasksTakeOptions{}, errors.New("usage: adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--format <text|json>]")
+	}
+	return opts, nil
+}
+
+func parseTasksRenewArgs(args []string) (tasksRenewOptions, error) {
+	opts := tasksRenewOptions{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksRenewOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--owner":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksRenewOptions{}, err
+			}
+			opts.owner, i = value, next
+		case "--lease":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksRenewOptions{}, err
+			}
+			lease, err := time.ParseDuration(value)
+			if err != nil {
+				return tasksRenewOptions{}, fmt.Errorf("parse lease duration: %w", err)
+			}
+			if lease <= 0 {
+				return tasksRenewOptions{}, errors.New("lease must be positive")
+			}
+			opts.lease, i = lease, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return tasksRenewOptions{}, fmt.Errorf("unknown tasks renew option %q", arg)
+			}
+			if opts.taskID != "" {
+				return tasksRenewOptions{}, errors.New("usage: adp tasks renew [--workspace <name>] <task-id> --owner <owner> --lease <duration>")
+			}
+			opts.taskID = arg
+		}
+	}
+	if opts.taskID == "" || opts.owner == "" || opts.lease == 0 {
+		return tasksRenewOptions{}, errors.New("usage: adp tasks renew [--workspace <name>] <task-id> --owner <owner> --lease <duration>")
+	}
+	return opts, nil
+}
+
+func parseTasksStaleArgs(args []string) (tasksStaleOptions, error) {
+	opts := tasksStaleOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksStaleOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksStaleOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return tasksStaleOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return tasksStaleOptions{}, fmt.Errorf("unknown tasks stale option %q", arg)
+			}
+			return tasksStaleOptions{}, errors.New("usage: adp tasks stale [--workspace <name>] [--format <text|json>]")
+		}
 	}
 	return opts, nil
 }

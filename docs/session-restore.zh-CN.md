@@ -53,6 +53,8 @@ Snapshot 不得包含：
 
 `restore-plan` 命令会把该 snapshot 与用于形成安全建议的普通 session summary 字段结合使用：workspace、agent、profile 和 task ID。
 
+对于通过 `adp run --take` 启动的 sessions，snapshot 可以说明启动时绑定的是哪个 ADP task，但它本身不是 lease recovery。长时间运行的 owner 使用 `adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>` 续租；中断 sessions 会通过 `adp tasks stale --workspace <workspace> [--format text|json]` 可见。
+
 ## CLI 使用
 
 先查看 session history：
@@ -116,6 +118,9 @@ adp sessions restore-plan <session-id>
 
 - 将 restore-plan output 视为指导，而不是自动修复或 resume 动作。
 - 如果 session 需要纳入项目规划追踪，使用 `adp run <agent> --task <task-id>` 绑定工作。
+- worker 需要在启动时原子领取看板任务时，优先使用 `adp run <agent> --take --owner <owner> --lease <duration>`。
+- 长时间 ownership 使用 `adp tasks renew` 续租；意外中断后使用 `adp tasks stale` 查看 lease 已过期的 in-progress claims。
+- 只通过 `adp tasks take` 或显式 `adp tasks claim` 等 ADP ownership commands 接管过期工作。
 - 通过 `adp tasks update`、`adp tasks done` 或 `adp tasks block` 显式推进 task 状态。
 - 将 restore-plan checks 与 `adp events list`、`adp sessions list`、`adp sessions show` 配合使用，保留本地 acceptance evidence。
-- 不要把 restore-plan 描述为云同步、远程 issue 跟踪、托管编排或 provider-native resume。
+- 不要把 restore-plan 描述为云同步、远程 issue 跟踪、托管编排、provider-private state scraping、automatic task completion 或 provider-native resume。

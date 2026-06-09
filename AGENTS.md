@@ -74,7 +74,7 @@ Use sub-agents when the user asks for parallel or multi-agent work and the task 
 Main-thread responsibilities:
 
 - Define the goal, constraints, and disjoint write scopes before spawning agents.
-- Use ADP as the shared task board. Prefer `adp run <agent> --take --owner <owner> [--lease 4h]` when a worker should atomically pick up work at launch time. Use `adp tasks take` for manual pickup without launching an agent.
+- Use ADP as the shared task board. Prefer `adp run <agent> --take --owner <owner> [--lease 4h]` when a worker should atomically pick up work at launch time. Use `adp tasks take` for manual pickup without launching an agent, and use `adp tasks renew` during long-running work before the lease expires.
 - Keep the immediate blocking integration path local.
 - Do not delegate the exact same file set to multiple agents unless one is read-only review.
 - Review every returned diff before integration.
@@ -102,6 +102,8 @@ Sub-agent prompts must specify:
 - Expected final report: files changed, behavior changed, tests run.
 
 Read-only review agents must be told not to edit files.
+
+Interrupted workers are recovered through ADP, not through provider-private state. Operators can inspect expired in-progress claims with `adp tasks stale --workspace <workspace> [--format text|json]`; after a lease expires, another worker can reclaim the task through `adp tasks take` or an explicit `adp tasks claim` according to ADP ownership rules. Do not infer completion, phase acceptance, commit evidence, push evidence, or Git state from a provider task box, plan panel, or process exit.
 
 ## Implementation Principles
 
@@ -246,7 +248,8 @@ ADP development uses ADP's own local planning ledger for P24 and later work. Tre
 
 - Register each new implementation slice as a phase and prioritized tasks before starting it.
 - Keep the authoritative phase/task/progress records under `$ADP_HOME`; do not export planning state into the repository root as a normal workflow.
-- Use `adp run <agent> --workspace adp --take --owner <owner> --lease <duration> -- <agent-args>` for launch-time atomic pickup, and use `adp tasks next --workspace adp --limit 0 --format json` plus `adp phase status --workspace adp --format json` as local handoff snapshots for main-thread and sub-agent coordination.
+- Use `adp run <agent> --workspace adp --take --owner <owner> --lease <duration> -- <agent-args>` for launch-time atomic pickup, renew long-running ownership with `adp tasks renew --workspace adp <task-id> --owner <owner> --lease <duration>`, and use `adp tasks next --workspace adp --limit 0 --format json` plus `adp phase status --workspace adp --format json` as local handoff snapshots for main-thread and sub-agent coordination.
+- Use `adp tasks stale --workspace adp` to find interrupted workers with expired in-progress leases before reassigning work.
 - When Codex, Claude, or another tool exposes a native task/todo panel, mirror the active ADP task there for visibility, but keep durable status, ownership, progress, and recovery evidence in ADP.
 - When a tool exposes plan mode, use it only to draft or display candidate plans until the proposal passes `adp plan preview` and receives explicit approval for `adp plan apply`.
 - Do not start a later phase until the current phase has passed validation, recorded acceptance, been committed, been pushed, and recorded commit plus push evidence.

@@ -62,6 +62,12 @@ type TakeRequest struct {
 	Lease time.Duration
 }
 
+type RenewRequest struct {
+	TaskID string
+	Owner  string
+	Lease  time.Duration
+}
+
 type ReleaseRequest struct {
 	TaskID string
 	Owner  string

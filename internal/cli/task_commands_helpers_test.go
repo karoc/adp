@@ -15,7 +15,9 @@ type fakeTaskStore struct {
 	blockReason       string
 	claimReq          taskstore.ClaimRequest
 	takeReq           taskstore.TakeRequest
+	renewReq          taskstore.RenewRequest
 	releaseReq        taskstore.ReleaseRequest
+	staleTasks        []taskstore.Task
 	progress          taskstore.Progress
 	planReq           taskstore.PlanImportRequest
 	planPreviewResult taskstore.PlanImportResult
@@ -75,6 +77,21 @@ func (s *fakeTaskStore) Take(_ context.Context, req taskstore.TakeRequest) (task
 		task.LeaseExpiresAt = task.UpdatedAt.Add(req.Lease)
 	}
 	return task, nil
+}
+
+func (s *fakeTaskStore) Renew(_ context.Context, req taskstore.RenewRequest) (taskstore.Task, error) {
+	s.renewReq = req
+	task := testTask(req.TaskID, "Add task manager", taskstore.StatusInProgress)
+	task.Owner = req.Owner
+	task.ClaimedAt = task.UpdatedAt
+	if req.Lease > 0 {
+		task.LeaseExpiresAt = task.UpdatedAt.Add(req.Lease)
+	}
+	return task, nil
+}
+
+func (s *fakeTaskStore) Stale(context.Context) ([]taskstore.Task, error) {
+	return s.staleTasks, nil
 }
 
 func (s *fakeTaskStore) Release(_ context.Context, req taskstore.ReleaseRequest) (taskstore.Task, error) {

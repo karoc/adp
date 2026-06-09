@@ -43,6 +43,17 @@ func claimableTasks(tasks []Task, now time.Time, limit int) []Task {
 	return claimable
 }
 
+func StaleTasks(tasks []Task, now time.Time) []Task {
+	stale := make([]Task, 0, len(tasks))
+	for _, task := range tasks {
+		if isStaleTask(task, now) {
+			stale = append(stale, task)
+		}
+	}
+	sortByTaskPriority(stale)
+	return stale
+}
+
 func isNextStatus(status Status) bool {
 	return status == StatusReady || status == StatusInProgress || status == StatusReview
 }
@@ -56,6 +67,10 @@ func isTakeStatus(task Task, now time.Time) bool {
 	default:
 		return false
 	}
+}
+
+func isStaleTask(task Task, now time.Time) bool {
+	return task.Status == StatusInProgress && task.Owner != "" && claimLeaseExpired(task, now)
 }
 
 func sortByTaskPriority(tasks []Task) {

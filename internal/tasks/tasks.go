@@ -190,6 +190,34 @@ func (s *Store) Take(ctx context.Context, req TakeRequest) (Task, error) {
 	return task, nil
 }
 
+func (s *Store) Renew(ctx context.Context, req RenewRequest) (Task, error) {
+	req.Owner = strings.TrimSpace(req.Owner)
+	if req.Owner == "" {
+		return Task{}, errors.New("owner is required")
+	}
+	if req.Lease <= 0 {
+		return Task{}, errors.New("lease must be positive")
+	}
+	return s.update(ctx, req.TaskID, func(task *Task, now time.Time) (progressEvent, error) {
+		if task.Owner == "" || task.Owner != req.Owner {
+			return progressEvent{}, fmt.Errorf("%w: task %s is claimed by %s", ErrTaskOwnerMismatch, task.ID, valueOrUnclaimed(task.Owner))
+		}
+		if task.Status == StatusDone || task.Status == StatusCanceled {
+			return progressEvent{}, fmt.Errorf("task %s with status %s cannot renew a lease", task.ID, task.Status)
+		}
+		task.LeaseExpiresAt = now.Add(req.Lease).UTC().Truncate(time.Second)
+		return progressEvent{Timestamp: now, Type: "task_lease_renewed", TaskID: task.ID, Status: string(task.Status), Owner: req.Owner, LeaseExpiresAt: task.LeaseExpiresAt}, nil
+	})
+}
+
+func (s *Store) Stale(ctx context.Context) ([]Task, error) {
+	data, err := s.load(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return StaleTasks(data.Tasks, s.now()), nil
+}
+
 func (s *Store) Release(ctx context.Context, req ReleaseRequest) (Task, error) {
 	req.Owner = strings.TrimSpace(req.Owner)
 	return s.update(ctx, req.TaskID, func(task *Task, now time.Time) (progressEvent, error) {
@@ -254,4 +282,11 @@ func (s *Store) update(ctx context.Context, id string, mutate func(*Task, time.T
 		return Task{}, err
 	}
 	return task, nil
+}
+
+func valueOrUnclaimed(owner string) string {
+	if strings.TrimSpace(owner) == "" {
+		return "unclaimed"
+	}
+	return owner
 }

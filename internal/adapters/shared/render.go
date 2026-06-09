@@ -181,18 +181,21 @@ func writePlanningContract(b *strings.Builder, ctx api.Context) {
 	b.WriteString("Durable task commands:\n")
 	fmt.Fprintf(b, "- Inspect next work: `$ADP_CLI tasks next --workspace %s --format json`\n", workspace)
 	fmt.Fprintf(b, "- Atomically take next work: `$ADP_CLI tasks take --workspace %s --owner <owner> --lease 4h --format json`\n", workspace)
+	fmt.Fprintf(b, "- Inspect stale claims: `$ADP_CLI tasks stale --workspace %s --format json`\n", workspace)
 	fmt.Fprintf(b, "- Create durable work: `$ADP_CLI tasks add --workspace %s --priority <priority> --phase <phase-id> --description <text> <title>`\n", workspace)
 	fmt.Fprintf(b, "- Claim selected work: `$ADP_CLI tasks claim --workspace %s <task-id> --owner <owner> --lease 4h`\n", workspace)
 	if ctx.Task.IsZero() {
 		fmt.Fprintf(b, "- Update durable work: `$ADP_CLI tasks update --workspace %s <task-id> --status <status>`\n", workspace)
 		fmt.Fprintf(b, "- Block durable work: `$ADP_CLI tasks block --workspace %s <task-id> --reason <reason>`\n", workspace)
 		fmt.Fprintf(b, "- Complete durable work: `$ADP_CLI tasks done --workspace %s <task-id>`\n", workspace)
+		fmt.Fprintf(b, "- Renew durable work: `$ADP_CLI tasks renew --workspace %s <task-id> --owner <owner> --lease 4h`\n", workspace)
 		fmt.Fprintf(b, "- Release durable work: `$ADP_CLI tasks release --workspace %s <task-id> --owner <owner>`\n\n", workspace)
 		return
 	}
 	b.WriteString("- Update this task: `$ADP_CLI tasks update --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --status <status>`\n")
 	b.WriteString("- Block this task: `$ADP_CLI tasks block --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --reason <reason>`\n")
 	b.WriteString("- Complete this task: `$ADP_CLI tasks done --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\"`\n")
+	b.WriteString("- Renew this task: `$ADP_CLI tasks renew --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner <owner> --lease 4h`\n")
 	b.WriteString("- Release this task: `$ADP_CLI tasks release --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner <owner>`\n\n")
 }
 

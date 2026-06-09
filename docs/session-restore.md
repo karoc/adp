@@ -53,6 +53,8 @@ The snapshot must not include:
 
 The restore-plan command combines this snapshot with normal session summary fields used to form a safe suggestion: workspace, agent, profile, and task ID.
 
+For sessions started with `adp run --take`, the snapshot can explain which ADP task was bound at launch, but it is not lease recovery by itself. Long-running owners renew with `adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>`, while interrupted sessions become visible through `adp tasks stale --workspace <workspace> [--format text|json]`.
+
 ## CLI Usage
 
 Inspect session history first:
@@ -116,6 +118,9 @@ If the suggested command is run manually, it starts a new local agent run with a
 
 - Treat restore-plan output as guidance, not as an automatic repair or resume action.
 - Bind work to tasks with `adp run <agent> --task <task-id>` when the session should be traceable in project planning.
+- Prefer `adp run <agent> --take --owner <owner> --lease <duration>` when a worker should atomically take a board item at launch.
+- Renew long-running ownership with `adp tasks renew`; use `adp tasks stale` to inspect expired in-progress claims after interruptions.
+- Reclaim expired work only through ADP ownership commands such as `adp tasks take` or explicit `adp tasks claim`.
 - Move task status explicitly with `adp tasks update`, `adp tasks done`, or `adp tasks block`.
 - Keep acceptance evidence local by pairing restore-plan checks with `adp events list`, `adp sessions list`, and `adp sessions show`.
-- Do not describe restore-plan as cloud sync, remote issue tracking, hosted orchestration, or provider-native resume.
+- Do not describe restore-plan as cloud sync, remote issue tracking, hosted orchestration, provider-private state scraping, automatic task completion, or provider-native resume.

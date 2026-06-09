@@ -189,6 +189,63 @@ func TestTasksTakeCommandPrintsJSON(t *testing.T) {
 	assertJSONStringField(t, task, "owner", "agent-a")
 }
 
+func TestTasksRenewCommandExtendsLease(t *testing.T) {
+	store := &fakeTaskStore{}
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+	var stdout bytes.Buffer
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"tasks", "renew", "--workspace", "game-a", "task-1", "--owner", "agent-a", "--lease", "50m"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if store.renewReq.TaskID != "task-1" || store.renewReq.Owner != "agent-a" || store.renewReq.Lease != 50*time.Minute {
+		t.Fatalf("renew request = %+v", store.renewReq)
+	}
+	if !strings.Contains(stdout.String(), "task task-1 lease renewed until 2026") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestTasksStaleCommandPrintsTextAndJSON(t *testing.T) {
+	stale := testTask("task-stale", "Expired task", taskstore.StatusInProgress)
+	stale.Owner = "agent-old"
+	stale.ClaimedAt = stale.UpdatedAt.Add(-time.Hour)
+	stale.LeaseExpiresAt = stale.UpdatedAt.Add(-time.Minute)
+	store := &fakeTaskStore{staleTasks: []taskstore.Task{stale}}
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+	var textOut bytes.Buffer
+	var jsonOut bytes.Buffer
+	var jsonErr bytes.Buffer
+
+	textCode := NewApp(deps, &textOut, &bytes.Buffer{}).Execute(context.Background(), []string{"tasks", "stale", "--workspace", "game-a"})
+	jsonCode := NewApp(deps, &jsonOut, &jsonErr).Execute(context.Background(), []string{"tasks", "stale", "--workspace", "game-a", "--format", "json"})
+
+	if textCode != 0 {
+		t.Fatalf("text exit code = %d, output = %q", textCode, textOut.String())
+	}
+	for _, want := range []string{"workspace: game-a", "stale_count: 1", "task-stale", "agent-old", "Expired task"} {
+		if !strings.Contains(textOut.String(), want) {
+			t.Fatalf("tasks stale text missing %q: %q", want, textOut.String())
+		}
+	}
+	if jsonCode != 0 {
+		t.Fatalf("json exit code = %d, stderr = %q", jsonCode, jsonErr.String())
+	}
+	payload := decodeJSONObject(t, jsonOut.Bytes())
+	assertJSONStringField(t, payload, "workspace", "game-a")
+	assertJSONNumberField(t, payload, "stale_count", 1)
+	task := findJSONObject(t, assertJSONObjectListField(t, payload, "tasks"), "id", "task-stale")
+	assertJSONStringField(t, task, "owner", "agent-old")
+	assertJSONStringField(t, task, "status", "in_progress")
+}
+
 func TestTasksCommandReportsUnknownSubcommand(t *testing.T) {
 	var stderr bytes.Buffer
 

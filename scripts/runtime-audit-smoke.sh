@@ -87,6 +87,48 @@ assert_json_valid() {
   fi
 }
 
+event_log_count() {
+  if [ -f "$EVENTS_FILE" ]; then
+    line_count "$EVENTS_FILE"
+  else
+    printf '0\n'
+  fi
+}
+
+runtime_dirs_state() {
+  find "$ADP_RUNTIME_DIR" -mindepth 1 -maxdepth 1 -type d -print | LC_ALL=C sort
+}
+
+project_root_state() {
+  find "$PROJECT_ROOT" -mindepth 1 -maxdepth 4 -print | LC_ALL=C sort
+}
+
+git_state() {
+  git -C "$REPO_ROOT" status --short --branch --untracked-files=all
+  git -C "$REPO_ROOT" rev-parse --verify HEAD
+}
+
+assert_read_only_lease_state() {
+  local label="$1"
+  local tasks_before="$2"
+  local phases_before="$3"
+  local progress_before="$4"
+  local events_before="$5"
+  local runtime_before="$6"
+  local project_before="$7"
+  local git_before="$8"
+
+  if [ "$(cat "$TASKS_FILE")" != "$tasks_before" ]; then fail "$label changed task state"; fi
+  if [ "$(cat "$PHASES_FILE")" != "$phases_before" ]; then fail "$label changed phase state"; fi
+  if [ "$(cat "$PROGRESS_FILE")" != "$progress_before" ]; then fail "$label changed progress events"; fi
+  if [ "$(event_log_count)" != "$events_before" ]; then fail "$label changed event log"; fi
+  if [ "$(runtime_dirs_state)" != "$runtime_before" ]; then fail "$label changed runtime dirs"; fi
+  if [ "$(project_root_state)" != "$project_before" ]; then fail "$label changed project root"; fi
+  if [ "$(git_state)" != "$git_before" ]; then fail "$label changed Git state"; fi
+  assert_no_git_side_effects "$label"
+  assert_absent_project_artifacts "$PROJECT_ROOT"
+}
+
 build_json_validator() {
   cat > "$TMP_ROOT/json-valid.go" <<'EOF'
 package main
@@ -219,6 +261,10 @@ assert_help "tasks help take" "adp tasks take" tasks --help
 assert_help "tasks add help" "adp tasks add" tasks add --help
 assert_help "tasks take help" "adp tasks take" tasks take --help
 assert_help "tasks claim help" "adp tasks claim" tasks claim --help
+assert_help "tasks help renew" "adp tasks renew" tasks --help
+assert_help "tasks help stale" "adp tasks stale" tasks --help
+assert_help "tasks renew help" "adp tasks renew" tasks renew --help
+assert_help "tasks stale help" "adp tasks stale" tasks stale --help
 assert_help "plan help" "adp plan preview" plan --help
 assert_help "plan doctor help" "adp plan doctor" plan doctor --help
 assert_help "phase help" "adp phase accept" phase --help
@@ -298,8 +344,52 @@ output=$(run_adp "$REPO_ROOT" tasks claim --workspace game-a "$task_id" --owner 
 assert_contains "$output" "claimed by audit-agent" "tasks claim output"
 output=$(run_adp "$REPO_ROOT" completion values owners --workspace game-a)
 assert_contains "$output" "audit-agent" "completion owner values output"
+renew_guard_events=$(line_count "$PROGRESS_FILE")
+output=$(run_adp_expect_fail "$REPO_ROOT" tasks renew --workspace game-a "$task_id" --owner other-agent --lease 20m)
+assert_contains "$output" "owner" "tasks renew owner mismatch output"
+output=$(run_adp_expect_fail "$REPO_ROOT" tasks renew --workspace game-a "$task_id" --owner audit-agent --lease -1m)
+assert_contains "$output" "lease" "tasks renew negative lease output"
+if [ "$(line_count "$PROGRESS_FILE")" != "$renew_guard_events" ]; then
+  fail "failed tasks renew guards appended progress events"
+fi
+output=$(run_adp "$REPO_ROOT" tasks renew --workspace game-a "$task_id" --owner audit-agent --lease 20m)
+assert_contains "$output" "task $task_id lease renewed until 20" "tasks renew output"
+if [ "$(line_count "$PROGRESS_FILE")" != $((renew_guard_events + 1)) ]; then
+  fail "tasks renew did not append exactly one progress event"
+fi
+assert_contains "$(tail -n 1 "$PROGRESS_FILE")" "\"type\":\"task_lease_renewed\"" "tasks renew progress event"
+assert_contains "$(tail -n 1 "$PROGRESS_FILE")" "\"owner\":\"audit-agent\"" "tasks renew progress event"
 output=$(run_adp "$REPO_ROOT" tasks release --workspace game-a "$task_id" --owner audit-agent)
 assert_contains "$output" "released" "tasks release output"
+output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority critical --phase p-audit --description "expired take claim" "Expired take handoff")
+stale_take_id=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority low --phase p-audit --description "expired explicit claim" "Expired claim handoff")
+stale_claim_id=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+if [ -z "$stale_take_id" ] || [ -z "$stale_claim_id" ]; then fail "could not parse stale task ids"; fi
+run_adp "$REPO_ROOT" tasks claim --workspace game-a "$stale_take_id" --owner stale-take-agent --lease 1ns >/dev/null
+run_adp "$REPO_ROOT" tasks claim --workspace game-a "$stale_claim_id" --owner stale-claim-agent --lease 1ns >/dev/null
+sleep 0.05
+tasks_before_stale=$(cat "$TASKS_FILE"); phases_before_stale=$(cat "$PHASES_FILE")
+progress_before_stale=$(cat "$PROGRESS_FILE"); events_before_stale=$(event_log_count)
+runtime_before_stale=$(runtime_dirs_state); project_before_stale=$(project_root_state); git_before_stale=$(git_state)
+reset_git_tripwire
+output=$(run_adp "$REPO_ROOT" tasks stale --workspace game-a)
+assert_contains "$output" "$stale_take_id" "tasks stale text output"
+assert_contains "$output" "stale-take-agent" "tasks stale text output"
+assert_contains "$output" "$stale_claim_id" "tasks stale text output"
+assert_contains "$output" "stale-claim-agent" "tasks stale text output"
+assert_not_contains "$output" "$task_id" "tasks stale text output"
+output=$(run_adp "$REPO_ROOT" tasks stale --workspace game-a --format json)
+assert_json_valid "$output" "tasks stale json output"
+assert_contains "$output" "\"$stale_take_id\"" "tasks stale json output"
+assert_contains "$output" "\"stale-take-agent\"" "tasks stale json output"
+assert_contains "$output" "\"$stale_claim_id\"" "tasks stale json output"
+assert_contains "$output" "\"lease_expires_at\"" "tasks stale json output"
+assert_read_only_lease_state "tasks stale" "$tasks_before_stale" "$phases_before_stale" "$progress_before_stale" "$events_before_stale" "$runtime_before_stale" "$project_before_stale" "$git_before_stale"
+output=$(run_adp "$REPO_ROOT" tasks take --workspace game-a --owner stale-take-reclaimer --lease 10m)
+assert_contains "$output" "task $stale_take_id taken by stale-take-reclaimer" "stale tasks take output"
+output=$(run_adp "$REPO_ROOT" tasks claim --workspace game-a "$stale_claim_id" --owner stale-claim-reclaimer --lease 10m)
+assert_contains "$output" "claimed by stale-claim-reclaimer" "expired tasks claim output"
 output=$(run_adp "$REPO_ROOT" tasks update --workspace game-a "$task_id" --status review)
 assert_contains "$output" "status: review" "tasks update output"
 output=$(run_adp "$REPO_ROOT" tasks block --workspace game-a "$task_id" --reason "audit blocker")
