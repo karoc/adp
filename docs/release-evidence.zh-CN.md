@@ -70,7 +70,8 @@ export ADP_RUNTIME_DIR="${ADP_SMOKE_ROOT}/runtime"
 adp init
 adp workspace add artifact-a "${ADP_SMOKE_ROOT}/project"
 adp workspace doctor artifact-a
-TASK_ID=$(adp tasks add --workspace artifact-a --priority high --phase artifact-smoke "Validate artifact install" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+TASK_ID=$(adp tasks add --workspace artifact-a --priority high "Validate artifact install" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+test -n "$TASK_ID"
 adp run codex --workspace artifact-a --task "$TASK_ID" -- --artifact-smoke
 adp events list --workspace artifact-a --task "$TASK_ID" --limit 1
 adp sessions list --workspace artifact-a --agent codex --task "$TASK_ID"
@@ -79,7 +80,8 @@ adp sessions list --workspace artifact-a --agent codex --task "$TASK_ID"
 Project-root pollution scan 应找不到任何 ADP-generated files：
 
 ```bash
-find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name planning \)
+ROOT_LEAKS="$(find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name .adp-runtime.yaml -o -name planning -o -name tasks.yaml -o -name phases.yaml -o -name progress.jsonl \) -print)"
+test -z "$ROOT_LEAKS"
 ```
 
 ## Package 内容 Evidence

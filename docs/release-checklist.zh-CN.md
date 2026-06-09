@@ -29,6 +29,7 @@ scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
 scripts/release-artifact-smoke.sh
 scripts/release-operator-drill-smoke.sh
+scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -138,6 +139,16 @@ release operator drill smoke 验证：
 - operator handoff sequence 可以到达 `plan_next_phase`，且不执行 Git side-effect commands。
 - 临时 ADP state 和 runtime state 保持在真实 project root 之外。
 
+`scripts/install-onboarding-smoke.sh` 会构建本地 binary，把 ADP 安装到临时 `GOBIN`，验证 installed binary 位于 `PATH` 首位，并使用临时 ADP state、临时 project root、fake Codex、fake Claude guard、本地 events、本地 sessions、planning diagnostics、progress JSON、Git side-effect guards 和 project-root pollution checks 运行首次使用路径。
+
+install onboarding smoke 验证：
+
+- 新 operator 可以在注册 workspace 前验证 installed binary。
+- 临时 `ADP_HOME` 和 `ADP_RUNTIME_DIR` 足以完成第一个本地 workspace。
+- task-bound fake Codex execution 会记录本地 event、session、progress 和 plan-doctor evidence。
+- 缺少真实 Codex 或 Claude CLI 不会阻塞确定性 onboarding validation。
+- 首次使用路径不会执行 Git side-effect commands，也不会把 ADP artifacts 写入真实 project root。
+
 `scripts/example-workspace-smoke.sh` 会构建当前 `cmd/adp` 二进制，把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，把复制后的 `project.root` 改写为临时项目，并用该示例验证 `adp init`、`workspace doctor`、`workspace show`、`env --cd`、fake Codex runtime launch、本地 events、sessions 和 restore-plan 输出。
 
 example workspace smoke 验证：
@@ -216,6 +227,8 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 如果 `scripts/release-artifact-smoke.sh` 失败，优先检查 package staging directory、artifact checksum、package manifest、install-from-artifact path、显式 source archive `COMMIT`、临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、fake Codex command 和 project-root pollution scan。不能通过从 source tree 直接运行、把本地状态放进 package、在 source archive 里依赖 `.git`，或把真实 Codex/Claude 检查变成默认门禁来修复 artifact failures。
 
 如果 `scripts/release-operator-drill-smoke.sh` 失败，优先检查 no-`.git` source copy、文档化 release commands、release script syntax checks、显式 commit build、checksum verification、installed `PATH` binary、fake Codex handoff sequence、phase evidence records、fake Git tripwire 和 project-root pollution scan。不能通过增加本机 source files、automatic Git execution 或 hosted orchestration 来修复 drill failures。
+
+如果 `scripts/install-onboarding-smoke.sh` 失败，优先检查 local build metadata、临时 `GOBIN`、`PATH` ordering、临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、workspace registration、fake Codex path、fake Claude guard、task-bound context、本地 event/session/progress evidence、fake Git tripwire output 和 project-root pollution scan。不能通过要求真实 provider CLI、把 ADP state 写入 project root，或增加 hosted setup steps 来修复 onboarding failures。
 
 如果可选真实 CLI 检查因为缺少 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1` 而失败，应把它视为 operator 尚未显式启用该检查。如果命令不可用，应在该机器上安装外部 CLI，或通过 `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 指向预期命令路径。如果 `--version` 和 `--help` 都失败，应归类为外部 CLI、wrapper 或 operator 环境的 evidence gap，除非确定性 fake gate 或 ADP launch contract 也同时失败。
 

@@ -84,6 +84,8 @@ PATH="${ADP_INSTALL_BIN}:${PATH}" adp version
 
 对于 `scripts/release-operator-drill-smoke.sh`，优先检查 no-`.git` source copy、文档化 release commands、release script syntax checks、显式 commit build、checksum verification、installed `PATH` binary、fake Codex handoff sequence、本地 phase evidence records、fake Git tripwire 和 project-root pollution scan。
 
+对于 `scripts/install-onboarding-smoke.sh`，优先检查 deterministic build metadata、临时 `GOBIN` install、`PATH` ordering、临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、workspace registration、fake Codex 与 fake Claude commands、task-bound evidence、fake Git tripwire output 和 project-root pollution scan。
+
 对于 `scripts/release-rehearsal-smoke.sh`，优先检查 clean workspace copy、release ldflags、复制后的 example workspace bootstrap、隔离的 runtime directories 和 fake Git tripwire output。
 
 对于 `scripts/check-docs-bilingual.sh`，补齐缺失的 English default 或 Simplified Chinese counterpart。对于 `scripts/check-file-lines.sh`，在新增行为前拆分报告的 code file。对于 `git diff --check`，移除 whitespace errors 或 conflict markers。

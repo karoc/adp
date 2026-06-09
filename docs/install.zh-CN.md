@@ -2,7 +2,7 @@
 
 English: [install.md](install.md)
 
-本文档说明 ADP 的本地安装和首次 bootstrap 流程。ADP 是 terminal-first、local-first 的 runtime manager；安装是本地 CLI 工作流，不需要托管服务。
+本文档说明 ADP 的本地安装和首次 bootstrap 流程。ADP 是 terminal-first、local-first 的 runtime manager；安装是本地 CLI 工作流，不需要托管服务。面向 operator 的单一路径见 [operator-onboarding.zh-CN.md](operator-onboarding.zh-CN.md)。
 
 ## 前置要求
 
@@ -72,6 +72,28 @@ go install github.com/karoc/adp/cmd/adp@<version>
 
 使用显式版本可以保证安装可复现。
 
+## 选择 Operator 路径
+
+首次注册 workspace 前，先选择一种路径：
+
+- 源码 checkout：运行 `go run ./cmd/adp version`，开发时继续用 `go run ./cmd/adp <command>`。
+- 已构建二进制：运行 `mkdir -p bin && go build -o ./bin/adp ./cmd/adp`，再用 `./bin/adp version` 验证。
+- 临时安装路径：把已构建或从 release package 解压出的二进制复制到临时目录并加入 `PATH`，再用 `adp version` 验证。
+
+临时安装路径示例：
+
+```bash
+mkdir -p bin
+go build -o ./bin/adp ./cmd/adp
+ADP_INSTALL_DIR="$(mktemp -d)"
+install -m 0755 ./bin/adp "${ADP_INSTALL_DIR}/adp"
+export PATH="${ADP_INSTALL_DIR}:${PATH}"
+command -v adp
+adp version
+```
+
+如果使用 release package，先解压 package，并在 `install -m 0755` 命令中使用其中的 `bin/adp` artifact。临时安装目录应放在 project root 之外。
+
 ## 环境变量
 
 ADP 可以使用默认值运行，但以下变量对本地 bootstrap 和可复验测试很有用：
@@ -89,9 +111,12 @@ export ADP_RUNTIME_DIR="$(mktemp -d)"
 
 ## 隔离首次运行演练
 
-使用上面任一安装路径后，可以在仓库根目录运行一次不依赖 provider 的演练。如果你构建的是 `./bin/adp`，而不是把 `adp` 安装到 `PATH`，则把下面命令块中的 `adp` 替换为 `./bin/adp`。
+使用上面任一安装路径后，在选定的 `adp` 命令可用的 shell 中运行一次不依赖 provider 的演练。如果你构建的是 `./bin/adp`，而不是把 `adp` 安装到 `PATH`，则把下面命令块中的 `adp` 替换为 `./bin/adp`。
 
 ```bash
+command -v adp
+adp version
+
 ADP_REHEARSAL_ROOT="$(mktemp -d)"
 export ADP_HOME="${ADP_REHEARSAL_ROOT}/adp-home"
 export ADP_RUNTIME_DIR="${ADP_REHEARSAL_ROOT}/runtime"
@@ -112,17 +137,22 @@ export PATH="${ADP_REHEARSAL_ROOT}/fake-bin:${PATH}"
 
 adp init
 adp workspace add game-a "${ADP_REHEARSAL_ROOT}/project"
+adp workspace list
+adp workspace show game-a
 adp workspace doctor game-a
-TASK_ID=$(adp tasks add --workspace game-a --priority high --phase local-smoke "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+adp doctor game-a
+TASK_ID=$(adp tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+test -n "$TASK_ID"
 adp run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
-adp events list --workspace game-a --task "$TASK_ID" --limit 2
+adp events list --workspace game-a --task "$TASK_ID" --limit 5
 adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
 adp plan doctor --workspace game-a --format json
 adp progress --workspace game-a --format json
-find "${ADP_REHEARSAL_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name planning \)
+ROOT_LEAKS="$(find "${ADP_REHEARSAL_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name .adp-runtime.yaml -o -name planning -o -name tasks.yaml -o -name phases.yaml -o -name progress.jsonl \) -print)"
+test -z "$ROOT_LEAKS"
 ```
 
-最后一条 `find` 命令应该没有输出。这次演练会把 ADP 状态放在临时 `$ADP_HOME` 下，把 runtime overlay 放在临时 `$ADP_RUNTIME_DIR` 下，使用 fake local `codex`，不会运行 Git，也不会把 planning 或 report export 写入 project root。
+最后的 project-root 泄漏检查应该通过且没有输出。这次演练会把 ADP 状态放在临时 `$ADP_HOME` 下，把 runtime overlay 放在临时 `$ADP_RUNTIME_DIR` 下，使用 fake local `codex`，不会运行 Git，也不会把 planning 或 report export 写入 project root。
 
 ## Bootstrap Workspace
 
@@ -163,7 +193,7 @@ adp run codex --workspace game-a -- <agent-args>
 adp run claude --workspace game-a -- <agent-args>
 ```
 
-这些命令需要已安装并完成认证的对应外部 CLI。`--` 之后的参数会透传给外部 agent 命令。ADP 不定义某个外部 CLI 支持或安全的具体参数；这需要在 operator 机器上用已安装的 CLI 验证。如果要做不依赖 provider 的验证，使用上面的隔离演练或 `scripts/example-workspace-smoke.sh`。
+这些命令需要已安装并完成认证的对应外部 CLI。`--` 之后的参数会透传给外部 agent 命令。ADP 不定义某个外部 CLI 支持或安全的具体参数；这需要在 operator 机器上用已安装的 CLI 验证。默认不依赖 provider 的验证路径使用上面的隔离演练。当你需要一份包含 Codex 和 Claude profile、base prompt、shared memory 与 MCP 设置的可复制 workspace 配置时，再使用 `examples/basic-workspace` 和 `scripts/example-workspace-smoke.sh`。
 
 查看本地历史：
 
@@ -193,7 +223,7 @@ adp runtime prune --older-than 24h
 scripts/check-all.sh
 ```
 
-聚合 gate 包含 fake-agent runtime smoke、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go tests、vet、文件行数检查、双语文档检查和 diff 空白检查。
+聚合 gate 包含 fake-agent runtime smoke、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go tests、vet、文件行数检查、双语文档检查和 diff 空白检查。
 
 如需定向 bootstrap 检查，运行：
 
@@ -202,9 +232,12 @@ scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
+scripts/release-artifact-smoke.sh
+scripts/release-operator-drill-smoke.sh
+scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
 ```
 
-runtime smoke 会把当前 `cmd/adp` 二进制构建到临时目录，并使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时 project root。它可以在不安装真实 Codex 或 Claude CLI 的情况下验证 runtime overlay 路径。runtime audit smoke 会扩大覆盖面，验证 CLI help、JSON output、task/phase/plan/progress flow、session、restore planning、completion values 和 local-first runtime 边界。release readiness smoke 会验证 release gate invariant，例如 phase commit 和 push 只记录 evidence 而不会执行 Git。release rehearsal smoke 会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。example workspace smoke 会把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，并验证发布的示例仍能针对临时项目完成 bootstrap。plan intake smoke 会验证结构化本地 planning 输入可以只读 preview，并且只能显式 apply 到 `$ADP_HOME`，不会产生 project-root、runtime、Git 或 partial-write 副作用。
+runtime smoke 会把当前 `cmd/adp` 二进制构建到临时目录，并使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时 project root。它可以在不安装真实 Codex 或 Claude CLI 的情况下验证 runtime overlay 路径。runtime audit smoke 会扩大覆盖面，验证 CLI help、JSON output、task/phase/plan/progress flow、session、restore planning、completion values 和 local-first runtime 边界。release readiness smoke 会验证 release gate invariant，例如 phase commit 和 push 只记录 evidence 而不会执行 Git。release rehearsal smoke 会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。release artifact smoke 会验证 package contents、checksum、install-from-artifact、无 `.git` source archive 构建和 local-only 排除边界。release operator drill smoke 会按 operator 顺序演练 clean source form、checksum、临时安装、fake-provider handoff 和本地 phase evidence 记录。install onboarding smoke 会验证源码、构建、临时安装 onboarding、fake-provider 首次运行、event 和 session evidence、project-root 干净状态，以及 Git 副作用 guard。example workspace smoke 会把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，并验证发布的示例仍能针对临时项目完成 bootstrap。plan intake smoke 会验证结构化本地 planning 输入可以只读 preview，并且只能显式 apply 到 `$ADP_HOME`，不会产生 project-root、runtime、Git 或 partial-write 副作用。

@@ -84,6 +84,8 @@ For `scripts/release-artifact-smoke.sh`, inspect package staging, checksums, man
 
 For `scripts/release-operator-drill-smoke.sh`, inspect the no-`.git` source copy, documented release commands, release script syntax checks, explicit commit build, checksum verification, installed `PATH` binary, fake Codex handoff sequence, local phase evidence records, fake Git tripwire, and project-root pollution scan.
 
+For `scripts/install-onboarding-smoke.sh`, inspect deterministic build metadata, temporary `GOBIN` install, `PATH` ordering, temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, workspace registration, fake Codex and fake Claude commands, task-bound evidence, fake Git tripwire output, and project-root pollution scan.
+
 For `scripts/release-rehearsal-smoke.sh`, inspect the clean workspace copy, release ldflags, copied example workspace bootstrap, isolated runtime directories, and fake Git tripwire output.
 
 For `scripts/check-docs-bilingual.sh`, add the missing English default or Simplified Chinese counterpart. For `scripts/check-file-lines.sh`, split the reported code file before adding behavior. For `git diff --check`, remove whitespace errors or conflict markers.

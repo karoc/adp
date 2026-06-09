@@ -12,7 +12,7 @@ Run the same aggregate gate locally and in CI before preparing an artifact:
 scripts/check-all.sh
 ```
 
-The gate covers fake runtime acceptance, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, release artifact smoke, release operator drill smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file-line limits, bilingual documentation pairing, and whitespace checks. CI intentionally calls this same script so release evidence is not split between a local path and a separate GitHub Actions path.
+The gate covers fake runtime acceptance, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, release artifact smoke, release operator drill smoke, install onboarding smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file-line limits, bilingual documentation pairing, and whitespace checks. CI intentionally calls this same script so release evidence is not split between a local path and a separate GitHub Actions path.
 
 Optional real Codex or Claude CLI checks remain operator evidence only:
 
@@ -92,7 +92,7 @@ export PATH="${ADP_INSTALL_BIN}:${PATH}"
 adp version
 ```
 
-Then run a provider-free first-run rehearsal with temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, a temporary project root, and a fake local `codex` command. The rehearsal should prove the installed binary can initialize ADP state, register a workspace, pass doctor checks, run `adp run codex --workspace <name> --task <task-id> -- <agent-args>`, inspect events and sessions, and leave the real project root free of ADP-generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex`, `.claude`, or `planning`.
+Then run a provider-free first-run rehearsal with temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, a temporary project root, and a fake local `codex` command. The rehearsal should prove the installed binary can initialize ADP state, register a workspace, pass doctor checks, run `adp run codex --workspace <name> --task <task-id> -- <agent-args>`, inspect events and sessions, and leave the real project root free of ADP-generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex`, `.claude`, `.adp-runtime.yaml`, `planning`, `tasks.yaml`, `phases.yaml`, or `progress.jsonl`.
 
 ## Package Contents
 

@@ -29,6 +29,7 @@ scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
 scripts/release-artifact-smoke.sh
 scripts/release-operator-drill-smoke.sh
+scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -138,6 +139,16 @@ The release operator drill smoke verifies:
 - The operator handoff sequence reaches `plan_next_phase` without executing Git side-effect commands.
 - Temporary ADP state and runtime state stay outside the real project root.
 
+`scripts/install-onboarding-smoke.sh` builds a local binary, installs ADP into a temporary `GOBIN`, verifies the installed binary is first on `PATH`, and runs the first-use operator path with temporary ADP state, a temporary project root, fake Codex, fake Claude guard, local events, local sessions, planning diagnostics, progress JSON, Git side-effect guards, and project-root pollution checks.
+
+The install onboarding smoke verifies:
+
+- A new operator can validate the installed binary before registering a workspace.
+- Temporary `ADP_HOME` and `ADP_RUNTIME_DIR` are enough for the first local workspace.
+- Task-bound fake Codex execution records local event, session, progress, and plan-doctor evidence.
+- Missing real Codex or Claude CLIs do not block deterministic onboarding validation.
+- The first-use path does not execute Git side-effect commands or write ADP artifacts into the real project root.
+
 `scripts/example-workspace-smoke.sh` builds the current `cmd/adp` binary, copies `examples/basic-workspace` into a temporary `ADP_HOME`, rewrites the copied `project.root` to a temporary project, and verifies `adp init`, `workspace doctor`, `workspace show`, `env --cd`, fake Codex runtime launch, local events, sessions, and restore-plan output against that copied example.
 
 The example workspace smoke verifies:
@@ -216,6 +227,8 @@ If `scripts/release-rehearsal-smoke.sh` fails, inspect the temporary clean works
 If `scripts/release-artifact-smoke.sh` fails, inspect the package staging directory, artifact checksum, package manifest, install-from-artifact path, explicit source archive `COMMIT`, temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, fake Codex command, and project-root pollution scan. Do not fix artifact failures by running from the source tree, including local state in the package, relying on `.git` inside a source archive, or turning real Codex/Claude checks into default gates.
 
 If `scripts/release-operator-drill-smoke.sh` fails, inspect the no-`.git` source copy, documented release commands, release script syntax checks, explicit commit build, checksum verification, installed `PATH` binary, fake Codex handoff sequence, phase evidence records, fake Git tripwire, and project-root pollution scan. Do not repair drill failures by adding machine-local source files, automatic Git execution, or hosted orchestration.
+
+If `scripts/install-onboarding-smoke.sh` fails, inspect local build metadata, temporary `GOBIN`, `PATH` ordering, temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, workspace registration, fake Codex path, fake Claude guard, task-bound context, local event/session/progress evidence, fake Git tripwire output, and project-root pollution scan. Do not repair onboarding failures by requiring real provider CLIs, writing ADP state into the project root, or adding hosted setup steps.
 
 If an optional real CLI check fails because `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1` is missing, treat it as an intentionally unenabled operator check. If the command is unavailable, install the external CLI on that machine or set `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN` to the intended command path. If both `--version` and `--help` fail, classify it as an external CLI, wrapper, or operator-environment evidence gap unless the deterministic fake gate or ADP launch contract also fails.
 

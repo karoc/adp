@@ -1,8 +1,10 @@
 # 基础工作区示例
 
-此目录是可复制的 ADP 本地工作区配置。它不是能在任意机器上原样运行的固定项目。
+此目录是可复制的 ADP 本地工作区配置。把它复制到
+`$ADP_HOME/workspaces/<name>`，将 `project.root` 指向真实本地项目，并在启动
+任何 Agent 前完成验证。
 
-示例 `workspace.yaml` 使用：
+仓库中的 `workspace.yaml` 使用：
 
 ```yaml
 workspace:
@@ -12,7 +14,8 @@ project:
   root: /srv/game-a
 ```
 
-使用前，必须把 `workspace.name` 替换为你的工作区名称，并把 `project.root: /srv/game-a` 替换为你本机真实项目的绝对路径。
+使用此示例前，必须把 `workspace.name` 替换为你的工作区名称，并把
+`project.root: /srv/game-a` 替换为你本机的绝对路径。
 
 ## 目录内容
 
@@ -22,18 +25,23 @@ project:
 - `profiles/`：Agent profile 文件，包含 Codex 和 Claude 示例。
 - `workspace.yaml`：ADP 从 `$ADP_HOME/workspaces/<name>` 读取的工作区清单。
 
-## 本地使用
+## 本地快速演练
 
-如果要做干净演练，把 ADP 状态和 runtime overlay 都放在临时目录：
+安装或构建 `adp` 后，在 ADP 仓库根目录运行以下命令。演练使用临时目录，
+因此不依赖已有的操作者状态。
+
+准备隔离的 ADP 状态和一个很小的本地项目：
 
 ```bash
 export ADP_HOME="$(mktemp -d)"
 export ADP_RUNTIME_DIR="$(mktemp -d)"
+project_root="$(mktemp -d)"
+printf 'module example.com/adp-basic-workspace\n' > "${project_root}/go.mod"
+printf 'package main\n' > "${project_root}/main.go"
+adp init
 ```
 
-如果是日常持久使用，可以把 `ADP_HOME` 设置为 `${HOME}/.adp` 这样的持久目录。
-
-把示例复制到工作区目录：
+把示例复制到 `$ADP_HOME`：
 
 ```bash
 mkdir -p "${ADP_HOME}/workspaces"
@@ -46,29 +54,66 @@ cp -R examples/basic-workspace "${ADP_HOME}/workspaces/my-workspace"
 $EDITOR "${ADP_HOME}/workspaces/my-workspace/workspace.yaml"
 ```
 
-更新这些字段：
+设置工作区名称和项目根目录：
 
 ```yaml
 workspace:
   name: my-workspace
 
 project:
-  root: /absolute/path/to/your/project
+  root: /absolute/path/from/project_root
 ```
 
-Project root 可以是用于演练的临时本地项目。创建一个临时目录，添加最小 `go.mod`，然后把该绝对路径填入 `project.root`。
+使用 `project_root` shell 变量中保存的绝对路径。不要把 `project.root` 指向
+`$ADP_HOME`、`$ADP_RUNTIME_DIR` 或复制后的工作区目录。
 
-启动 Agent 前先运行诊断：
+启动任何 run 前，先验证复制后的工作区：
 
 ```bash
 adp workspace doctor my-workspace
-```
-
-输出工作区的 shell 环境提示：
-
-```bash
+adp workspace show my-workspace
 adp env my-workspace --cd
 ```
+
+`adp env my-workspace --cd` 会在 `$ADP_RUNTIME_DIR` 下创建或定位 runtime
+overlay，并输出 shell exports 和进入该 overlay 的 `cd` 命令。真实项目根目录应
+只保留你创建或本来拥有的文件。
+
+## 不依赖 Provider 的运行
+
+onboarding 时使用 fake local `codex` 命令。这样可以证明 ADP 能通过复制后的
+工作区启动 Agent，同时不要求真实 provider CLI、账号、网络访问或托管服务。
+
+```bash
+fake_bin="$(mktemp -d)"
+cat > "${fake_bin}/codex" <<'SH'
+#!/usr/bin/env sh
+printf 'fake codex received: %s\n' "$*"
+SH
+chmod +x "${fake_bin}/codex"
+export PATH="${fake_bin}:${PATH}"
+adp run codex --workspace my-workspace -- --example-smoke
+```
+
+查看本地 runtime evidence：
+
+```bash
+adp events list --workspace my-workspace
+adp sessions list --workspace my-workspace
+adp sessions show <session-id>
+adp sessions restore-plan <session-id>
+```
+
+当非敏感 invocation 数据足够时，`restore-plan` 会打印建议的 `adp run ...`
+命令。它不会执行命令，不会创建 runtime workspace，不会修改 task 状态，不会
+追加新 events，不会写入真实项目根目录，也不会恢复 provider-native
+conversation。参见 [../../docs/session-restore.zh-CN.md](../../docs/session-restore.zh-CN.md)。
+
+运行后，真实项目根目录不应出现 ADP 生成的文件，例如 `AGENTS.md`、
+`CLAUDE.md`、`.codex`、`.claude`、`.adp-runtime.yaml`、`planning`、
+`tasks.yaml`、`phases.yaml` 或 `progress.jsonl`。Runtime overlay 应位于
+`$ADP_RUNTIME_DIR` 下；工作区配置和本地 planning 状态应位于 `$ADP_HOME`
+下。
 
 ## 可选真实 Agent 运行
 
@@ -79,54 +124,8 @@ adp run codex --workspace my-workspace
 adp run claude --workspace my-workspace
 ```
 
-如果要做不依赖 provider 的验证，使用下面的 fake-agent workflow。
+缺少真实 Codex 或 Claude CLI 不是 onboarding 失败。确定性的本地验证应使用
+上面的 provider-free run。
 
-查看本地运行历史：
-
-```bash
-adp events list
-adp sessions list --workspace my-workspace
-adp sessions show <session-id>
-```
-
-为历史 session 输出只读 restore plan：
-
-```bash
-adp sessions restore-plan <session-id>
-```
-
-当非敏感 invocation 数据足够时，`restore-plan` 会打印建议的 `adp run ...` 命令。它不会执行命令，不会创建 runtime workspace，不会修改 task 状态，不会追加新 events，不会写入真实项目根目录，也不会恢复 provider 原生 conversation。参见 [../../docs/session-restore.zh-CN.md](../../docs/session-restore.zh-CN.md)。
-
-## Task-Bound Fake Agent Workflow
-
-如果你想在不依赖真实 provider CLI 的情况下验收 runtime history 和 restore-plan guidance，可以使用 fake local agent：
-
-```bash
-fake_bin="$(mktemp -d)"
-cat > "${fake_bin}/codex" <<'SH'
-#!/usr/bin/env sh
-printf 'fake codex received: %s\n' "$*"
-SH
-chmod +x "${fake_bin}/codex"
-export PATH="${fake_bin}:${PATH}"
-```
-
-创建 task，把一次 runtime session 绑定到它，并在 `--` 后传入本地 Agent 参数：
-
-```bash
-TASK_ID=$(adp tasks add --workspace my-workspace --priority high --phase p4-session-restore "Exercise restore-plan guidance" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
-adp run codex --workspace my-workspace --task "$TASK_ID" -- --example-smoke
-```
-
-查看 task-bound evidence：
-
-```bash
-adp events list --workspace my-workspace --task "$TASK_ID"
-adp sessions list --workspace my-workspace --agent codex --task "$TASK_ID"
-adp sessions show <session-id>
-adp sessions restore-plan <session-id>
-```
-
-如果你手动运行建议命令，ADP 会启动一次新的本地 run，并产生新的 session ID。该命令只是新运行的 guidance，不是 automatic replay，也不是 provider-native conversation resume。
-
-ADP 将运行时状态保留在本地。此示例不需要 Web 服务、托管控制面或 SaaS 账号。
+ADP 将 runtime 状态保留在本地。此示例不需要 Web 服务、托管控制面、SaaS
+账号、cloud sync 或 automatic Git 行为。

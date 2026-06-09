@@ -12,7 +12,7 @@ English: [release-packaging.md](release-packaging.md)
 scripts/check-all.sh
 ```
 
-该门禁覆盖 fake runtime acceptance、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、example workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 whitespace 检查。CI 有意调用同一个脚本，避免 release evidence 被拆成本地路径和独立的 GitHub Actions 路径。
+该门禁覆盖 fake runtime acceptance、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、example workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 whitespace 检查。CI 有意调用同一个脚本，避免 release evidence 被拆成本地路径和独立的 GitHub Actions 路径。
 
 可选的真实 Codex 或 Claude CLI 检查只作为 operator evidence：
 
@@ -92,7 +92,7 @@ export PATH="${ADP_INSTALL_BIN}:${PATH}"
 adp version
 ```
 
-随后使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、临时 project root 和 fake local `codex` command 运行一次 provider-free first-run rehearsal。该演练应证明 installed binary 可以初始化 ADP state、注册 workspace、通过 doctor 检查、运行 `adp run codex --workspace <name> --task <task-id> -- <agent-args>`、检查 events 和 sessions，并且不会在真实 project root 中留下 `AGENTS.md`、`CLAUDE.md`、`.codex`、`.claude` 或 `planning` 等 ADP-generated files。
+随后使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、临时 project root 和 fake local `codex` command 运行一次 provider-free first-run rehearsal。该演练应证明 installed binary 可以初始化 ADP state、注册 workspace、通过 doctor 检查、运行 `adp run codex --workspace <name> --task <task-id> -- <agent-args>`、检查 events 和 sessions，并且不会在真实 project root 中留下 `AGENTS.md`、`CLAUDE.md`、`.codex`、`.claude`、`.adp-runtime.yaml`、`planning`、`tasks.yaml`、`phases.yaml` 或 `progress.jsonl` 等 ADP-generated files。
 
 ## Package 内容
 

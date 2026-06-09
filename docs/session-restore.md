@@ -94,7 +94,8 @@ PATH="${fake_bin}:${PATH}"
 Create a task and bind the runtime session to it:
 
 ```bash
-TASK_ID=$(adp tasks add --workspace game-a --priority high --phase p4-session-restore "Exercise restore-plan guidance" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+TASK_ID=$(adp tasks add --workspace game-a --priority high "Exercise restore-plan guidance" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+test -n "$TASK_ID"
 adp run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
 ```
 

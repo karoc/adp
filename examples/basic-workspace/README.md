@@ -1,8 +1,10 @@
 # Basic Workspace Example
 
-This directory is a copyable local workspace configuration for ADP. It is not a fixed project that can run unchanged on every machine.
+This directory is a copyable local workspace configuration for ADP. Copy it into
+`$ADP_HOME/workspaces/<name>`, point `project.root` at a real local project, and
+validate it before launching any agent.
 
-The sample `workspace.yaml` uses:
+The checked-in `workspace.yaml` uses:
 
 ```yaml
 workspace:
@@ -12,7 +14,8 @@ project:
   root: /srv/game-a
 ```
 
-Before using it, replace `workspace.name` with your workspace name and replace `project.root: /srv/game-a` with the absolute path to a real project on your machine.
+Before using the example, replace `workspace.name` with your workspace name and
+replace `project.root: /srv/game-a` with an absolute path on your machine.
 
 ## Contents
 
@@ -22,18 +25,24 @@ Before using it, replace `workspace.name` with your workspace name and replace `
 - `profiles/`: agent profile files, including Codex and Claude examples.
 - `workspace.yaml`: the workspace manifest ADP reads from `$ADP_HOME/workspaces/<name>`.
 
-## Use It Locally
+## Quick Local Rehearsal
 
-For a clean rehearsal, keep ADP state and runtime overlays in temporary directories:
+Run these commands from the ADP repository root after installing or building
+`adp`. The rehearsal uses temporary directories so it does not depend on existing
+operator state.
+
+Prepare isolated ADP state and a tiny local project:
 
 ```bash
 export ADP_HOME="$(mktemp -d)"
 export ADP_RUNTIME_DIR="$(mktemp -d)"
+project_root="$(mktemp -d)"
+printf 'module example.com/adp-basic-workspace\n' > "${project_root}/go.mod"
+printf 'package main\n' > "${project_root}/main.go"
+adp init
 ```
 
-For durable daily use, set `ADP_HOME` to a persistent directory such as `${HOME}/.adp` instead.
-
-Copy the example into a workspace directory:
+Copy the example into `$ADP_HOME`:
 
 ```bash
 mkdir -p "${ADP_HOME}/workspaces"
@@ -46,60 +55,38 @@ Edit the copied manifest:
 $EDITOR "${ADP_HOME}/workspaces/my-workspace/workspace.yaml"
 ```
 
-Update these fields:
+Set the workspace name and project root:
 
 ```yaml
 workspace:
   name: my-workspace
 
 project:
-  root: /absolute/path/to/your/project
+  root: /absolute/path/from/project_root
 ```
 
-The project root can be a temporary local project for rehearsal. Create a temporary directory, add a minimal `go.mod`, then use that absolute path as `project.root`.
+Use the absolute path stored in the `project_root` shell variable. Do not point
+`project.root` at `$ADP_HOME`, `$ADP_RUNTIME_DIR`, or the copied workspace
+directory.
 
-Run diagnostics before launching an agent:
+Validate the copied workspace before any run:
 
 ```bash
 adp workspace doctor my-workspace
-```
-
-Print shell environment hints for the workspace:
-
-```bash
+adp workspace show my-workspace
 adp env my-workspace --cd
 ```
 
-## Optional Real Agent Runs
+`adp env my-workspace --cd` creates or locates a runtime overlay under
+`$ADP_RUNTIME_DIR` and prints shell exports plus a `cd` command for that overlay.
+The real project root should stay limited to the files you created or already
+own.
 
-Run real agents through ADP only after the corresponding external CLI is installed and authenticated:
+## Provider-Free Run
 
-```bash
-adp run codex --workspace my-workspace
-adp run claude --workspace my-workspace
-```
-
-For provider-free validation, use the fake-agent workflow below instead.
-
-Inspect local runtime history:
-
-```bash
-adp events list
-adp sessions list --workspace my-workspace
-adp sessions show <session-id>
-```
-
-Ask for a read-only restore plan for a historical session:
-
-```bash
-adp sessions restore-plan <session-id>
-```
-
-`restore-plan` prints a suggested `adp run ...` command when enough non-sensitive invocation data is available. It does not execute the command, create a runtime workspace, mutate task state, append new events, write to the real project root, or resume a provider-native conversation. See [../../docs/session-restore.md](../../docs/session-restore.md).
-
-## Task-Bound Fake Agent Workflow
-
-Use a fake local agent when you want to validate runtime history and restore-plan guidance without depending on a real provider CLI:
+Use a fake local `codex` command for onboarding. This proves ADP can launch an
+agent through the copied workspace without requiring a real provider CLI,
+account, network access, or hosted service.
 
 ```bash
 fake_bin="$(mktemp -d)"
@@ -109,24 +96,42 @@ printf 'fake codex received: %s\n' "$*"
 SH
 chmod +x "${fake_bin}/codex"
 export PATH="${fake_bin}:${PATH}"
+adp run codex --workspace my-workspace -- --example-smoke
 ```
 
-Create a task, bind one runtime session to it, and pass local agent arguments after `--`:
+Inspect local runtime evidence:
 
 ```bash
-TASK_ID=$(adp tasks add --workspace my-workspace --priority high --phase p4-session-restore "Exercise restore-plan guidance" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
-adp run codex --workspace my-workspace --task "$TASK_ID" -- --example-smoke
-```
-
-Inspect the task-bound evidence:
-
-```bash
-adp events list --workspace my-workspace --task "$TASK_ID"
-adp sessions list --workspace my-workspace --agent codex --task "$TASK_ID"
+adp events list --workspace my-workspace
+adp sessions list --workspace my-workspace
 adp sessions show <session-id>
 adp sessions restore-plan <session-id>
 ```
 
-If you manually run the suggested command, ADP starts a new local run with a new session ID. The command is guidance for a new run, not automatic replay and not provider-native conversation resume.
+`restore-plan` prints a suggested `adp run ...` command when enough
+non-sensitive invocation data is available. It does not execute the command,
+create a runtime workspace, mutate task state, append new events, write to the
+real project root, or resume a provider-native conversation. See
+[../../docs/session-restore.md](../../docs/session-restore.md).
 
-ADP keeps runtime state local. This example does not require a web service, hosted control plane, or SaaS account.
+After the run, the real project root should not contain ADP-generated files such
+as `AGENTS.md`, `CLAUDE.md`, `.codex`, `.claude`, `.adp-runtime.yaml`,
+`planning`, `tasks.yaml`, `phases.yaml`, or `progress.jsonl`. Runtime overlays
+belong under `$ADP_RUNTIME_DIR`; workspace configuration and local planning
+state belong under `$ADP_HOME`.
+
+## Optional Real Agent Runs
+
+Run real agents through ADP only after the corresponding external CLI is
+installed and authenticated:
+
+```bash
+adp run codex --workspace my-workspace
+adp run claude --workspace my-workspace
+```
+
+Missing real Codex or Claude CLIs are not an onboarding failure. Use the
+provider-free run above for deterministic local validation.
+
+ADP keeps runtime state local. This example does not require a web service,
+hosted control plane, SaaS account, cloud sync, or automatic Git behavior.

@@ -49,13 +49,17 @@ Implemented Phase 1 foundations:
 
 ## Quick Start
 
-For installation and bootstrap details, see [docs/install.md](docs/install.md).
+For installation and bootstrap details, see [docs/install.md](docs/install.md). For a concrete new-operator walkthrough, see [docs/operator-onboarding.md](docs/operator-onboarding.md).
 
-The smoke-first path below uses temporary ADP state, a temporary project root, and a fake `codex` command. It does not require real Codex or Claude CLIs, does not run Git, and should leave the real project root free of ADP-generated files.
+Choose a source, built-binary, or temporary-install path first. The smoke-first path below builds a local binary and uses `ADP_BIN`; for a release artifact, set `ADP_BIN` to the installed artifact path. To run from source during development, replace `"$ADP_BIN" <command>` with `go run ./cmd/adp <command>`.
+
+The rehearsal uses temporary ADP state, a temporary project root, and a fake `codex` command. It does not require real Codex or Claude CLIs, does not run Git, and should leave the real project root free of ADP-generated files.
 
 ```bash
 mkdir -p bin
 go build -o ./bin/adp ./cmd/adp
+ADP_BIN="$PWD/bin/adp"
+"$ADP_BIN" version
 
 ADP_SMOKE_ROOT="$(mktemp -d)"
 export ADP_HOME="${ADP_SMOKE_ROOT}/adp-home"
@@ -71,36 +75,38 @@ test -n "${ADP_SESSION_ID:-}"
 test -n "${ADP_RUNTIME_ROOT:-}"
 test "$(pwd)" = "$ADP_RUNTIME_ROOT"
 test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
+test -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 SH
 chmod +x "${ADP_SMOKE_ROOT}/fake-bin/codex"
 export PATH="${ADP_SMOKE_ROOT}/fake-bin:${PATH}"
 
-./bin/adp init
-./bin/adp workspace add game-a "${ADP_SMOKE_ROOT}/project"
-./bin/adp workspace list
-./bin/adp workspace show game-a
-./bin/adp workspace doctor game-a
-./bin/adp doctor game-a
-./bin/adp env game-a --cd
-./bin/adp completion values agents
-./bin/adp completion values workspaces
-./bin/adp completion values profiles --workspace game-a
-./bin/adp version
-TASK_ID=$(./bin/adp tasks add --workspace game-a --priority high --phase local-smoke "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
-./bin/adp run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
-./bin/adp events list --workspace game-a --task "$TASK_ID" --limit 2
-./bin/adp tasks list --workspace game-a --format json
-./bin/adp tasks next --workspace game-a --limit 0 --format json
-./bin/adp plan doctor --workspace game-a --format json
-./bin/adp progress --workspace game-a --format json
-./bin/adp progress report --workspace game-a
-./bin/adp progress report --workspace game-a --format json
-./bin/adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
-./bin/adp runtime prune --older-than 24h --dry-run
-find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name planning \)
+"$ADP_BIN" init
+"$ADP_BIN" workspace add game-a "${ADP_SMOKE_ROOT}/project"
+"$ADP_BIN" workspace list
+"$ADP_BIN" workspace show game-a
+"$ADP_BIN" workspace doctor game-a
+"$ADP_BIN" doctor game-a
+"$ADP_BIN" env game-a --cd
+"$ADP_BIN" completion values agents
+"$ADP_BIN" completion values workspaces
+"$ADP_BIN" completion values profiles --workspace game-a
+TASK_ID=$("$ADP_BIN" tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+test -n "$TASK_ID"
+"$ADP_BIN" run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
+"$ADP_BIN" events list --workspace game-a --task "$TASK_ID" --limit 5
+"$ADP_BIN" tasks list --workspace game-a --format json
+"$ADP_BIN" tasks next --workspace game-a --limit 0 --format json
+"$ADP_BIN" plan doctor --workspace game-a --format json
+"$ADP_BIN" progress --workspace game-a --format json
+"$ADP_BIN" progress report --workspace game-a
+"$ADP_BIN" progress report --workspace game-a --format json
+"$ADP_BIN" sessions list --workspace game-a --agent codex --task "$TASK_ID"
+"$ADP_BIN" runtime prune --older-than 24h --dry-run
+ROOT_LEAKS="$(find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name .adp-runtime.yaml -o -name planning -o -name tasks.yaml -o -name phases.yaml -o -name progress.jsonl \) -print)"
+test -z "$ROOT_LEAKS"
 ```
 
-The final `find` command should print nothing. For durable local use, set `ADP_HOME` to a persistent directory such as `~/.adp`; for real agent runs, install and authenticate the external provider CLI first, then use `adp run codex ...` or `adp run claude ...`.
+The final project-root leak check should pass without output. For durable local use, set `ADP_HOME` to a persistent directory such as `~/.adp`; for real agent runs, install and authenticate the external provider CLI first, then use `adp run codex ...` or `adp run claude ...`. Use `examples/basic-workspace` when you want a copyable workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings.
 
 Useful environment variables:
 
@@ -170,7 +176,7 @@ Use the aggregate validation gate before handoff:
 scripts/check-all.sh
 ```
 
-The aggregate gate covers deterministic runtime smoke, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file length limits, bilingual documentation pairing and command-reference sync, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
+The aggregate gate covers deterministic runtime smoke, broad runtime audit smoke, release readiness smoke, release rehearsal smoke, release artifact smoke, release operator drill smoke, install onboarding smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file length limits, bilingual documentation pairing and command-reference sync, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
 
 Project code files must stay at or below 700 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 
