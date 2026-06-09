@@ -281,13 +281,23 @@ assert_help "progress report help" "adp progress report" progress report --help
 assert_help "run help" "adp run <agent>" run --help
 output=$(run_adp_expect_fail "$REPO_ROOT" run)
 assert_contains "$output" "--take --owner <owner>" "run usage output"
+assert_contains "$output" "try: adp run --help" "run usage output"
 output=$(run_adp_expect_fail "$REPO_ROOT" run codex --take)
 assert_contains "$output" "--owner is required with --take" "run take owner guard output"
+assert_contains "$output" "try: adp run --help" "run take owner guard output"
 output=$(run_adp_expect_fail "$REPO_ROOT" run codex --owner audit-agent)
 assert_contains "$output" "--owner requires --take" "run owner guard output"
+assert_contains "$output" "try: adp run --help" "run owner guard output"
 
 unknown_output=$(run_adp_expect_fail "$REPO_ROOT" bogus)
 assert_contains "$unknown_output" 'unknown command "bogus"' "unknown command output"
+assert_contains "$unknown_output" "try: adp --help" "unknown command output"
+output=$(run_adp_expect_fail "$REPO_ROOT" tasks bogus)
+assert_contains "$output" 'unknown tasks command "bogus"' "unknown tasks command output"
+assert_contains "$output" "try: adp tasks --help" "unknown tasks command output"
+output=$(run_adp_expect_fail "$REPO_ROOT" tasks take --bogus)
+assert_contains "$output" 'unknown tasks take option "--bogus"' "unknown tasks take option output"
+assert_contains "$output" "try: adp tasks take --help" "unknown tasks take option output"
 
 info "auditing workspace, completion, shell hook, and diagnostics"
 output=$(run_adp "$REPO_ROOT" init)
@@ -346,6 +356,14 @@ output=$(run_adp "$REPO_ROOT" tasks next --workspace game-a --format json)
 assert_json_valid "$output" "tasks next json output"
 assert_contains "$output" "$task_id" "tasks next json output"
 assert_contains "$output" '"claim_state": "unclaimed"' "tasks next json output"
+tasks_before_invalid_next=$(cat "$TASKS_FILE"); phases_before_invalid_next=$(cat "$PHASES_FILE")
+progress_before_invalid_next=$(cat "$PROGRESS_FILE"); events_before_invalid_next=$(event_log_count)
+runtime_before_invalid_next=$(runtime_dirs_state); project_before_invalid_next=$(project_root_state); git_before_invalid_next=$(git_state)
+reset_git_tripwire
+output=$(run_adp_expect_fail "$REPO_ROOT" tasks next --workspace game-a --limit nope)
+assert_contains "$output" "parse limit:" "invalid tasks next output"
+assert_contains "$output" "try: adp tasks next --help" "invalid tasks next output"
+assert_read_only_lease_state "invalid tasks next" "$tasks_before_invalid_next" "$phases_before_invalid_next" "$progress_before_invalid_next" "$events_before_invalid_next" "$runtime_before_invalid_next" "$project_before_invalid_next" "$git_before_invalid_next"
 output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id" --format json)
 assert_json_valid "$output" "tasks show json output"
 assert_contains "$output" "Bind runtime session to task" "tasks show json output"

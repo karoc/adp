@@ -39,6 +39,16 @@ adp_local version
 
 如果使用已发布 artifact，把最后一个命令块中的 `./bin/adp` 替换为解压后的 artifact 路径。临时安装路径应放在 project root 之外。
 
+创建状态前，先用你选定的同一命令形式确认命令面：
+
+```bash
+adp_local --help
+adp_local tasks --help
+adp_local tasks take --help
+```
+
+其他命令组也使用同样的嵌套模式：`adp_local <command> --help` 和 `adp_local <command> <subcommand> --help`。叶子 help 可能包含指向父命令的 `See also:`。如果某个构建打印友好的 `try:` hint，把它理解为建议手动运行的 help 命令；它本身不会 inspect project、修改 `$ADP_HOME`、创建 runtime、调用 provider 或运行 Git。
+
 ## 隔离首次运行
 
 在确认安装路径可信前，先使用临时状态。这次演练会注册一个临时 workspace，检查任务看板，通过原子 `run --take` 运行 fake `codex` provider，记录本地 events 和 sessions，检查 lease 维护，并验证 project root 保持干净。
@@ -100,7 +110,7 @@ ROOT_LEAKS="$(find "${ADP_ONBOARDING_ROOT}/project" -maxdepth 2 \( -name AGENTS.
 test -z "$ROOT_LEAKS"
 ```
 
-最后一条命令应该成功，并且不会打印 project-root 泄漏项。ADP 状态位于临时 `$ADP_HOME`，runtime overlay 位于临时 `$ADP_RUNTIME_DIR`，provider 命令是本地 fake `codex` 脚本。演练中的只读 inspection 命令包括 `tasks next`、`tasks stale`、`progress report`、`sessions list`、`sessions restore-plan`、`plan doctor`、`events list` 和 `progress`；会修改本地 ledger 的命令包括 `tasks add`、`run --take`、`tasks renew`、`tasks take`、`tasks release` 和 `tasks done`。
+最后一条命令应该成功，并且不会打印 project-root 泄漏项。ADP 状态位于临时 `$ADP_HOME`，runtime overlay 位于临时 `$ADP_RUNTIME_DIR`，provider 命令是本地 fake `codex` 脚本。演练中的只读 inspection 命令包括 `tasks next`、`tasks stale`、`progress report`、`sessions list`、`sessions restore-plan`、`plan doctor`、`events list` 和 `progress`；会修改本地 ledger 的命令包括 `tasks add`、`run --take`、`tasks renew`、`tasks take`、`tasks release` 和 `tasks done`。`tasks take` 步骤证明不启动 runtime 时也能从看板领取任务；`run --take` 步骤证明任务领取和 runtime 启动处在同一个命令边界。`tasks renew` 刷新当前 owner 的 lease，而 `tasks stale` 只是检查已过期 `in_progress` claim 的 recovery inspection 视图。
 
 ## 切换到持久本地使用
 

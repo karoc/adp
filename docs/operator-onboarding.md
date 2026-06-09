@@ -39,6 +39,16 @@ adp_local version
 
 For a released artifact, replace `./bin/adp` in the last block with the unpacked artifact path. Keep the temporary install path outside the project root.
 
+Before creating state, confirm the command surface from the same command form you chose:
+
+```bash
+adp_local --help
+adp_local tasks --help
+adp_local tasks take --help
+```
+
+Use the same nesting pattern for other groups: `adp_local <command> --help` and `adp_local <command> <subcommand> --help`. Leaf help may include `See also:` for the parent command. If a build prints a friendly `try:` hint, read it as a suggested help command to run manually; it does not inspect projects, mutate `$ADP_HOME`, create runtimes, call providers, or run Git by itself.
+
 ## Isolated First Run
 
 Use temporary state until the install path is trusted. This rehearsal registers a temporary workspace, inspects the task board, runs a fake `codex` provider through atomic `run --take`, records local events and sessions, checks lease maintenance, and verifies that the project root stays clean.
@@ -100,7 +110,7 @@ ROOT_LEAKS="$(find "${ADP_ONBOARDING_ROOT}/project" -maxdepth 2 \( -name AGENTS.
 test -z "$ROOT_LEAKS"
 ```
 
-The last command should succeed without printing project-root leaks. ADP state is under temporary `$ADP_HOME`, runtime overlays are under temporary `$ADP_RUNTIME_DIR`, and the provider command is the fake local `codex` script. Read-only inspection commands in the rehearsal include `tasks next`, `tasks stale`, `progress report`, `sessions list`, `sessions restore-plan`, `plan doctor`, `events list`, and `progress`; mutating commands include `tasks add`, `run --take`, `tasks renew`, `tasks take`, `tasks release`, and `tasks done`.
+The last command should succeed without printing project-root leaks. ADP state is under temporary `$ADP_HOME`, runtime overlays are under temporary `$ADP_RUNTIME_DIR`, and the provider command is the fake local `codex` script. Read-only inspection commands in the rehearsal include `tasks next`, `tasks stale`, `progress report`, `sessions list`, `sessions restore-plan`, `plan doctor`, `events list`, and `progress`; mutating commands include `tasks add`, `run --take`, `tasks renew`, `tasks take`, `tasks release`, and `tasks done`. The `tasks take` step proves board pickup without launching a runtime; the `run --take` step proves pickup and runtime launch in one command boundary. `tasks renew` refreshes the current owner's lease, while `tasks stale` is only the recovery inspection view for expired `in_progress` claims.
 
 ## Move To Durable Local Use
 

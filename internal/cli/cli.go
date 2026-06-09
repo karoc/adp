@@ -149,7 +149,7 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return 0
 	}
 	if strings.HasPrefix(args[0], "-") {
-		return a.fail(fmt.Errorf("unknown global option %q", args[0]))
+		return a.failWithHint(fmt.Errorf("unknown global option %q", args[0]), args)
 	}
 	if output, ok := commandHelp(args); ok {
 		fmt.Fprint(a.stdout, output)
@@ -161,7 +161,7 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 
 	handler, ok := a.commandHandlers()[args[0]]
 	if !ok {
-		return a.fail(fmt.Errorf("unknown command %q", args[0]))
+		return a.failWithHint(fmt.Errorf("unknown command %q", args[0]), args)
 	}
 	err := handler(ctx, args[1:])
 	if err != nil {
@@ -173,7 +173,7 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		if errors.As(err, &shellExit) {
 			return shellExit.Code
 		}
-		return a.fail(err)
+		return a.failWithHint(err, args)
 	}
 	return 0
 }
@@ -202,6 +202,80 @@ func (a *App) commandHandlers() map[string]commandHandler {
 func (a *App) fail(err error) int {
 	fmt.Fprintf(a.stderr, "adp: %v\n", err)
 	return 1
+}
+
+func (a *App) failWithHint(err error, args []string) int {
+	fmt.Fprintf(a.stderr, "adp: %v\n", err)
+	if shouldShowHelpHint(err) {
+		hint := helpHint(args)
+		fmt.Fprintf(a.stderr, "try: %s\n", hint)
+	}
+	return 1
+}
+
+func shouldShowHelpHint(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := err.Error()
+	switch {
+	case strings.HasPrefix(message, "usage: "):
+		return true
+	case strings.HasPrefix(message, "unknown command "):
+		return true
+	case strings.HasPrefix(message, "unknown global option "):
+		return true
+	case strings.Contains(message, " command "):
+		return strings.HasPrefix(message, "unknown ")
+	case strings.Contains(message, " option "):
+		return strings.HasPrefix(message, "unknown ")
+	case strings.Contains(message, " requires a value"):
+		return true
+	case strings.HasPrefix(message, "unknown output format "):
+		return true
+	case strings.HasPrefix(message, "unknown completion values kind "):
+		return true
+	case strings.HasPrefix(message, "unknown progress report language "):
+		return true
+	case strings.HasPrefix(message, "unknown progress report format "):
+		return true
+	case strings.HasPrefix(message, "parse lease duration: "):
+		return true
+	case strings.HasPrefix(message, "parse older-than duration: "):
+		return true
+	case strings.HasPrefix(message, "parse limit: "):
+		return true
+	case message == "--take cannot be combined with --task":
+		return true
+	case message == "--owner is required with --take":
+		return true
+	case message == "--owner requires --take":
+		return true
+	case message == "--lease requires --take":
+		return true
+	case message == "lease must not be negative":
+		return true
+	case message == "older-than must not be negative":
+		return true
+	case message == "limit must not be negative":
+		return true
+	default:
+		return false
+	}
+}
+
+func helpHint(args []string) string {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return "adp --help"
+	}
+	command := args[0]
+	if _, ok := commandmeta.Lookup(command); !ok {
+		return "adp --help"
+	}
+	if len(args) >= 2 && !strings.HasPrefix(args[1], "-") && isKnownSubcommand(command, args[1]) {
+		return fmt.Sprintf("adp %s %s --help", command, args[1])
+	}
+	return fmt.Sprintf("adp %s --help", command)
 }
 
 func commandHelp(args []string) (string, bool) {

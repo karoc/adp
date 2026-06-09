@@ -47,6 +47,20 @@ The first task-management slice provides:
 
 Smoke scripts should assert only the task-management commands that exist in the current tree, and should not add placeholder checks for planned commands.
 
+## Command Discovery
+
+Use the CLI itself as the command reference before changing local state:
+
+```bash
+adp --help
+adp tasks --help
+adp tasks take --help
+adp tasks renew --help
+adp tasks stale --help
+```
+
+The pattern is `adp <command> --help` for command groups and `adp <command> <subcommand> --help` for leaf commands. Leaf help currently prints usage plus `See also:` back to the parent help page. If a build adds friendly `try:` hints, treat them as navigation to run manually; hints do not mutate the planning ledger, start agents, call providers, run Git, or write runtime/planning files into the project root.
+
 ## Workflow At A Glance
 
 For a first trial or a new sub-agent, read the command surface in this order:
@@ -117,7 +131,7 @@ Use `progress report --format json` for a broader handoff snapshot. It includes 
 
 When starting a worker, prefer `adp run <agent> --take --owner <owner> --lease <duration>` so the board pickup and runtime launch share one command boundary. The selected task's `claim_state`, `owner`, `claimed_at`, and `lease_expires_at` are then visible in task JSON, with owner and lease timestamps also visible in runtime environment variables such as `ADP_TASK_OWNER`, `ADP_TASK_CLAIMED_AT`, and `ADP_TASK_LEASE_EXPIRES_AT`, generated adapter instructions, and runtime/session evidence. Provider-native task boxes may mirror those values for visibility, but ADP remains the authoritative board.
 
-Expired or stale claims still require an explicit ADP command. ADP does not automatically release a task, recover a worker, close work, accept a phase, run Git, push, scrape provider-private state, sync hosted trackers, or write planning/runtime files into the real project root.
+Expired or stale claims still require an explicit ADP command. Inspect with `adp tasks stale --workspace <workspace> --format json`, then either renew as the current owner with `adp tasks renew` before the lease expires or reclaim expired work through `adp tasks take` or explicit `adp tasks claim` after ADP ownership rules allow it. ADP does not automatically release a task, recover a worker, close work, accept a phase, run Git, push, scrape provider-private state, sync hosted trackers, or write planning/runtime files into the real project root.
 
 ## ADP Planning Contract
 
@@ -140,7 +154,7 @@ adp tasks done --workspace <workspace> <task-id>
 adp progress report --workspace <workspace> --format json
 ```
 
-`adp tasks next` is a read-only selection snapshot. It helps an agent choose work, but it does not claim the task. Durable ownership and recovery evidence start with `adp tasks claim`, including the owner name and optional lease.
+`adp tasks next` is a read-only selection snapshot. It helps an agent choose work, but it does not claim the task. Durable ownership and recovery evidence start with `adp tasks claim` for a selected task or `adp tasks take` when the worker should atomically select and claim the next eligible task.
 
 Multi-agent workers should prefer `adp tasks take` over a separate `tasks next` plus `tasks claim` sequence. `tasks take` combines selection and ownership into one planning-lock-protected mutation so two agents cannot take the same task concurrently.
 
