@@ -22,6 +22,8 @@ func Instructions(adapterName string, ctx api.Context) []byte {
 
 	writeWorkspace(&b, adapterName, ctx)
 	writeTask(&b, ctx)
+	writePlanningContract(&b, ctx)
+	writeTaskboxBridge(&b, ctx)
 	writeSection(&b, "Base Prompt", readWorkspaceFile(ctx.WorkspaceDir, ctx.Config.Prompts.Base, "No base prompt is configured."))
 	writeSection(&b, "Shared Memory", memoryText(ctx))
 	writeSection(&b, "Rules", rulesText(ctx))
@@ -166,6 +168,42 @@ func writeTask(b *strings.Builder, ctx api.Context) {
 		fmt.Fprintf(b, "- Blocked reason: %s\n", strings.TrimSpace(ctx.Task.BlockedReason))
 	}
 	b.WriteByte('\n')
+}
+
+func writePlanningContract(b *strings.Builder, ctx api.Context) {
+	workspace := shellQuote(defaultText(ctx.Config.Workspace.Name, "$ADP_WORKSPACE"))
+
+	b.WriteString("## ADP Planning Contract\n\n")
+	b.WriteString("ADP is the authoritative local planning and progress ledger for this workspace.\n")
+	b.WriteString("Provider-native todo lists or task panels are scratch space only. They may mirror the active ADP task for visibility, but durable task state must be created and updated through ADP.\n\n")
+	b.WriteString("Use the `ADP_CLI` environment variable when it is set. If it is missing, use `adp` from `PATH`.\n\n")
+	b.WriteString("Durable task commands:\n")
+	fmt.Fprintf(b, "- Inspect next work: `$ADP_CLI tasks next --workspace %s --format json`\n", workspace)
+	fmt.Fprintf(b, "- Create durable work: `$ADP_CLI tasks add --workspace %s --priority <priority> --phase <phase-id> --description <text> <title>`\n", workspace)
+	fmt.Fprintf(b, "- Claim selected work: `$ADP_CLI tasks claim --workspace %s <task-id> --owner <owner> --lease 4h`\n", workspace)
+	if ctx.Task.IsZero() {
+		fmt.Fprintf(b, "- Update durable work: `$ADP_CLI tasks update --workspace %s <task-id> --status <status>`\n", workspace)
+		fmt.Fprintf(b, "- Block durable work: `$ADP_CLI tasks block --workspace %s <task-id> --reason <reason>`\n", workspace)
+		fmt.Fprintf(b, "- Complete durable work: `$ADP_CLI tasks done --workspace %s <task-id>`\n", workspace)
+		fmt.Fprintf(b, "- Release durable work: `$ADP_CLI tasks release --workspace %s <task-id> --owner <owner>`\n\n", workspace)
+		return
+	}
+	b.WriteString("- Update this task: `$ADP_CLI tasks update --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --status <status>`\n")
+	b.WriteString("- Block this task: `$ADP_CLI tasks block --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --reason <reason>`\n")
+	b.WriteString("- Complete this task: `$ADP_CLI tasks done --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\"`\n")
+	b.WriteString("- Release this task: `$ADP_CLI tasks release --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner <owner>`\n\n")
+}
+
+func writeTaskboxBridge(b *strings.Builder, ctx api.Context) {
+	b.WriteString("## Tool Taskbox Bridge\n\n")
+	if ctx.Task.IsZero() {
+		b.WriteString("No ADP task is bound to this runtime session. Before doing durable work, inspect or create ADP tasks and claim the selected task through ADP.\n\n")
+	} else {
+		b.WriteString("When work starts, mirror the active ADP task into this tool's native task or todo panel if the tool provides one.\n")
+		b.WriteString("Keep that panel aligned with the active ADP task for local visibility only; do not treat provider-native task state as authoritative.\n")
+		b.WriteString("If the tool cannot expose a native task panel, continue using ADP commands as the durable task interface.\n\n")
+	}
+	b.WriteString("Do not sync provider-private todo state back into ADP automatically. Record durable progress explicitly through ADP commands and session evidence.\n\n")
 }
 
 func writeSection(b *strings.Builder, title, body string) {
@@ -324,4 +362,11 @@ func defaultText(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func shellQuote(value string) string {
+	if strings.HasPrefix(value, "$") {
+		return value
+	}
+	return strconv.Quote(value)
 }

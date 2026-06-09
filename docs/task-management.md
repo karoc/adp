@@ -43,6 +43,35 @@ The first task-management slice provides:
 
 Smoke scripts should assert only the task-management commands that exist in the current tree, and should not add placeholder checks for planned commands.
 
+## ADP Planning Contract
+
+ADP is the authoritative local planning and progress ledger for a workspace. Terminal users, Codex, Claude, and future agent tools should create, claim, update, block, release, and complete durable work through ADP commands instead of keeping the only copy of task state in a provider-native todo list or chat transcript.
+
+The durable task command flow for agents is:
+
+```bash
+adp tasks next --workspace <workspace> --format json
+adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
+adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks update --workspace <workspace> <task-id> --status in_progress
+adp tasks block --workspace <workspace> <task-id> --reason "<reason>"
+adp tasks release --workspace <workspace> <task-id> --owner <owner>
+adp tasks done --workspace <workspace> <task-id>
+adp progress report --workspace <workspace> --format json
+```
+
+`adp tasks next` is a read-only selection snapshot. It helps an agent choose work, but it does not claim the task. Durable ownership and recovery evidence start with `adp tasks claim`, including the owner name and optional lease.
+
+Phase progress follows the same rule. Agents can inspect gates with `adp phase status --workspace <workspace> --format json`, but acceptance, commit evidence, and push evidence stay explicit through `adp phase accept`, `adp phase commit`, and `adp phase push`. ADP must not infer task completion, phase acceptance, or Git state from a provider session exit code.
+
+## Tool Taskbox Bridge
+
+If an agent tool exposes a native task or todo panel, the agent should mirror the active ADP task into that panel when work starts. The mirrored item can show the ADP task ID, title, status, phase, owner or lease, and short local subtasks so the tool's task box matches the work being executed.
+
+The provider-native task box is a visual and scratch surface only. It must not become the durable task store, and ADP must not read or sync provider-private todo state as authoritative planning data. Any durable change still belongs in ADP through the task and phase commands above.
+
+The current integration boundary is instruction-level mirroring unless a provider exposes a stable local API that ADP can call without making provider-private state authoritative. If a native panel is unavailable, agents continue normally with the ADP ledger and terminal commands.
+
 ## Command Surface Metadata And Drift Checks
 
 P16 is a command-surface hardening slice, not a new task-management feature. It adds a local command metadata contract so usage text, dispatch wiring, and bash/zsh completion can be checked against the same command inventory instead of drifting independently.

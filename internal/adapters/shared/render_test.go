@@ -2,6 +2,7 @@ package shared
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/karoc/adp/internal/adapters/api"
@@ -57,6 +58,49 @@ func TestLaunchUsesProviderNeutralDefaultCommand(t *testing.T) {
 
 	if spec.Command != "future-cli" {
 		t.Fatalf("Command = %q, want future-cli", spec.Command)
+	}
+}
+
+func TestInstructionsIncludePlanningContractAndTaskboxBridge(t *testing.T) {
+	ctx := sharedTestContext()
+
+	instructions := string(Instructions("future-agent", ctx))
+	for _, want := range []string{
+		"## ADP Planning Contract",
+		"ADP is the authoritative local planning and progress ledger",
+		"Provider-native todo lists or task panels are scratch space only",
+		"`ADP_CLI` environment variable",
+		"$ADP_CLI tasks next --workspace \"demo\" --format json",
+		"$ADP_CLI tasks claim --workspace \"demo\" <task-id> --owner <owner> --lease 4h",
+		"$ADP_CLI tasks update --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --status <status>",
+		"## Tool Taskbox Bridge",
+		"mirror the active ADP task into this tool's native task or todo panel",
+		"do not treat provider-native task state as authoritative",
+	} {
+		if !strings.Contains(instructions, want) {
+			t.Fatalf("Instructions missing %q:\n%s", want, instructions)
+		}
+	}
+}
+
+func TestInstructionsWithoutTaskDirectAgentToClaimADPWork(t *testing.T) {
+	ctx := sharedTestContext()
+	ctx.Task = api.TaskContext{}
+
+	instructions := string(Instructions("future-agent", ctx))
+	for _, want := range []string{
+		"## ADP Planning Contract",
+		"$ADP_CLI tasks next --workspace \"demo\" --format json",
+		"$ADP_CLI tasks update --workspace \"demo\" <task-id> --status <status>",
+		"No ADP task is bound to this runtime session.",
+		"claim the selected task through ADP",
+	} {
+		if !strings.Contains(instructions, want) {
+			t.Fatalf("Instructions missing %q:\n%s", want, instructions)
+		}
+	}
+	if strings.Contains(instructions, "\"$ADP_TASK_ID\"") {
+		t.Fatalf("unbound task instructions should not reference ADP_TASK_ID as active task:\n%s", instructions)
 	}
 }
 

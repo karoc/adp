@@ -54,6 +54,8 @@ Both files are generated from the same ADP renderer. The visible sections are:
 
 - Workspace metadata: workspace name, real project root, adapter name, and effective profile.
 - Current task: task ID, title, status, priority, phase, description, and blocked reason when a task is bound.
+- ADP Planning Contract: ADP remains the authoritative local planning ledger, and durable task state changes must use ADP task and phase commands.
+- Tool Taskbox Bridge: provider-native todo or task panels may mirror the active ADP task for local visibility, but they are not the source of truth.
 - Base prompt: the configured `prompts.base` file, or a local fallback message when no readable file is configured.
 - Shared memory: the configured `memory.shared` file when memory is enabled, or a local disabled/missing fallback.
 - Rules: sorted workspace rules from `workspace.yaml`.
@@ -106,6 +108,26 @@ Task metadata is visible in:
 - Session history derived from local events.
 
 Binding a task to a runtime does not automatically claim, complete, block, accept, commit, or push that task or phase. Those remain explicit terminal commands, and Git remains operator-run outside ADP.
+
+## Planning Contract And Taskbox Bridge
+
+Generated instructions carry the ADP planning contract into each launched tool. The agent should treat ADP as the durable source of truth for workspace planning and progress, then use ADP commands for persistent state changes:
+
+```bash
+adp tasks next --workspace <workspace> --format json
+adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
+adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks update --workspace <workspace> <task-id> --status in_progress
+adp tasks block --workspace <workspace> <task-id> --reason "<reason>"
+adp tasks release --workspace <workspace> <task-id> --owner <owner>
+adp tasks done --workspace <workspace> <task-id>
+adp phase status --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
+```
+
+If the external tool has a native task or todo panel, the agent should mirror the active ADP task there for visibility. That mirror can contain the task ID, title, status, phase, owner or lease, and local subtasks, but it is a working view only. Durable state still belongs in `$ADP_HOME/workspaces/<workspace>/planning/`.
+
+This bridge is currently instruction-level unless a provider exposes a stable local API. ADP must not scrape provider-private todo state, treat a provider task panel as authoritative, infer completion from an agent exit code, auto-accept phases, or run Git automatically.
 
 ## Runtime Environment Variables
 

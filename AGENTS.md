@@ -225,6 +225,7 @@ ADP development uses ADP's own local planning ledger for P24 and later work. Tre
 - Register each new implementation slice as a phase and prioritized tasks before starting it.
 - Keep the authoritative phase/task/progress records under `$ADP_HOME`; do not export planning state into the repository root as a normal workflow.
 - Use `adp tasks next --workspace adp --limit 0 --format json` and `adp phase status --workspace adp --format json` as local handoff snapshots for main-thread and sub-agent coordination.
+- When Codex, Claude, or another tool exposes a native task/todo panel, mirror the active ADP task there for visibility, but keep durable status, ownership, progress, and recovery evidence in ADP.
 - Do not start a later phase until the current phase has passed validation, recorded acceptance, been committed, been pushed, and recorded commit plus push evidence.
 - Repository docs may summarize accepted behavior, but they are not the execution ledger.
 

@@ -57,6 +57,9 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 	if handle.Env[paths.EnvHome] != layout.Home {
 		t.Fatalf("ADP_HOME mismatch: %s", handle.Env[paths.EnvHome])
 	}
+	if handle.Env["ADP_CLI"] == "" || !filepath.IsAbs(handle.Env["ADP_CLI"]) {
+		t.Fatalf("ADP_CLI should be an absolute executable path: %#v", handle.Env)
+	}
 	if handle.Env["ADP_WORKSPACE"] != "game-a" {
 		t.Fatalf("ADP_WORKSPACE mismatch: %s", handle.Env["ADP_WORKSPACE"])
 	}

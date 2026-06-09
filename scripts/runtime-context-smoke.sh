@@ -112,6 +112,16 @@ set -eu
 
 printf 'fake-$agent cwd=%s args=%s\n' "\$(pwd)" "\$*"
 
+require_runtime_text() {
+  file=\$1
+  needle=\$2
+  label=\$3
+  if ! grep -F -q "\$needle" "\$file"; then
+    printf 'fake-$agent missing %s in %s: %s\n' "\$label" "\$file" "\$needle" >&2
+    exit 97
+  fi
+}
+
 test "\${ADP_AGENT:-}" = "$agent"
 test "\${ADP_WORKSPACE:-}" = "context-a"
 test "\${ADP_HOME:-}" = "\$ADP_EXPECT_ADP_HOME"
@@ -122,6 +132,10 @@ test "\${ADP_TASK_TITLE:-}" = "Audit runtime context"
 test "\${ADP_TASK_STATUS:-}" = "ready"
 test "\${ADP_TASK_PRIORITY:-}" = "critical"
 test "\${ADP_TASK_PHASE:-}" = "p-context"
+if [ -n "\${ADP_CLI:-}" ]; then
+  test "\$ADP_CLI" = "\$ADP_EXPECT_ADP_CLI"
+  test -x "\$ADP_CLI"
+fi
 test -n "\${ADP_SESSION_ID:-}"
 test -n "\${ADP_RUNTIME_ROOT:-}"
 test "\$(pwd)" = "\$ADP_RUNTIME_ROOT"
@@ -148,6 +162,14 @@ grep -F -q -- "- Status: ready" "$instructions"
 grep -F -q -- "- Priority: critical" "$instructions"
 grep -F -q -- "- Phase: p-context" "$instructions"
 grep -F -q -- "- Description: Verify generated context surface" "$instructions"
+require_runtime_text "$instructions" "## ADP Planning Contract" "planning contract heading"
+require_runtime_text "$instructions" "ADP is the authoritative local planning and progress ledger" "planning source-of-truth contract"
+require_runtime_text "$instructions" "scratch space only" "provider taskbox boundary"
+require_runtime_text "$instructions" "## Tool Taskbox Bridge" "taskbox bridge heading"
+require_runtime_text "$instructions" "mirror the active ADP task" "taskbox mirror guidance"
+if [ -n "\${ADP_CLI:-}" ]; then
+  require_runtime_text "$instructions" "ADP_CLI" "ADP CLI hint"
+fi
 grep -F -q "P35 base prompt marker" "$instructions"
 grep -F -q "P35 shared memory marker" "$instructions"
 grep -F -q "review_depth: context-audit" "$instructions"
@@ -238,6 +260,7 @@ export ADP_HOME
 export ADP_RUNTIME_DIR
 export PATH="$FAKE_BIN:$PATH"
 export ADP_EXPECT_ADP_HOME="$ADP_HOME"
+export ADP_EXPECT_ADP_CLI="$ADP_BIN"
 export ADP_EXPECT_PROJECT_ROOT="$PROJECT_ROOT"
 
 info "initializing workspace with marked prompt, memory, MCP, and profiles"

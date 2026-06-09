@@ -225,6 +225,7 @@ ADP 自身开发从 P24 开始使用 ADP 自己的本地 planning ledger。把 `
 - 每个新的实现切片开始前，先登记为 phase 和按优先级排序的 tasks。
 - 权威 phase/task/progress records 保存在 `$ADP_HOME` 下；正常流程中不要把 planning state 导出到仓库根目录。
 - 主线程和子 Agent 协作交接时，使用 `adp tasks next --workspace adp --limit 0 --format json` 和 `adp phase status --workspace adp --format json` 作为本地 snapshot。
+- 当 Codex、Claude 或其他工具提供原生 task/todo panel 时，可以把当前 ADP task 镜像进去提升可见性，但持久 status、ownership、progress 和恢复证据仍必须维护在 ADP 中。
 - 当前 phase 未通过验证、未记录验收、未提交、未推送、未记录 commit 和 push evidence 前，不启动后续 phase。
 - 仓库文档可以总结已验收行为，但不是执行 ledger。
 

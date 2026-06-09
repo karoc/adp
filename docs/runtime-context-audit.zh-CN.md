@@ -54,6 +54,8 @@ Claude 启动使用相同 runtime 模型，但看到的是 `CLAUDE.md` 和 `.cla
 
 - Workspace metadata：workspace name、真实 project root、adapter name 和 effective profile。
 - Current task：当绑定 task 时，包含 task ID、title、status、priority、phase、description 和 blocked reason。
+- ADP 规划契约：ADP 仍然是权威本地 planning ledger，持久 task state 变更必须使用 ADP task 和 phase commands。
+- 工具任务框桥接：provider 原生 todo 或 task panel 可以为了本地可见性镜像当前 ADP task，但不能成为事实源。
 - Base prompt：配置的 `prompts.base` 文件；如果没有可读文件，则使用本地 fallback message。
 - Shared memory：memory 启用时读取配置的 `memory.shared` 文件；否则使用本地 disabled/missing fallback。
 - Rules：来自 `workspace.yaml` 的按键排序 workspace rules。
@@ -106,6 +108,26 @@ Task metadata 会出现在：
 - 从本地 events 派生的 session history。
 
 把 task 绑定到 runtime 不会自动 claim、complete、block、accept、commit 或 push 该 task 或 phase。这些仍然必须通过显式 terminal commands 完成，Git 也仍然由 operator 在 ADP 外部运行。
+
+## 规划契约与任务框桥接
+
+生成的 instructions 会把 ADP planning contract 带入每个被启动的工具。Agent 应该把 ADP 视为 workspace planning 和 progress 的持久事实源，并使用 ADP 命令完成持久状态变更：
+
+```bash
+adp tasks next --workspace <workspace> --format json
+adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
+adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks update --workspace <workspace> <task-id> --status in_progress
+adp tasks block --workspace <workspace> <task-id> --reason "<reason>"
+adp tasks release --workspace <workspace> <task-id> --owner <owner>
+adp tasks done --workspace <workspace> <task-id>
+adp phase status --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
+```
+
+如果外部工具提供原生 task 或 todo panel，Agent 应该为了可见性把当前 ADP task 镜像到那里。镜像可以包含 task ID、title、status、phase、owner 或 lease，以及本地 subtasks，但它只是工作视图。持久状态仍然属于 `$ADP_HOME/workspaces/<workspace>/planning/`。
+
+除非 provider 暴露稳定的本地 API，否则这个 bridge 当前是 instruction-level。ADP 不能抓取 provider-private todo state、把 provider task panel 视为权威状态、根据 agent exit code 推断 completion、自动 accept phase，或自动运行 Git。
 
 ## Runtime 环境变量
 

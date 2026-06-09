@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -152,6 +153,9 @@ func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Confi
 	env[paths.EnvHome] = layout.Home
 	env["ADP_WORKSPACE"] = config.Workspace.Name
 	env["ADP_PROJECT_ROOT"] = config.Project.Root
+	if cliPath, err := os.Executable(); err == nil && strings.TrimSpace(cliPath) != "" {
+		env["ADP_CLI"] = cliPath
+	}
 	env["ADP_RUNTIME_ROOT"] = runtimeRoot
 	env["ADP_SESSION_ID"] = sessionID
 	if !task.IsZero() {
