@@ -55,6 +55,7 @@ type TaskStore interface {
 	UpdateStatus(context.Context, string, taskstore.Status) (taskstore.Task, error)
 	Block(context.Context, string, string) (taskstore.Task, error)
 	Claim(context.Context, taskstore.ClaimRequest) (taskstore.Task, error)
+	Take(context.Context, taskstore.TakeRequest) (taskstore.Task, error)
 	Release(context.Context, taskstore.ReleaseRequest) (taskstore.Task, error)
 	Progress(context.Context) (taskstore.Progress, error)
 	PreviewPlanImport(context.Context, taskstore.PlanImportRequest) (taskstore.PlanImportResult, error)

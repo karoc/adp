@@ -180,6 +180,7 @@ func writePlanningContract(b *strings.Builder, ctx api.Context) {
 	b.WriteString("Use the `ADP_CLI` environment variable when it is set. If it is missing, use `adp` from `PATH`.\n\n")
 	b.WriteString("Durable task commands:\n")
 	fmt.Fprintf(b, "- Inspect next work: `$ADP_CLI tasks next --workspace %s --format json`\n", workspace)
+	fmt.Fprintf(b, "- Atomically take next work: `$ADP_CLI tasks take --workspace %s --owner <owner> --lease 4h --format json`\n", workspace)
 	fmt.Fprintf(b, "- Create durable work: `$ADP_CLI tasks add --workspace %s --priority <priority> --phase <phase-id> --description <text> <title>`\n", workspace)
 	fmt.Fprintf(b, "- Claim selected work: `$ADP_CLI tasks claim --workspace %s <task-id> --owner <owner> --lease 4h`\n", workspace)
 	if ctx.Task.IsZero() {

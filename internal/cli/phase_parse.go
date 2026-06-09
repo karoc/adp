@@ -14,6 +14,13 @@ type tasksClaimOptions struct {
 	lease     time.Duration
 }
 
+type tasksTakeOptions struct {
+	workspace string
+	owner     string
+	lease     time.Duration
+	format    outputFormat
+}
+
 type tasksReleaseOptions struct {
 	workspace string
 	taskID    string
@@ -98,6 +105,59 @@ func parseTasksClaimArgs(args []string) (tasksClaimOptions, error) {
 	}
 	if opts.taskID == "" || opts.owner == "" {
 		return tasksClaimOptions{}, errors.New("usage: adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]")
+	}
+	return opts, nil
+}
+
+func parseTasksTakeArgs(args []string) (tasksTakeOptions, error) {
+	opts := tasksTakeOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksTakeOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--owner":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksTakeOptions{}, err
+			}
+			opts.owner, i = value, next
+		case "--lease":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksTakeOptions{}, err
+			}
+			lease, err := time.ParseDuration(value)
+			if err != nil {
+				return tasksTakeOptions{}, fmt.Errorf("parse lease duration: %w", err)
+			}
+			if lease < 0 {
+				return tasksTakeOptions{}, errors.New("lease must not be negative")
+			}
+			opts.lease, i = lease, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return tasksTakeOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return tasksTakeOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return tasksTakeOptions{}, fmt.Errorf("unknown tasks take option %q", arg)
+			}
+			return tasksTakeOptions{}, errors.New("usage: adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--format <text|json>]")
+		}
+	}
+	if opts.owner == "" {
+		return tasksTakeOptions{}, errors.New("usage: adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--format <text|json>]")
 	}
 	return opts, nil
 }

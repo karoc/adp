@@ -23,6 +23,7 @@ const (
 var (
 	ErrTaskNotFound      = errors.New("task not found")
 	ErrTaskClaimed       = errors.New("task already claimed")
+	ErrNoClaimableTask   = errors.New("no claimable task")
 	ErrTaskOwnerMismatch = errors.New("task owner mismatch")
 	statusOrder          = []Status{StatusPlanned, StatusReady, StatusInProgress, StatusBlocked, StatusReview, StatusValidated, StatusDone, StatusCanceled}
 )
@@ -54,6 +55,11 @@ type ClaimRequest struct {
 	TaskID string
 	Owner  string
 	Lease  time.Duration
+}
+
+type TakeRequest struct {
+	Owner string
+	Lease time.Duration
 }
 
 type ReleaseRequest struct {

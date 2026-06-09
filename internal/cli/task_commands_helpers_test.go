@@ -14,6 +14,7 @@ type fakeTaskStore struct {
 	updatedStatus     taskstore.Status
 	blockReason       string
 	claimReq          taskstore.ClaimRequest
+	takeReq           taskstore.TakeRequest
 	releaseReq        taskstore.ReleaseRequest
 	progress          taskstore.Progress
 	planReq           taskstore.PlanImportRequest
@@ -59,6 +60,17 @@ func (s *fakeTaskStore) Claim(_ context.Context, req taskstore.ClaimRequest) (ta
 	s.claimReq = req
 	task := testTask(req.TaskID, "Add task manager", taskstore.StatusInProgress)
 	task.Owner = req.Owner
+	if req.Lease > 0 {
+		task.LeaseExpiresAt = task.UpdatedAt.Add(req.Lease)
+	}
+	return task, nil
+}
+
+func (s *fakeTaskStore) Take(_ context.Context, req taskstore.TakeRequest) (taskstore.Task, error) {
+	s.takeReq = req
+	task := testTask("task-take", "Take next task", taskstore.StatusInProgress)
+	task.Owner = req.Owner
+	task.ClaimedAt = task.UpdatedAt
 	if req.Lease > 0 {
 		task.LeaseExpiresAt = task.UpdatedAt.Add(req.Lease)
 	}

@@ -212,7 +212,9 @@ assert_help "sessions restore-plan help" "adp sessions restore-plan <session-id>
 assert_help "runtime help" "adp runtime prune" runtime --help
 assert_help "runtime prune help" "adp runtime prune" runtime prune --help
 assert_help "tasks help" "adp tasks next" tasks --help
+assert_help "tasks help take" "adp tasks take" tasks --help
 assert_help "tasks add help" "adp tasks add" tasks add --help
+assert_help "tasks take help" "adp tasks take" tasks take --help
 assert_help "tasks claim help" "adp tasks claim" tasks claim --help
 assert_help "plan help" "adp plan preview" plan --help
 assert_help "plan doctor help" "adp plan doctor" plan doctor --help

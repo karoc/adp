@@ -183,6 +183,10 @@ func (s *runTaskStore) Claim(context.Context, taskstore.ClaimRequest) (taskstore
 	return taskstore.Task{}, errors.New("not implemented")
 }
 
+func (s *runTaskStore) Take(context.Context, taskstore.TakeRequest) (taskstore.Task, error) {
+	return taskstore.Task{}, errors.New("not implemented")
+}
+
 func (s *runTaskStore) Release(context.Context, taskstore.ReleaseRequest) (taskstore.Task, error) {
 	return taskstore.Task{}, errors.New("not implemented")
 }

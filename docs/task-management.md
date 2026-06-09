@@ -13,6 +13,7 @@ The first task-management slice provides:
 - `adp tasks add`
 - `adp tasks list`
 - `adp tasks next`
+- `adp tasks take`
 - `adp tasks show`
 - `adp tasks update`
 - `adp tasks claim`
@@ -47,11 +48,12 @@ Smoke scripts should assert only the task-management commands that exist in the 
 
 ADP is the authoritative local planning and progress ledger for a workspace. Terminal users, Codex, Claude, and future agent tools should create, claim, update, block, release, and complete durable work through ADP commands instead of keeping the only copy of task state in a provider-native todo list or chat transcript.
 
-The durable task command flow for agents is:
+The durable task command flow for agents is, with `tasks take` preferred for atomic pickup:
 
 ```bash
 adp tasks next --workspace <workspace> --format json
 adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
+adp tasks take --workspace <workspace> --owner <owner> --lease <duration> --format json
 adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
 adp tasks update --workspace <workspace> <task-id> --status in_progress
 adp tasks block --workspace <workspace> <task-id> --reason "<reason>"
@@ -61,6 +63,8 @@ adp progress report --workspace <workspace> --format json
 ```
 
 `adp tasks next` is a read-only selection snapshot. It helps an agent choose work, but it does not claim the task. Durable ownership and recovery evidence start with `adp tasks claim`, including the owner name and optional lease.
+
+Multi-agent workers should prefer `adp tasks take` over a separate `tasks next` plus `tasks claim` sequence. `tasks take` combines selection and ownership into one planning-lock-protected mutation so two agents cannot take the same task concurrently.
 
 Phase progress follows the same rule. Agents can inspect gates with `adp phase status --workspace <workspace> --format json`, but acceptance, commit evidence, and push evidence stay explicit through `adp phase accept`, `adp phase commit`, and `adp phase push`. ADP must not infer task completion, phase acceptance, or Git state from a provider session exit code.
 
@@ -137,6 +141,27 @@ The JSON contract includes:
 Each candidate uses the same task object shape as `adp tasks list --format json`, including task ID, title, status, priority, phase ID, owner or lease information when present, and blocker summary when relevant.
 
 The endpoint is read-only. It must not claim a task, update status, change owners or leases, clear blockers, mutate phases, append planning or runtime events, create runtime directories, start agents, run Git, infer acceptance, close tasks, write output files into the project root, sync with a hosted service, or maintain JSON output as a second planning store.
+
+## Atomic Task Take Scope
+
+P43 defines the mutating endpoint for taking one task from the local board in a single operation:
+
+```bash
+adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--format <text|json>]
+```
+
+The command is for multi-agent coordination. It acquires the workspace planning lock, selects the highest-priority claimable task using the same stable local ordering principles as `adp tasks next`, records the owner and optional lease, moves the task to `in_progress`, writes the local planning ledger, and returns the task that was taken.
+
+By default, claimable tasks are:
+
+- `ready` tasks with no active owner, including tasks whose previous lease has expired.
+- `in_progress` tasks with an owner whose previous lease has expired.
+
+By default, `planned`, `blocked`, `review`, `validated`, `done`, and `canceled` tasks are not taken. `review` can still appear in read-only `tasks next` snapshots, but atomic pickup does not assign review work unless a future explicit option adds that behavior.
+
+The output should include the same task object shape used by task inspection commands, including task ID, title, status, priority, phase ID, owner, claimed timestamp, and lease expiration when present. JSON output is a command result for local tools; it is not a second planning store.
+
+`tasks take` is a task-ownership mutation only. It must not launch a runtime, run Git, accept a phase, record commit or push evidence, mark the task done, close a phase, infer completion from an agent exit code, sync with a hosted tracker, or write planning files into the real project root. Runtime launch remains a separate `adp run ...` decision, and task completion remains explicit through `adp tasks done` or another explicit status command.
 
 ## Phase Gate Status Scope
 
@@ -239,9 +264,10 @@ adp tasks show --workspace adp <task-id> --format json
 adp tasks next --workspace adp --format json
 ```
 
-Move a task through execution:
+Move a task through execution, using atomic pickup for parallel workers:
 
 ```bash
+adp tasks take --workspace adp --owner codex-main --lease 30m --format json
 adp tasks claim --workspace adp <task-id> --owner codex-main --lease 30m
 adp tasks update --workspace adp <task-id> --status in_progress
 adp tasks block --workspace adp <task-id> --reason "waiting for real CLI evidence"
@@ -303,6 +329,7 @@ The JSON output is an inspection format, not a separate state store. The authori
 Cross-tool consumers should treat JSON output as a local snapshot for selecting work, showing status, or handing context to another terminal agent. They should still call explicit mutating commands when state needs to change:
 
 - Use `adp tasks next --format json` when a local tool needs a compact prioritized task-selection snapshot.
+- Use `adp tasks take --owner <owner> --lease <duration> --format json` when a local worker needs to atomically select and claim one task from the board.
 - Use `adp tasks claim`, `adp tasks update`, `adp tasks done`, `adp tasks block`, or `adp tasks release` for task changes.
 - Use `adp phase start`, `adp phase accept`, `adp phase commit`, and `adp phase push` for phase transitions.
 - Use `adp phase status --format json` when a local tool needs to know whether the current phase needs acceptance, commit evidence, push evidence, or whether the next planned phase can start.
@@ -373,6 +400,7 @@ Current claim rules:
 
 - A ready task may be claimed by one owner at a time.
 - The owner may be a human name, agent name, or stable local agent identifier.
+- For parallel workers, prefer `tasks take` because it selects and claims under one planning lock.
 - Claiming a task records ownership before implementation starts.
 - `--lease <duration>` records an optional lease expiration. When the lease has expired, another owner may claim the task.
 - A claim without `--lease` is non-expiring until it is released or reclaimed by the same owner.

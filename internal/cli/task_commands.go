@@ -16,7 +16,7 @@ const tasksNextUsage = "adp tasks next [--workspace <name>] [--limit <n>] [--for
 
 func (a *App) tasks(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: adp tasks <add|list|next|show|update|claim|release|done|block>")
+		return errors.New("usage: adp tasks <add|list|next|take|show|update|claim|release|done|block>")
 	}
 
 	switch args[0] {
@@ -26,6 +26,8 @@ func (a *App) tasks(ctx context.Context, args []string) error {
 		return a.tasksList(ctx, args[1:])
 	case "next":
 		return a.tasksNext(ctx, args[1:])
+	case "take":
+		return a.tasksTake(ctx, args[1:])
 	case "show":
 		return a.tasksShow(ctx, args[1:])
 	case "update":
@@ -188,6 +190,30 @@ func (a *App) tasksClaim(ctx context.Context, args []string) error {
 		return err
 	}
 	fmt.Fprintf(a.stdout, "task %s claimed by %s\n", task.ID, task.Owner)
+	return nil
+}
+
+func (a *App) tasksTake(ctx context.Context, args []string) error {
+	opts, err := parseTasksTakeArgs(args)
+	if err != nil {
+		return err
+	}
+	store, _, err := a.loadTaskStore(ctx, opts.workspace)
+	if err != nil {
+		return err
+	}
+	task, err := store.Take(ctx, taskstore.TakeRequest{
+		Owner: opts.owner,
+		Lease: opts.lease,
+	})
+	if err != nil {
+		return err
+	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, taskOutput(task))
+	}
+	fmt.Fprintf(a.stdout, "task %s taken by %s\n", task.ID, task.Owner)
+	a.printTask(task)
 	return nil
 }
 

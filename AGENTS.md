@@ -74,6 +74,7 @@ Use sub-agents when the user asks for parallel or multi-agent work and the task 
 Main-thread responsibilities:
 
 - Define the goal, constraints, and disjoint write scopes before spawning agents.
+- Use ADP as the shared task board. Prefer `adp tasks take` for parallel workers so task selection and claim happen under one planning lock.
 - Keep the immediate blocking integration path local.
 - Do not delegate the exact same file set to multiple agents unless one is read-only review.
 - Review every returned diff before integration.
@@ -95,6 +96,7 @@ Sub-agent prompts must specify:
 - Objective.
 - Allowed write paths.
 - Disallowed paths.
+- ADP task ownership expectations, including whether the worker should use `adp tasks take` or an explicitly assigned task ID.
 - Required constraints.
 - Required validation commands.
 - Expected final report: files changed, behavior changed, tests run.

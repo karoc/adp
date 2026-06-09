@@ -71,6 +71,7 @@ func TestInstructionsIncludePlanningContractAndTaskboxBridge(t *testing.T) {
 		"Provider-native todo lists or task panels are scratch space only",
 		"`ADP_CLI` environment variable",
 		"$ADP_CLI tasks next --workspace \"demo\" --format json",
+		"$ADP_CLI tasks take --workspace \"demo\" --owner <owner> --lease 4h --format json",
 		"$ADP_CLI tasks claim --workspace \"demo\" <task-id> --owner <owner> --lease 4h",
 		"$ADP_CLI tasks update --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --status <status>",
 		"## Tool Taskbox Bridge",

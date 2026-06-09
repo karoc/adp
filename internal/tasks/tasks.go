@@ -138,6 +138,58 @@ func (s *Store) Claim(ctx context.Context, req ClaimRequest) (Task, error) {
 	})
 }
 
+func (s *Store) Take(ctx context.Context, req TakeRequest) (Task, error) {
+	req.Owner = strings.TrimSpace(req.Owner)
+	if req.Owner == "" {
+		return Task{}, errors.New("owner is required")
+	}
+	if req.Lease < 0 {
+		return Task{}, errors.New("lease must not be negative")
+	}
+	if err := ctx.Err(); err != nil {
+		return Task{}, err
+	}
+
+	var task Task
+	err := s.withPlanningLock(ctx, func() error {
+		data, err := s.load(ctx)
+		if err != nil {
+			return err
+		}
+		now := s.now()
+		candidates := claimableTasks(data.Tasks, now, 1)
+		if len(candidates) == 0 {
+			return ErrNoClaimableTask
+		}
+		targetID := candidates[0].ID
+		for i := range data.Tasks {
+			if data.Tasks[i].ID != targetID {
+				continue
+			}
+			data.Tasks[i].Owner = req.Owner
+			data.Tasks[i].ClaimedAt = now
+			if req.Lease > 0 {
+				data.Tasks[i].LeaseExpiresAt = now.Add(req.Lease).UTC().Truncate(time.Second)
+			} else {
+				data.Tasks[i].LeaseExpiresAt = time.Time{}
+			}
+			data.Tasks[i].Status = StatusInProgress
+			data.Tasks[i].BlockedReason = ""
+			data.Tasks[i].UpdatedAt = now
+			task = data.Tasks[i]
+			if err := s.save(ctx, data); err != nil {
+				return err
+			}
+			return s.appendEvent(ctx, progressEvent{Timestamp: now, Type: "task_claimed", TaskID: task.ID, Status: string(task.Status), Owner: req.Owner, LeaseExpiresAt: task.LeaseExpiresAt})
+		}
+		return fmt.Errorf("%w: %s", ErrTaskNotFound, targetID)
+	})
+	if err != nil {
+		return Task{}, err
+	}
+	return task, nil
+}
+
 func (s *Store) Release(ctx context.Context, req ReleaseRequest) (Task, error) {
 	req.Owner = strings.TrimSpace(req.Owner)
 	return s.update(ctx, req.TaskID, func(task *Task, now time.Time) (progressEvent, error) {

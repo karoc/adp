@@ -116,6 +116,7 @@ Task metadata 会出现在：
 
 ```bash
 adp tasks next --workspace <workspace> --format json
+adp tasks take --workspace <workspace> --owner <owner> --lease <duration> --format json
 adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
 adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
 adp tasks update --workspace <workspace> <task-id> --status in_progress

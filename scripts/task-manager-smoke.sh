@@ -484,7 +484,96 @@ assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "tasks next
 assert_text_unchanged "$project_root_before" "$(project_root_state)" "tasks next" "project root"
 assert_text_unchanged "$git_before" "$(git_state)" "tasks next" "Git state"
 assert_project_root_clean
-
+info "checking atomic task take"
+phases_before=$(cat "$PHASES_FILE")
+progress_events_before=$(line_count "$PROGRESS_FILE")
+events_before=$(line_count "$EVENTS_FILE")
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+output=$(run_adp "$REPO_ROOT" tasks take --workspace game-a --owner take-agent --lease 45m)
+assert_contains "$output" "task $critical_task_id taken by take-agent" "tasks take output"
+assert_contains "$output" "id: $critical_task_id" "tasks take output"
+assert_contains "$output" "status: in_progress" "tasks take output"
+assert_contains "$output" "owner: take-agent" "tasks take output"
+assert_contains "$output" "lease_expires_at: 20" "tasks take output"
+output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$critical_task_id")
+assert_contains "$output" "id: $critical_task_id" "tasks show taken output"
+assert_contains "$output" "status: in_progress" "tasks show taken output"
+assert_contains "$output" "owner: take-agent" "tasks show taken output"
+assert_contains "$output" "lease_expires_at: 20" "tasks show taken output"
+output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$critical_task_id" --format json)
+assert_json_field "$output" "id" "tasks show taken json output"
+assert_json_field "$output" "owner" "tasks show taken json output"
+assert_json_field "$output" "lease_expires_at" "tasks show taken json output"
+assert_contains "$output" "\"id\": \"$critical_task_id\"" "tasks show taken json output"
+assert_contains "$output" "\"status\": \"in_progress\"" "tasks show taken json output"
+assert_contains "$output" "\"owner\": \"take-agent\"" "tasks show taken json output"
+output=$(run_adp "$REPO_ROOT" tasks take --workspace game-a --owner second-agent --lease 45m --format json)
+assert_json_field "$output" "id" "second tasks take json output"
+assert_json_field "$output" "owner" "second tasks take json output"
+assert_json_field "$output" "lease_expires_at" "second tasks take json output"
+assert_contains "$output" "\"id\": \"$low_task_id\"" "second tasks take json output"
+assert_contains "$output" "\"status\": \"in_progress\"" "second tasks take json output"
+assert_contains "$output" "\"owner\": \"second-agent\"" "second tasks take json output"
+case "$output" in
+  *"\"id\": \"$critical_task_id\""*) fail "second tasks take returned already claimed critical task" ;;
+esac
+progress_events_after=$(line_count "$PROGRESS_FILE")
+if [ "$progress_events_after" -ne $((progress_events_before + 2)) ]; then
+  fail "tasks take did not append exactly two progress events"
+fi
+take_events=$(tail -n 2 "$PROGRESS_FILE")
+assert_contains "$take_events" "\"type\":\"task_claimed\"" "tasks take progress events"
+assert_contains "$take_events" "\"task_id\":\"$critical_task_id\"" "tasks take progress events"
+assert_contains "$take_events" "\"owner\":\"take-agent\"" "tasks take progress events"
+assert_contains "$take_events" "\"task_id\":\"$low_task_id\"" "tasks take progress events"
+assert_contains "$take_events" "\"owner\":\"second-agent\"" "tasks take progress events"
+assert_text_unchanged "$phases_before" "$(cat "$PHASES_FILE")" "tasks take" "phases"
+assert_event_log_line_count_unchanged "$events_before" "tasks take"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "tasks take" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "tasks take" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "tasks take" "Git state"
+assert_project_root_clean
+info "checking tasks next remains read-only after take"
+tasks_before=$(cat "$TASKS_FILE")
+phases_before=$(cat "$PHASES_FILE")
+progress_before=$(cat "$PROGRESS_FILE")
+events_before=$(line_count "$EVENTS_FILE")
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+output=$(run_adp "$REPO_ROOT" tasks next --workspace game-a --limit 2 --format json)
+assert_json_field "$output" "candidates" "tasks next after take json output"
+assert_contains "$output" "\"$critical_task_id\"" "tasks next after take json output"
+assert_contains "$output" "\"$low_task_id\"" "tasks next after take json output"
+assert_contains "$output" "\"owner\": \"take-agent\"" "tasks next after take json output"
+assert_contains "$output" "\"owner\": \"second-agent\"" "tasks next after take json output"
+assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "tasks next after take"
+assert_event_log_line_count_unchanged "$events_before" "tasks next after take"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "tasks next after take" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "tasks next after take" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "tasks next after take" "Git state"
+assert_project_root_clean
+tasks_before=$(cat "$TASKS_FILE")
+phases_before=$(cat "$PHASES_FILE")
+progress_before=$(cat "$PROGRESS_FILE")
+events_before=$(line_count "$EVENTS_FILE")
+runtime_dirs_before=$(runtime_dirs_state)
+project_root_before=$(project_root_state)
+git_before=$(git_state)
+output=$(run_adp_expect_fail "$REPO_ROOT" tasks take --workspace game-a --owner third-agent --lease 45m)
+assert_contains "$output" "no claimable task" "empty tasks take output"
+assert_planning_state_unchanged "$tasks_before" "$phases_before" "$progress_before" "empty tasks take"
+assert_event_log_line_count_unchanged "$events_before" "empty tasks take"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "empty tasks take" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "empty tasks take" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "empty tasks take" "Git state"
+assert_project_root_clean
+output=$(run_adp "$REPO_ROOT" tasks release --workspace game-a "$critical_task_id" --owner take-agent)
+assert_contains "$output" "task $critical_task_id released" "release taken critical output"
+output=$(run_adp "$REPO_ROOT" tasks release --workspace game-a "$low_task_id" --owner second-agent)
+assert_contains "$output" "task $low_task_id released" "release taken low output"
 info "checking progress report JSON handoff snapshot"
 tasks_before=$(cat "$TASKS_FILE")
 phases_before=$(cat "$PHASES_FILE")

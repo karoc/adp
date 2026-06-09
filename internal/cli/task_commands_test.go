@@ -146,6 +146,49 @@ func TestTasksClaimAndReleaseCommandsSetOwner(t *testing.T) {
 	}
 }
 
+func TestTasksTakeCommandClaimsNextTask(t *testing.T) {
+	store := &fakeTaskStore{}
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+	var stdout bytes.Buffer
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"tasks", "take", "--workspace", "game-a", "--owner", "agent-a", "--lease", "45m"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if store.takeReq.Owner != "agent-a" || store.takeReq.Lease != 45*time.Minute {
+		t.Fatalf("take request = %+v", store.takeReq)
+	}
+	for _, want := range []string{"task task-take taken by agent-a", "id: task-take", "status: in_progress", "owner: agent-a", "lease_expires_at: 2026"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("take output missing %q: %q", want, stdout.String())
+		}
+	}
+}
+
+func TestTasksTakeCommandPrintsJSON(t *testing.T) {
+	store := &fakeTaskStore{}
+	deps := Dependencies{
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{"tasks", "take", "--workspace", "game-a", "--owner", "agent-a", "--format", "json"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	task := decodeJSONObject(t, stdout.Bytes())
+	assertJSONStringField(t, task, "id", "task-take")
+	assertJSONStringField(t, task, "status", "in_progress")
+	assertJSONStringField(t, task, "owner", "agent-a")
+}
+
 func TestTasksCommandReportsUnknownSubcommand(t *testing.T) {
 	var stderr bytes.Buffer
 

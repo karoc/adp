@@ -74,6 +74,7 @@ git diff --check
 主线程职责：
 
 - 启动子 Agent 前明确目标、约束和互斥写入范围。
+- 使用 ADP 作为共享任务看板。并行 worker 应优先使用 `adp tasks take`，让任务选择和领取在同一把 planning lock 下完成。
 - 阻塞集成主线的关键工作留在主线程处理。
 - 不把同一组文件交给多个写入型子 Agent；只读 review Agent 例外。
 - 每个子 Agent 返回后必须审阅 diff。
@@ -95,6 +96,7 @@ git diff --check
 - 目标。
 - 允许写入路径。
 - 禁止写入路径。
+- ADP task ownership 预期，包括该 worker 是使用 `adp tasks take`，还是使用已明确分配的 task ID。
 - 必守约束。
 - 必跑验证命令。
 - 最终汇报格式：修改文件、行为变化、测试结果。

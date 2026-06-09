@@ -3,6 +3,7 @@ package tasks
 import (
 	"sort"
 	"strings"
+	"time"
 )
 
 func sortTasks(tasks []Task) {
@@ -21,25 +22,54 @@ func NextTasks(tasks []Task, limit int) []Task {
 			open = append(open, task)
 		}
 	}
-	sort.SliceStable(open, func(i, j int) bool {
-		left := priorityRank(open[i].Priority)
-		right := priorityRank(open[j].Priority)
-		if left != right {
-			return left < right
-		}
-		if open[i].CreatedAt.Equal(open[j].CreatedAt) {
-			return open[i].ID < open[j].ID
-		}
-		return open[i].CreatedAt.Before(open[j].CreatedAt)
-	})
+	sortByTaskPriority(open)
 	if limit > 0 && len(open) > limit {
 		open = open[:limit]
 	}
 	return open
 }
 
+func claimableTasks(tasks []Task, now time.Time, limit int) []Task {
+	claimable := make([]Task, 0, len(tasks))
+	for _, task := range tasks {
+		if isTakeStatus(task, now) {
+			claimable = append(claimable, task)
+		}
+	}
+	sortByTaskPriority(claimable)
+	if limit > 0 && len(claimable) > limit {
+		claimable = claimable[:limit]
+	}
+	return claimable
+}
+
 func isNextStatus(status Status) bool {
 	return status == StatusReady || status == StatusInProgress || status == StatusReview
+}
+
+func isTakeStatus(task Task, now time.Time) bool {
+	switch task.Status {
+	case StatusReady:
+		return task.Owner == "" || claimLeaseExpired(task, now)
+	case StatusInProgress:
+		return task.Owner != "" && claimLeaseExpired(task, now)
+	default:
+		return false
+	}
+}
+
+func sortByTaskPriority(tasks []Task) {
+	sort.SliceStable(tasks, func(i, j int) bool {
+		left := priorityRank(tasks[i].Priority)
+		right := priorityRank(tasks[j].Priority)
+		if left != right {
+			return left < right
+		}
+		if tasks[i].CreatedAt.Equal(tasks[j].CreatedAt) {
+			return tasks[i].ID < tasks[j].ID
+		}
+		return tasks[i].CreatedAt.Before(tasks[j].CreatedAt)
+	})
 }
 
 func priorityRank(priority string) int {
