@@ -111,6 +111,24 @@ Read-only review agents must be told not to edit files.
 - Preserve local-first behavior. Tests should use temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, fake binaries, and temporary project roots.
 - Avoid real external CLI calls in default tests. Real Codex/Claude checks must be explicit opt-in.
 
+## Tool Plan Mode
+
+Provider-native plan mode and plan panels are proposal surfaces. They can help an agent show candidate work, but ADP remains the authoritative local planning and progress ledger.
+
+When operating in plan mode, do not edit implementation files, complete tasks, accept phases, commit, push, or otherwise execute the plan unless the user explicitly approves moving beyond planning. Validate structured proposals with the read-only path:
+
+```bash
+adp plan preview --workspace <workspace> --file - --format json
+```
+
+Apply a plan only after explicit user or operator approval:
+
+```bash
+adp plan apply --workspace <workspace> --file - --format json
+```
+
+After an approved plan is applied, continue to use ADP task and phase commands for durable task ownership, progress, blockers, acceptance, commit evidence, and push evidence. Native plan panels may mirror ADP items for readability, but they are scratch views only.
+
 ## Runtime Acceptance
 
 The deterministic runtime smoke path is:
@@ -226,6 +244,7 @@ ADP development uses ADP's own local planning ledger for P24 and later work. Tre
 - Keep the authoritative phase/task/progress records under `$ADP_HOME`; do not export planning state into the repository root as a normal workflow.
 - Use `adp tasks next --workspace adp --limit 0 --format json` and `adp phase status --workspace adp --format json` as local handoff snapshots for main-thread and sub-agent coordination.
 - When Codex, Claude, or another tool exposes a native task/todo panel, mirror the active ADP task there for visibility, but keep durable status, ownership, progress, and recovery evidence in ADP.
+- When a tool exposes plan mode, use it only to draft or display candidate plans until the proposal passes `adp plan preview` and receives explicit approval for `adp plan apply`.
 - Do not start a later phase until the current phase has passed validation, recorded acceptance, been committed, been pushed, and recorded commit plus push evidence.
 - Repository docs may summarize accepted behavior, but they are not the execution ledger.
 

@@ -56,6 +56,7 @@ Both files are generated from the same ADP renderer. The visible sections are:
 - Current task: task ID, title, status, priority, phase, description, and blocked reason when a task is bound.
 - ADP Planning Contract: ADP remains the authoritative local planning ledger, and durable task state changes must use ADP task and phase commands.
 - Tool Taskbox Bridge: provider-native todo or task panels may mirror the active ADP task for local visibility, but they are not the source of truth.
+- Tool Plan Mode Bridge: provider-native plan mode may organize proposals, but read-only ADP plan preview and explicitly approved plan apply are the durable planning path.
 - Base prompt: the configured `prompts.base` file, or a local fallback message when no readable file is configured.
 - Shared memory: the configured `memory.shared` file when memory is enabled, or a local disabled/missing fallback.
 - Rules: sorted workspace rules from `workspace.yaml`.
@@ -128,6 +129,24 @@ adp progress report --workspace <workspace> --format json
 If the external tool has a native task or todo panel, the agent should mirror the active ADP task there for visibility. That mirror can contain the task ID, title, status, phase, owner or lease, and local subtasks, but it is a working view only. Durable state still belongs in `$ADP_HOME/workspaces/<workspace>/planning/`.
 
 This bridge is currently instruction-level unless a provider exposes a stable local API. ADP must not scrape provider-private todo state, treat a provider task panel as authoritative, infer completion from an agent exit code, auto-accept phases, or run Git automatically.
+
+## Tool Plan Mode Bridge
+
+When the launched provider tool supports plan mode, that mode is a proposal surface only. The agent may use it to shape and show candidate work, but plan-mode items are scratch state until they are validated and applied through ADP.
+
+Plan-mode agents should not edit implementation files, mark tasks done, accept phases, commit, push, or perform execution side effects unless the user explicitly approves moving from planning into execution. A proposed structured plan should be checked read-only with:
+
+```bash
+adp plan preview --workspace <workspace> --file - --format json
+```
+
+After explicit user or operator approval, the same proposal can be made durable with:
+
+```bash
+adp plan apply --workspace <workspace> --file - --format json
+```
+
+Task ownership, status changes, blocker records, and phase evidence continue to use the task and phase commands in the ADP planning contract. Provider-native plan panels must not be treated as authoritative planning storage or recovery evidence.
 
 ## Runtime Environment Variables
 

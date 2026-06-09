@@ -111,6 +111,24 @@ git diff --check
 - 保持 local-first。测试应使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、fake binary 和临时 project root。
 - 默认测试不能调用真实外部 CLI。真实 Codex/Claude 检查必须显式 opt-in。
 
+## 工具 Plan Mode
+
+Provider 原生 plan mode 和 plan panels 是 proposal surfaces。它们可以帮助 Agent 展示候选工作，但 ADP 仍然是权威本地 planning 和 progress ledger。
+
+在 plan mode 中，不要编辑 implementation files、complete tasks、accept phases、commit、push，或以其他方式执行计划；除非用户明确批准离开 planning。结构化 proposals 用只读路径验证：
+
+```bash
+adp plan preview --workspace <workspace> --file - --format json
+```
+
+只有在用户或 operator 明确批准后才能 apply plan：
+
+```bash
+adp plan apply --workspace <workspace> --file - --format json
+```
+
+批准后的 plan apply 完成后，继续使用 ADP task 和 phase commands 维护持久 task ownership、progress、blockers、acceptance、commit evidence 和 push evidence。原生 plan panels 可以为了可读性镜像 ADP items，但它们只是 scratch views。
+
 ## Runtime 验收
 
 确定性的 runtime smoke 路径是：
@@ -226,6 +244,7 @@ ADP 自身开发从 P24 开始使用 ADP 自己的本地 planning ledger。把 `
 - 权威 phase/task/progress records 保存在 `$ADP_HOME` 下；正常流程中不要把 planning state 导出到仓库根目录。
 - 主线程和子 Agent 协作交接时，使用 `adp tasks next --workspace adp --limit 0 --format json` 和 `adp phase status --workspace adp --format json` 作为本地 snapshot。
 - 当 Codex、Claude 或其他工具提供原生 task/todo panel 时，可以把当前 ADP task 镜像进去提升可见性，但持久 status、ownership、progress 和恢复证据仍必须维护在 ADP 中。
+- 当工具提供 plan mode 时，只用它起草或展示候选 plans；proposal 通过 `adp plan preview` 并获得明确批准执行 `adp plan apply` 前，不写入持久 ledger。
 - 当前 phase 未通过验证、未记录验收、未提交、未推送、未记录 commit 和 push evidence 前，不启动后续 phase。
 - 仓库文档可以总结已验收行为，但不是执行 ledger。
 

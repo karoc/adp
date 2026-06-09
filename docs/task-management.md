@@ -72,6 +72,24 @@ The provider-native task box is a visual and scratch surface only. It must not b
 
 The current integration boundary is instruction-level mirroring unless a provider exposes a stable local API that ADP can call without making provider-private state authoritative. If a native panel is unavailable, agents continue normally with the ADP ledger and terminal commands.
 
+## Tool Plan Mode Bridge
+
+Provider-native plan mode or plan panels are proposal and scratch views. They can help an agent organize a candidate plan for the operator, but ADP remains the authoritative local planning and progress ledger.
+
+While a tool is in plan mode, the agent should avoid implementation edits, task completion, phase acceptance, commits, pushes, or other execution side effects unless the user explicitly approves leaving planning and starting execution. Planning proposals should first be checked with the read-only intake path:
+
+```bash
+adp plan preview --workspace <workspace> --file - --format json
+```
+
+Only after explicit user or operator approval should the plan be written into ADP:
+
+```bash
+adp plan apply --workspace <workspace> --file - --format json
+```
+
+After a plan is applied, durable task state still follows the existing task and phase commands. Provider-native plan items may mirror the ADP plan for readability, but they are not a second ledger and must not be treated as recovery or progress evidence.
+
 ## Command Surface Metadata And Drift Checks
 
 P16 is a command-surface hardening slice, not a new task-management feature. It adds a local command metadata contract so usage text, dispatch wiring, and bash/zsh completion can be checked against the same command inventory instead of drifting independently.

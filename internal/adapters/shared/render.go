@@ -24,6 +24,7 @@ func Instructions(adapterName string, ctx api.Context) []byte {
 	writeTask(&b, ctx)
 	writePlanningContract(&b, ctx)
 	writeTaskboxBridge(&b, ctx)
+	writePlanModeBridge(&b, ctx)
 	writeSection(&b, "Base Prompt", readWorkspaceFile(ctx.WorkspaceDir, ctx.Config.Prompts.Base, "No base prompt is configured."))
 	writeSection(&b, "Shared Memory", memoryText(ctx))
 	writeSection(&b, "Rules", rulesText(ctx))
@@ -204,6 +205,19 @@ func writeTaskboxBridge(b *strings.Builder, ctx api.Context) {
 		b.WriteString("If the tool cannot expose a native task panel, continue using ADP commands as the durable task interface.\n\n")
 	}
 	b.WriteString("Do not sync provider-private todo state back into ADP automatically. Record durable progress explicitly through ADP commands and session evidence.\n\n")
+}
+
+func writePlanModeBridge(b *strings.Builder, ctx api.Context) {
+	workspace := shellQuote(defaultText(ctx.Config.Workspace.Name, "$ADP_WORKSPACE"))
+
+	b.WriteString("## Tool Plan Mode Bridge\n\n")
+	b.WriteString("If this tool has a native plan mode, treat that plan as a proposal view. ADP remains the durable planning ledger.\n")
+	b.WriteString("While in plan mode, do not edit project files, complete tasks, accept phases, commit, or push unless the user explicitly approves execution outside planning.\n\n")
+	b.WriteString("Use ADP for durable planning handoff:\n")
+	fmt.Fprintf(b, "- Preview structured planning input without writing the ledger: `$ADP_CLI plan preview --workspace %s --file - --format json`\n", workspace)
+	fmt.Fprintf(b, "- Apply structured planning input only after explicit user or operator approval: `$ADP_CLI plan apply --workspace %s --file - --format json`\n", workspace)
+	fmt.Fprintf(b, "- Inspect phase gates without changing them: `$ADP_CLI phase status --workspace %s --format json`\n\n", workspace)
+	b.WriteString("Provider-native plan approval is not ADP phase acceptance. Persist accepted plans through ADP commands and report the resulting phase and task IDs.\n\n")
 }
 
 func writeSection(b *strings.Builder, title, body string) {

@@ -167,6 +167,11 @@ require_runtime_text "$instructions" "ADP is the authoritative local planning an
 require_runtime_text "$instructions" "scratch space only" "provider taskbox boundary"
 require_runtime_text "$instructions" "## Tool Taskbox Bridge" "taskbox bridge heading"
 require_runtime_text "$instructions" "mirror the active ADP task" "taskbox mirror guidance"
+require_runtime_text "$instructions" "## Tool Plan Mode Bridge" "plan mode bridge heading"
+require_runtime_text "$instructions" "proposal view" "plan mode proposal boundary"
+require_runtime_text "$instructions" "plan preview --workspace" "plan mode preview command"
+require_runtime_text "$instructions" "plan apply --workspace" "plan mode apply command"
+require_runtime_text "$instructions" "not ADP phase acceptance" "plan mode phase boundary"
 if [ -n "\${ADP_CLI:-}" ]; then
   require_runtime_text "$instructions" "ADP_CLI" "ADP CLI hint"
 fi

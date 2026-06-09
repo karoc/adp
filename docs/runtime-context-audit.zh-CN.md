@@ -56,6 +56,7 @@ Claude 启动使用相同 runtime 模型，但看到的是 `CLAUDE.md` 和 `.cla
 - Current task：当绑定 task 时，包含 task ID、title、status、priority、phase、description 和 blocked reason。
 - ADP 规划契约：ADP 仍然是权威本地 planning ledger，持久 task state 变更必须使用 ADP task 和 phase commands。
 - 工具任务框桥接：provider 原生 todo 或 task panel 可以为了本地可见性镜像当前 ADP task，但不能成为事实源。
+- 工具 Plan Mode 桥接：provider 原生 plan mode 可以组织 proposal，但只读 ADP plan preview 和明确批准后的 plan apply 才是持久 planning 路径。
 - Base prompt：配置的 `prompts.base` 文件；如果没有可读文件，则使用本地 fallback message。
 - Shared memory：memory 启用时读取配置的 `memory.shared` 文件；否则使用本地 disabled/missing fallback。
 - Rules：来自 `workspace.yaml` 的按键排序 workspace rules。
@@ -128,6 +129,24 @@ adp progress report --workspace <workspace> --format json
 如果外部工具提供原生 task 或 todo panel，Agent 应该为了可见性把当前 ADP task 镜像到那里。镜像可以包含 task ID、title、status、phase、owner 或 lease，以及本地 subtasks，但它只是工作视图。持久状态仍然属于 `$ADP_HOME/workspaces/<workspace>/planning/`。
 
 除非 provider 暴露稳定的本地 API，否则这个 bridge 当前是 instruction-level。ADP 不能抓取 provider-private todo state、把 provider task panel 视为权威状态、根据 agent exit code 推断 completion、自动 accept phase，或自动运行 Git。
+
+## 工具 Plan Mode 桥接
+
+当被启动的 provider 工具支持 plan mode 时，该模式只是 proposal surface。Agent 可以用它组织和展示候选工作，但 plan-mode items 在通过 ADP 验证并写入前都只是 scratch state。
+
+Plan-mode Agent 不应编辑 implementation files、把 tasks 标记为 done、accept phases、commit、push，或产生其他 execution side effects；除非用户明确批准从 planning 进入 execution。结构化 plan proposal 应先用只读命令检查：
+
+```bash
+adp plan preview --workspace <workspace> --file - --format json
+```
+
+在用户或 operator 明确批准后，同一份 proposal 才能写入 ADP：
+
+```bash
+adp plan apply --workspace <workspace> --file - --format json
+```
+
+Task ownership、status changes、blocker records 和 phase evidence 继续使用 ADP planning contract 中的 task 和 phase commands。Provider 原生 plan panels 不能被视为权威 planning storage 或 recovery evidence。
 
 ## Runtime 环境变量
 

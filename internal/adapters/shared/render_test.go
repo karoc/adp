@@ -83,6 +83,27 @@ func TestInstructionsIncludePlanningContractAndTaskboxBridge(t *testing.T) {
 	}
 }
 
+func TestInstructionsIncludePlanModeBridge(t *testing.T) {
+	ctx := sharedTestContext()
+
+	instructions := string(Instructions("future-agent", ctx))
+	for _, want := range []string{
+		"## Tool Plan Mode Bridge",
+		"native plan mode",
+		"proposal view",
+		"ADP remains the durable planning ledger",
+		"do not edit project files, complete tasks, accept phases, commit, or push",
+		"$ADP_CLI plan preview --workspace \"demo\" --file - --format json",
+		"$ADP_CLI plan apply --workspace \"demo\" --file - --format json",
+		"$ADP_CLI phase status --workspace \"demo\" --format json",
+		"Provider-native plan approval is not ADP phase acceptance",
+	} {
+		if !strings.Contains(instructions, want) {
+			t.Fatalf("Instructions missing %q:\n%s", want, instructions)
+		}
+	}
+}
+
 func TestInstructionsWithoutTaskDirectAgentToClaimADPWork(t *testing.T) {
 	ctx := sharedTestContext()
 	ctx.Task = api.TaskContext{}
@@ -94,6 +115,7 @@ func TestInstructionsWithoutTaskDirectAgentToClaimADPWork(t *testing.T) {
 		"$ADP_CLI tasks update --workspace \"demo\" <task-id> --status <status>",
 		"No ADP task is bound to this runtime session.",
 		"claim the selected task through ADP",
+		"$ADP_CLI plan preview --workspace \"demo\" --file - --format json",
 	} {
 		if !strings.Contains(instructions, want) {
 			t.Fatalf("Instructions missing %q:\n%s", want, instructions)

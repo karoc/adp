@@ -72,6 +72,24 @@ Provider 原生 task box 只作为视觉和 scratch surface。它不能成为持
 
 当前集成边界是 instruction-level mirroring；只有当 provider 暴露稳定的本地 API，且不会让 provider-private state 成为权威状态时，ADP 才能进一步调用该 API。没有 native panel 时，Agent 继续使用 ADP ledger 和终端命令即可。
 
+## 工具 Plan Mode 桥接
+
+Provider 原生 plan mode 或 plan panel 是 proposal 和 scratch views。它们可以帮助 Agent 为 operator 组织候选计划，但 ADP 仍然是权威本地 planning 和 progress ledger。
+
+工具处于 plan mode 时，Agent 应避免 implementation edits、task completion、phase acceptance、commit、push 或其他执行 side effects；除非用户明确批准离开规划并开始执行。Planning proposals 应先通过只读 intake path 检查：
+
+```bash
+adp plan preview --workspace <workspace> --file - --format json
+```
+
+只有在用户或 operator 明确批准后，才能把 plan 写入 ADP：
+
+```bash
+adp plan apply --workspace <workspace> --file - --format json
+```
+
+Plan apply 之后，持久 task state 仍然遵循已有 task 和 phase commands。Provider 原生 plan items 可以为了可读性镜像 ADP plan，但它们不是第二份 ledger，也不能作为 recovery 或 progress evidence。
+
 ## Command Surface Metadata 与 Drift Checks
 
 P16 是 command-surface hardening 切片，不是新的 task-management 功能。它会增加一份本地 command metadata contract，让 usage text、dispatch wiring 和 bash/zsh completion 都能对照同一份命令清单检查，而不是各自漂移。
