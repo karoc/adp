@@ -74,7 +74,7 @@ git diff --check
 主线程职责：
 
 - 启动子 Agent 前明确目标、约束和互斥写入范围。
-- 使用 ADP 作为共享任务看板。并行 worker 应优先使用 `adp tasks take`，让任务选择和领取在同一把 planning lock 下完成。
+- 使用 ADP 作为共享任务看板。当 worker 需要在启动时原子领取任务时，优先使用 `adp run <agent> --take --owner <owner> [--lease 4h]`。只需要手工领取而不启动 Agent 时，使用 `adp tasks take`。
 - 阻塞集成主线的关键工作留在主线程处理。
 - 不把同一组文件交给多个写入型子 Agent；只读 review Agent 例外。
 - 每个子 Agent 返回后必须审阅 diff。
@@ -96,7 +96,7 @@ git diff --check
 - 目标。
 - 允许写入路径。
 - 禁止写入路径。
-- ADP task ownership 预期，包括该 worker 是使用 `adp tasks take`，还是使用已明确分配的 task ID。
+- ADP task ownership 预期，包括该 worker 是使用 `adp run --take`、`adp tasks take`，还是使用已明确分配的 task ID。
 - 必守约束。
 - 必跑验证命令。
 - 最终汇报格式：修改文件、行为变化、测试结果。
@@ -130,6 +130,8 @@ adp plan apply --workspace <workspace> --file - --format json
 ```
 
 批准后的 plan apply 完成后，继续使用 ADP task 和 phase commands 维护持久 task ownership、progress、blockers、acceptance、commit evidence 和 push evidence。原生 plan panels 可以为了可读性镜像 ADP items，但它们只是 scratch views。
+
+如果工具通过 `adp run --take` 进入 plan mode，已领取的 task 是该 session 的 ADP-owned active work item，但 provider 原生 plan 仍然只是 proposal view。不能因为 native plan item 被勾选或 provider session 退出，就把 task 标记为 done、accept phase、commit、push，或运行 Git。
 
 ## Runtime 验收
 
@@ -244,7 +246,7 @@ ADP 自身开发从 P24 开始使用 ADP 自己的本地 planning ledger。把 `
 
 - 每个新的实现切片开始前，先登记为 phase 和按优先级排序的 tasks。
 - 权威 phase/task/progress records 保存在 `$ADP_HOME` 下；正常流程中不要把 planning state 导出到仓库根目录。
-- 主线程和子 Agent 协作交接时，使用 `adp tasks next --workspace adp --limit 0 --format json` 和 `adp phase status --workspace adp --format json` 作为本地 snapshot。
+- 需要在 Agent 启动时原子领取任务时，使用 `adp run <agent> --workspace adp --take --owner <owner> --lease <duration> -- <agent-args>`；主线程和子 Agent 协作交接时，使用 `adp tasks next --workspace adp --limit 0 --format json` 和 `adp phase status --workspace adp --format json` 作为本地 snapshot。
 - 当 Codex、Claude 或其他工具提供原生 task/todo panel 时，可以把当前 ADP task 镜像进去提升可见性，但持久 status、ownership、progress 和恢复证据仍必须维护在 ADP 中。
 - 当工具提供 plan mode 时，只用它起草或展示候选 plans；proposal 通过 `adp plan preview` 并获得明确批准执行 `adp plan apply` 前，不写入持久 ledger。
 - 当前 phase 未通过验证、未记录验收、未提交、未推送、未记录 commit 和 push evidence 前，不启动后续 phase。

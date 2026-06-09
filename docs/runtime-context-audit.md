@@ -8,7 +8,7 @@ It does not introduce a Web UI, dashboard, SaaS tracker, cloud sync, hosted orch
 
 ## Launch Boundary
 
-The canonical launch shape is `adp run <agent> --workspace <name> --profile <profile> --task <task-id> -- <agent-args>`. The workspace, profile, and task flags are optional when normal workspace resolution or adapter defaults are enough, but this shape shows every context input that can affect what the agent sees.
+The canonical launch shape is `adp run <agent> --workspace <name> --profile <profile> --task <task-id> -- <agent-args>`. For launch-time atomic pickup, replace `--task <task-id>` with `--take --owner <owner> [--lease 4h]`. The workspace, profile, and task flags are optional when normal workspace resolution or adapter defaults are enough, but this shape shows every context input that can affect what the agent sees.
 
 At launch, ADP:
 
@@ -16,6 +16,7 @@ At launch, ADP:
 - Reads the workspace config from `$ADP_HOME/workspaces/<workspace>/workspace.yaml`.
 - Resolves the adapter and selected profile from the explicit `--profile`, the workspace agent profile, or the `default` fallback.
 - Loads task metadata from `$ADP_HOME/workspaces/<workspace>/planning` when `--task <task-id>` is provided.
+- When `--take --owner <owner>` is provided, atomically takes the next claimable task under the planning lock before runtime creation, then loads that task as the runtime-bound task.
 - Builds a temporary runtime root under `$ADP_RUNTIME_DIR`.
 - Writes ADP-generated files into the runtime root.
 - Symlinks real project files into the runtime root, with generated paths taking precedence.
@@ -97,7 +98,7 @@ MCP content in generated instructions is a reference and configuration summary f
 
 ## Task Metadata
 
-When `--task <task-id>` is present, ADP loads the task from the workspace planning ledger before launching the agent. A missing task fails before the agent command starts.
+When `--task <task-id>` is present, ADP loads the task from the workspace planning ledger before launching the agent. A missing task fails before the agent command starts. When `--take --owner <owner>` is present, ADP first takes the next claimable task and binds that task to the runtime; no claimable task means no runtime is built and no agent command is started. `--take` and `--task` are mutually exclusive.
 
 Task metadata is visible in:
 
@@ -108,7 +109,7 @@ Task metadata is visible in:
 - Local `run_started` and `run_finished` events.
 - Session history derived from local events.
 
-Binding a task to a runtime does not automatically claim, complete, block, accept, commit, or push that task or phase. Those remain explicit terminal commands, and Git remains operator-run outside ADP.
+Binding a task to a runtime with `--task` does not automatically claim, complete, block, accept, commit, or push that task or phase. Launching with `--take` records ownership and moves the selected task to `in_progress` before runtime creation, but it still does not complete the task, accept a phase, record commit or push evidence, run Git, or infer success from the provider exit code.
 
 ## Planning Contract And Taskbox Bridge
 
@@ -117,6 +118,7 @@ Generated instructions carry the ADP planning contract into each launched tool. 
 ```bash
 adp tasks next --workspace <workspace> --format json
 adp tasks take --workspace <workspace> --owner <owner> --lease <duration> --format json
+adp run <agent> --workspace <workspace> --take --owner <owner> --lease <duration> -- <agent-args>
 adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
 adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
 adp tasks update --workspace <workspace> <task-id> --status in_progress
@@ -127,7 +129,7 @@ adp phase status --workspace <workspace> --format json
 adp progress report --workspace <workspace> --format json
 ```
 
-If the external tool has a native task or todo panel, the agent should mirror the active ADP task there for visibility. That mirror can contain the task ID, title, status, phase, owner or lease, and local subtasks, but it is a working view only. Durable state still belongs in `$ADP_HOME/workspaces/<workspace>/planning/`.
+If the external tool has a native task or todo panel, the agent should mirror the active ADP task there for visibility. For `adp run --take`, the task selected and claimed at launch is the active ADP task. That mirror can contain the task ID, title, status, phase, owner or lease, and local subtasks, but it is a working view only. Durable state still belongs in `$ADP_HOME/workspaces/<workspace>/planning/`.
 
 This bridge is currently instruction-level unless a provider exposes a stable local API. ADP must not scrape provider-private todo state, treat a provider task panel as authoritative, infer completion from an agent exit code, auto-accept phases, or run Git automatically.
 
@@ -147,7 +149,7 @@ After explicit user or operator approval, the same proposal can be made durable 
 adp plan apply --workspace <workspace> --file - --format json
 ```
 
-Task ownership, status changes, blocker records, and phase evidence continue to use the task and phase commands in the ADP planning contract. Provider-native plan panels must not be treated as authoritative planning storage or recovery evidence.
+Task ownership, status changes, blocker records, and phase evidence continue to use the task and phase commands in the ADP planning contract. If a provider enters plan mode after `adp run --take`, the ADP task is already owned by that session, but native plan items remain proposals until explicitly applied or executed through ADP-approved flow. Provider-native plan panels must not be treated as authoritative planning storage or recovery evidence.
 
 ## Runtime Environment Variables
 

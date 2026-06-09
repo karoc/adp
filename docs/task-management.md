@@ -35,6 +35,7 @@ The first task-management slice provides:
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]`
 - Read-only `--format json` output for task, phase, and progress inspection.
 - `adp run <agent> --task <task-id>` runtime binding.
+- `adp run <agent> --take --owner <owner> [--lease <duration>]` launch-time atomic task pickup and runtime binding.
 - Workspace-local planning files under `$ADP_HOME/workspaces/<workspace>/planning/`.
 - JSONL progress events for task creation and status changes.
 - Runtime event and session evidence linked by task ID.
@@ -54,6 +55,7 @@ The durable task command flow for agents is, with `tasks take` preferred for ato
 adp tasks next --workspace <workspace> --format json
 adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
 adp tasks take --workspace <workspace> --owner <owner> --lease <duration> --format json
+adp run <agent> --workspace <workspace> --take --owner <owner> --lease <duration> -- <agent-args>
 adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
 adp tasks update --workspace <workspace> <task-id> --status in_progress
 adp tasks block --workspace <workspace> <task-id> --reason "<reason>"
@@ -66,11 +68,13 @@ adp progress report --workspace <workspace> --format json
 
 Multi-agent workers should prefer `adp tasks take` over a separate `tasks next` plus `tasks claim` sequence. `tasks take` combines selection and ownership into one planning-lock-protected mutation so two agents cannot take the same task concurrently.
 
+When the worker is being launched through ADP, prefer `adp run <agent> --take --owner <owner> [--lease 4h]` so task selection, ownership recording, runtime context generation, and agent launch use one command boundary. `--take` and `--task <task-id>` are mutually exclusive: use `--task` only when the operator has already assigned a specific task.
+
 Phase progress follows the same rule. Agents can inspect gates with `adp phase status --workspace <workspace> --format json`, but acceptance, commit evidence, and push evidence stay explicit through `adp phase accept`, `adp phase commit`, and `adp phase push`. ADP must not infer task completion, phase acceptance, or Git state from a provider session exit code.
 
 ## Tool Taskbox Bridge
 
-If an agent tool exposes a native task or todo panel, the agent should mirror the active ADP task into that panel when work starts. The mirrored item can show the ADP task ID, title, status, phase, owner or lease, and short local subtasks so the tool's task box matches the work being executed.
+If an agent tool exposes a native task or todo panel, the agent should mirror the active ADP task into that panel when work starts. The mirrored item can show the ADP task ID, title, status, phase, owner or lease, and short local subtasks so the tool's task box matches the work being executed. For `adp run --take`, the task selected and claimed at launch time is the active task to mirror.
 
 The provider-native task box is a visual and scratch surface only. It must not become the durable task store, and ADP must not read or sync provider-private todo state as authoritative planning data. Any durable change still belongs in ADP through the task and phase commands above.
 
@@ -93,6 +97,8 @@ adp plan apply --workspace <workspace> --file - --format json
 ```
 
 After a plan is applied, durable task state still follows the existing task and phase commands. Provider-native plan items may mirror the ADP plan for readability, but they are not a second ledger and must not be treated as recovery or progress evidence.
+
+If `adp run --take` launches a provider in plan mode, the task ownership has already been recorded in ADP, but the native plan remains a proposal surface. The worker still needs explicit ADP commands for status changes and phase evidence after execution is approved.
 
 ## Command Surface Metadata And Drift Checks
 
@@ -162,6 +168,20 @@ By default, `planned`, `blocked`, `review`, `validated`, `done`, and `canceled` 
 The output should include the same task object shape used by task inspection commands, including task ID, title, status, priority, phase ID, owner, claimed timestamp, and lease expiration when present. JSON output is a command result for local tools; it is not a second planning store.
 
 `tasks take` is a task-ownership mutation only. It must not launch a runtime, run Git, accept a phase, record commit or push evidence, mark the task done, close a phase, infer completion from an agent exit code, sync with a hosted tracker, or write planning files into the real project root. Runtime launch remains a separate `adp run ...` decision, and task completion remains explicit through `adp tasks done` or another explicit status command.
+
+## Run Take Bridge Scope
+
+P44 connects atomic task pickup to runtime launch:
+
+```bash
+adp run <agent> [--workspace <name>] --take --owner <owner> [--lease <duration>] [--profile <profile>] [--keep-runtime] -- <agent-args>
+```
+
+`adp run --take` is for launch-time multi-agent ownership. Before building the runtime root or starting the external agent command, ADP takes the highest-priority claimable task under the workspace planning lock, records the owner and optional lease, moves the task to `in_progress`, then binds that task to the runtime exactly as if the operator had launched with `--task <task-id>`.
+
+`--take` is mutually exclusive with `--task <task-id>`. Use `--task` for an already assigned task, and use `--take` when a worker should atomically pick up the next eligible item from the ADP board. If no claimable task exists, ADP should fail before launching the provider command.
+
+The bridge does not complete the task, accept a phase, record commit or push evidence, run Git, infer success from the provider exit code, sync provider-native task panels, or write planning files into the real project root. Provider-native task boxes and plan panels may mirror the active task for local visibility, but ADP remains the authoritative ledger.
 
 ## Phase Gate Status Scope
 
@@ -268,6 +288,7 @@ Move a task through execution, using atomic pickup for parallel workers:
 
 ```bash
 adp tasks take --workspace adp --owner codex-main --lease 30m --format json
+adp run codex --workspace adp --take --owner codex-main --lease 30m -- --version
 adp tasks claim --workspace adp <task-id> --owner codex-main --lease 30m
 adp tasks update --workspace adp <task-id> --status in_progress
 adp tasks block --workspace adp <task-id> --reason "waiting for real CLI evidence"
@@ -446,9 +467,10 @@ Attach a task to an agent runtime session:
 
 ```bash
 adp run codex --workspace adp --task <task-id> -- --version
+adp run codex --workspace adp --take --owner codex-main --lease 4h -- --version
 ```
 
-The task ID is resolved inside the selected workspace. If the task does not exist in that workspace, ADP fails before building a runtime or launching the agent process.
+The task ID is resolved inside the selected workspace. If the task does not exist in that workspace, ADP fails before building a runtime or launching the agent process. With `--take`, ADP atomically selects and claims the next eligible task before runtime creation; `--take` and `--task` cannot be used together.
 
 When a task is bound, ADP injects task context into:
 
@@ -467,7 +489,7 @@ adp sessions list --workspace adp --task <task-id>
 adp sessions show <session-id>
 ```
 
-`adp run <agent> --task <task-id>` does not automatically move task status. Status changes remain explicit through `adp tasks update`, `adp tasks done`, and `adp tasks block`.
+`adp run <agent> --task <task-id>` and `adp run <agent> --take --owner <owner>` do not automatically complete work. `--take` records launch-time ownership and moves the task to `in_progress`, but later status changes remain explicit through `adp tasks update`, `adp tasks done`, and `adp tasks block`.
 
 ## Phase Discipline
 

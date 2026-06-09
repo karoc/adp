@@ -74,7 +74,7 @@ Use sub-agents when the user asks for parallel or multi-agent work and the task 
 Main-thread responsibilities:
 
 - Define the goal, constraints, and disjoint write scopes before spawning agents.
-- Use ADP as the shared task board. Prefer `adp tasks take` for parallel workers so task selection and claim happen under one planning lock.
+- Use ADP as the shared task board. Prefer `adp run <agent> --take --owner <owner> [--lease 4h]` when a worker should atomically pick up work at launch time. Use `adp tasks take` for manual pickup without launching an agent.
 - Keep the immediate blocking integration path local.
 - Do not delegate the exact same file set to multiple agents unless one is read-only review.
 - Review every returned diff before integration.
@@ -96,7 +96,7 @@ Sub-agent prompts must specify:
 - Objective.
 - Allowed write paths.
 - Disallowed paths.
-- ADP task ownership expectations, including whether the worker should use `adp tasks take` or an explicitly assigned task ID.
+- ADP task ownership expectations, including whether the worker should use `adp run --take`, `adp tasks take`, or an explicitly assigned task ID.
 - Required constraints.
 - Required validation commands.
 - Expected final report: files changed, behavior changed, tests run.
@@ -130,6 +130,8 @@ adp plan apply --workspace <workspace> --file - --format json
 ```
 
 After an approved plan is applied, continue to use ADP task and phase commands for durable task ownership, progress, blockers, acceptance, commit evidence, and push evidence. Native plan panels may mirror ADP items for readability, but they are scratch views only.
+
+If a tool is launched in plan mode through `adp run --take`, the taken task is the active ADP-owned work item for that session, but the provider-native plan remains a proposal view. The worker must not mark the task done, accept a phase, commit, push, or run Git just because a native plan item was checked off or the provider session exited.
 
 ## Runtime Acceptance
 
@@ -244,7 +246,7 @@ ADP development uses ADP's own local planning ledger for P24 and later work. Tre
 
 - Register each new implementation slice as a phase and prioritized tasks before starting it.
 - Keep the authoritative phase/task/progress records under `$ADP_HOME`; do not export planning state into the repository root as a normal workflow.
-- Use `adp tasks next --workspace adp --limit 0 --format json` and `adp phase status --workspace adp --format json` as local handoff snapshots for main-thread and sub-agent coordination.
+- Use `adp run <agent> --workspace adp --take --owner <owner> --lease <duration> -- <agent-args>` for launch-time atomic pickup, and use `adp tasks next --workspace adp --limit 0 --format json` plus `adp phase status --workspace adp --format json` as local handoff snapshots for main-thread and sub-agent coordination.
 - When Codex, Claude, or another tool exposes a native task/todo panel, mirror the active ADP task there for visibility, but keep durable status, ownership, progress, and recovery evidence in ADP.
 - When a tool exposes plan mode, use it only to draft or display candidate plans until the proposal passes `adp plan preview` and receives explicit approval for `adp plan apply`.
 - Do not start a later phase until the current phase has passed validation, recorded acceptance, been committed, been pushed, and recorded commit plus push evidence.

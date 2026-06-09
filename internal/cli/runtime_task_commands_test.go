@@ -109,6 +109,87 @@ func TestRunCommandBindsTaskContextToRuntimeEventsAndEnv(t *testing.T) {
 	}
 }
 
+func TestRunCommandCanTakeTaskBeforeRuntimeLaunch(t *testing.T) {
+	task := taskstore.Task{
+		ID:          "task-20260609-0025",
+		Title:       "Launch claimed work",
+		Status:      taskstore.StatusInProgress,
+		Priority:    "high",
+		Phase:       "P44",
+		Description: "Taken before launch.",
+	}
+	store := &runTaskStore{task: task}
+	adapter := &runTaskAdapter{name: "codex"}
+	registry := adapters.NewRegistry()
+	if err := registry.Register(adapter); err != nil {
+		t.Fatal(err)
+	}
+
+	var buildReq runtime.BuildRequest
+	var logged []events.Event
+	deps := Dependencies{
+		Layout:         paths.New("/tmp/adp-home", "/tmp/adp-runtime"),
+		WorkspaceStore: &fakeStore{cfg: testConfig()},
+		Adapters:       registry,
+		TaskStoreFactory: func(string) TaskStore {
+			return store
+		},
+		BuildRuntime: func(_ context.Context, req runtime.BuildRequest) (*runtime.Handle, error) {
+			buildReq = req
+			return &runtime.Handle{
+				SessionID:     "session-1",
+				WorkspaceName: "game-a",
+				TaskID:        req.Task.ID,
+				ProjectRoot:   "/srv/game-a",
+				Root:          "/tmp/runtime",
+				Env: map[string]string{
+					"ADP_TASK_ID": req.Task.ID,
+				},
+			}, nil
+		},
+		CleanupRuntime: func(context.Context, runtime.Handle) error { return nil },
+		RunProcess: func(context.Context, adapters.LaunchSpec, runner.Streams) (*runner.Result, error) {
+			return &runner.Result{ExitCode: 0}, nil
+		},
+		EventLogger: eventLoggerFunc(func(_ context.Context, event events.Event) error {
+			logged = append(logged, event)
+			return nil
+		}),
+	}
+
+	code := NewApp(deps, &bytes.Buffer{}, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"run", "codex", "--workspace", "game-a", "--take", "--owner", "codex-worker", "--lease", "30m"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !store.takeCalled || store.takeReq.Owner != "codex-worker" || store.takeReq.Lease.String() != "30m0s" {
+		t.Fatalf("take request = %+v, called=%t", store.takeReq, store.takeCalled)
+	}
+	if store.getID != "" {
+		t.Fatalf("Get should not be called for --take, got %q", store.getID)
+	}
+	if adapter.renderCtx.Task.ID != task.ID || buildReq.Task.ID != task.ID {
+		t.Fatalf("taken task not bound: render=%+v build=%+v", adapter.renderCtx.Task, buildReq.Task)
+	}
+	if len(logged) != 2 || logged[0].TaskID != task.ID || logged[1].TaskID != task.ID {
+		t.Fatalf("logged task events = %+v", logged)
+	}
+	invocation, ok := logged[0].Fields["invocation"].(map[string]any)
+	if !ok {
+		t.Fatalf("run_started invocation fields = %#v", logged[0].Fields)
+	}
+	if invocation["task_binding"] != "take" {
+		t.Fatalf("task binding = %#v", invocation["task_binding"])
+	}
+	taskTake, ok := invocation["task_take"].(map[string]any)
+	if !ok || taskTake["owner"] != "codex-worker" || taskTake["lease_seconds"] != int64(1800) {
+		t.Fatalf("task take metadata = %#v", invocation["task_take"])
+	}
+}
+
 func TestRunCommandRejectsMissingTaskBeforeRuntimeBuild(t *testing.T) {
 	registry := adapters.NewRegistry()
 	if err := registry.Register(&runTaskAdapter{name: "codex"}); err != nil {
@@ -149,10 +230,68 @@ func TestRunCommandRejectsMissingTaskBeforeRuntimeBuild(t *testing.T) {
 	}
 }
 
+func TestRunCommandRejectsTakeWithoutRuntimeBuildWhenNoTaskIsAvailable(t *testing.T) {
+	registry := adapters.NewRegistry()
+	if err := registry.Register(&runTaskAdapter{name: "codex"}); err != nil {
+		t.Fatal(err)
+	}
+	var stderr bytes.Buffer
+	buildCalled := false
+	runCalled := false
+	deps := Dependencies{
+		WorkspaceStore: &fakeStore{cfg: testConfig()},
+		Adapters:       registry,
+		TaskStoreFactory: func(string) TaskStore {
+			return &runTaskStore{takeErr: taskstore.ErrNoClaimableTask}
+		},
+		BuildRuntime: func(context.Context, runtime.BuildRequest) (*runtime.Handle, error) {
+			buildCalled = true
+			return nil, nil
+		},
+		RunProcess: func(context.Context, adapters.LaunchSpec, runner.Streams) (*runner.Result, error) {
+			runCalled = true
+			return nil, nil
+		},
+	}
+
+	code := NewApp(deps, &bytes.Buffer{}, &stderr).Execute(
+		context.Background(),
+		[]string{"run", "codex", "--workspace", "game-a", "--take", "--owner", "codex-worker"},
+	)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if buildCalled || runCalled {
+		t.Fatalf("runtime build/run should not be called: build=%t run=%t", buildCalled, runCalled)
+	}
+	if !strings.Contains(stderr.String(), "take task") || !strings.Contains(stderr.String(), taskstore.ErrNoClaimableTask.Error()) {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunCommandRejectsConflictingTaskBindingOptions(t *testing.T) {
+	var stderr bytes.Buffer
+	code := NewApp(Dependencies{}, &bytes.Buffer{}, &stderr).Execute(
+		context.Background(),
+		[]string{"run", "codex", "--task", "task-1", "--take", "--owner", "codex-worker"},
+	)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "--take cannot be combined with --task") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 type runTaskStore struct {
-	task  taskstore.Task
-	getID string
-	err   error
+	task       taskstore.Task
+	getID      string
+	takeCalled bool
+	takeReq    taskstore.TakeRequest
+	err        error
+	takeErr    error
 }
 
 func (s *runTaskStore) Add(context.Context, taskstore.AddRequest) (taskstore.Task, error) {
@@ -183,8 +322,13 @@ func (s *runTaskStore) Claim(context.Context, taskstore.ClaimRequest) (taskstore
 	return taskstore.Task{}, errors.New("not implemented")
 }
 
-func (s *runTaskStore) Take(context.Context, taskstore.TakeRequest) (taskstore.Task, error) {
-	return taskstore.Task{}, errors.New("not implemented")
+func (s *runTaskStore) Take(_ context.Context, req taskstore.TakeRequest) (taskstore.Task, error) {
+	s.takeCalled = true
+	s.takeReq = req
+	if s.takeErr != nil {
+		return taskstore.Task{}, s.takeErr
+	}
+	return s.task, nil
 }
 
 func (s *runTaskStore) Release(context.Context, taskstore.ReleaseRequest) (taskstore.Task, error) {

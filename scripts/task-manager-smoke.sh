@@ -272,6 +272,35 @@ output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id")
 assert_contains "$output" "owner: -" "tasks show released output"
 assert_contains "$output" "status: ready" "tasks show released output"
 
+info "checking run --take bridge"
+export ADP_EXPECT_TASK_ID="$task_id"
+phases_before=$(cat "$PHASES_FILE"); progress_events_before=$(line_count "$PROGRESS_FILE")
+events_before=0; [ -f "$EVENTS_FILE" ] && events_before=$(line_count "$EVENTS_FILE")
+runtime_dirs_before=$(runtime_dirs_state); project_root_before=$(project_root_state); git_before=$(git_state)
+reset_git_tripwire
+output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --take --owner run-take-agent --lease 20m -- --report-smoke)
+assert_contains "$output" "fake-codex" "run take output"
+assert_contains "$output" "--report-smoke" "run take output"
+if [ "$(line_count "$EVENTS_FILE")" != $((events_before + 2)) ]; then fail "run --take should append two runtime events"; fi
+if [ "$(line_count "$PROGRESS_FILE")" != $((progress_events_before + 1)) ]; then fail "run --take should append one task claim event"; fi
+run_take_event=$(tail -n 1 "$PROGRESS_FILE")
+assert_contains "$run_take_event" "\"type\":\"task_claimed\"" "run take progress event"
+assert_contains "$run_take_event" "\"owner\":\"run-take-agent\"" "run take progress event"
+assert_contains "$(cat "$EVENTS_FILE")" "\"task_binding\":\"take\"" "run take event metadata"
+run_take_session=$(session_id_by_agent "$EVENTS_FILE" codex); codex_session="$run_take_session"
+output=$(run_adp "$REPO_ROOT" sessions show "$run_take_session")
+assert_contains "$output" "task_id: $task_id" "run take session output"
+assert_contains "$output" "run_finished" "run take session output"
+output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id")
+assert_contains "$output" "status: in_progress" "run take task output"
+assert_contains "$output" "owner: run-take-agent" "run take task output"
+assert_text_unchanged "$phases_before" "$(cat "$PHASES_FILE")" "run --take" "phases"
+assert_text_unchanged "$runtime_dirs_before" "$(runtime_dirs_state)" "run --take" "runtime dirs"
+assert_text_unchanged "$project_root_before" "$(project_root_state)" "run --take" "project root"
+assert_text_unchanged "$git_before" "$(git_state)" "run --take" "Git state"
+assert_no_git_side_effects "task manager run --take"
+assert_project_root_clean
+
 info "updating task state"
 output=$(run_adp "$REPO_ROOT" tasks update --workspace game-a "$task_id" --status in_progress)
 assert_contains "$output" "status: in_progress" "tasks update output"
@@ -281,33 +310,6 @@ assert_contains "$output" "blocked" "tasks block output"
 
 output=$(run_adp "$REPO_ROOT" tasks done --workspace game-a "$task_id")
 assert_contains "$output" "done" "tasks done output"
-
-info "creating runtime session evidence for progress report"
-export ADP_EXPECT_TASK_ID="$task_id"
-output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --report-smoke)
-assert_contains "$output" "fake-codex" "codex run output"
-assert_contains "$output" "--report-smoke" "codex run output"
-assert_file "$EVENTS_FILE"
-
-codex_session=$(session_id_by_agent "$EVENTS_FILE" codex)
-if [ -z "$codex_session" ]; then
-  cat "$EVENTS_FILE" >&2
-  fail "codex session id missing in event log"
-fi
-
-output=$(run_adp "$REPO_ROOT" events list --workspace game-a --session "$codex_session" --task "$task_id" --limit 2)
-assert_contains "$output" "$codex_session" "events list session output"
-assert_contains "$output" "$task_id" "events list session output"
-assert_contains "$output" "codex" "events list session output"
-assert_contains "$output" "run_started" "events list session output"
-assert_contains "$output" "run_finished" "events list session output"
-
-output=$(run_adp "$REPO_ROOT" sessions show "$codex_session")
-assert_contains "$output" "session_id: $codex_session" "sessions show output"
-assert_contains "$output" "agent: codex" "sessions show output"
-assert_contains "$output" "task_id: $task_id" "sessions show output"
-assert_contains "$output" "run_finished" "sessions show output"
-assert_project_root_clean
 
 info "checking progress summary"
 output=$(run_adp "$REPO_ROOT" progress --workspace game-a)

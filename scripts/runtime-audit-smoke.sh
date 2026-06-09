@@ -157,6 +157,9 @@ ADP_RUNTIME_DIR="$TMP_ROOT/runtime"
 FAKE_BIN="$TMP_ROOT/bin"
 GIT_TRIPWIRE_LOG="$TMP_ROOT/git-side-effects.log"
 EVENTS_FILE="$ADP_HOME/logs/events.jsonl"
+TASKS_FILE="$ADP_HOME/workspaces/game-a/planning/tasks.yaml"
+PHASES_FILE="$ADP_HOME/workspaces/game-a/planning/phases.yaml"
+PROGRESS_FILE="$ADP_HOME/workspaces/game-a/planning/progress.jsonl"
 PLAN_FILE="$TMP_ROOT/plan.yaml"
 
 mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
@@ -223,6 +226,12 @@ assert_help "phase commit help" "adp phase commit" phase commit --help
 assert_help "progress help" "adp progress report" progress --help
 assert_help "progress report help" "adp progress report" progress report --help
 assert_help "run help" "adp run <agent>" run --help
+output=$(run_adp_expect_fail "$REPO_ROOT" run)
+assert_contains "$output" "--take --owner <owner>" "run usage output"
+output=$(run_adp_expect_fail "$REPO_ROOT" run codex --take)
+assert_contains "$output" "--owner is required with --take" "run take owner guard output"
+output=$(run_adp_expect_fail "$REPO_ROOT" run codex --owner audit-agent)
+assert_contains "$output" "--owner requires --take" "run owner guard output"
 
 unknown_output=$(run_adp_expect_fail "$REPO_ROOT" bogus)
 assert_contains "$unknown_output" 'unknown command "bogus"' "unknown command output"
@@ -348,6 +357,54 @@ env_output=$(run_adp "$REPO_ROOT" env game-a --cd)
 runtime_root=$(parse_export "$env_output" ADP_RUNTIME_ROOT)
 assert_contains "$env_output" "cd '$runtime_root'" "env output"
 assert_file "$runtime_root/.adp-runtime.yaml"
+output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority critical --phase p-audit --description "runtime take audit task" "Bind runtime session to task")
+assert_contains "$output" "task task-" "run take task add output"
+take_task_id=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+if [ -z "$take_task_id" ]; then
+  fail "could not parse run take task id from: $output"
+fi
+export ADP_EXPECT_TASK_ID="$take_task_id"
+phases_before_take=$(cat "$PHASES_FILE")
+progress_events_before_take=$(line_count "$PROGRESS_FILE")
+events_before_take=0
+if [ -f "$EVENTS_FILE" ]; then
+  events_before_take=$(line_count "$EVENTS_FILE")
+fi
+runtime_entries_before_take=$(runtime_entry_count "$ADP_RUNTIME_DIR")
+reset_git_tripwire
+output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --take --owner audit-run-take --lease 15m -- --probe codex-payload)
+assert_contains "$output" "fake-codex" "codex run take output"
+if [ "$(line_count "$EVENTS_FILE")" != $((events_before_take + 2)) ]; then
+  fail "run --take should append two runtime events"
+fi
+if [ "$(line_count "$PROGRESS_FILE")" != $((progress_events_before_take + 1)) ]; then
+  fail "run --take should append one task claim event"
+fi
+take_progress=$(tail -n 1 "$PROGRESS_FILE")
+assert_contains "$take_progress" "\"type\":\"task_claimed\"" "run take progress event"
+assert_contains "$take_progress" "\"task_id\":\"$take_task_id\"" "run take progress event"
+assert_contains "$take_progress" "\"owner\":\"audit-run-take\"" "run take progress event"
+take_events=$(cat "$EVENTS_FILE")
+assert_contains "$take_events" "\"task_binding\":\"take\"" "run take event metadata"
+assert_contains "$take_events" "\"owner\":\"audit-run-take\"" "run take event metadata"
+assert_contains "$take_events" "\"lease_seconds\":900" "run take event metadata"
+output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$take_task_id" --format json)
+assert_json_valid "$output" "run take task json output"
+assert_contains "$output" "\"status\": \"in_progress\"" "run take task json output"
+assert_contains "$output" "\"owner\": \"audit-run-take\"" "run take task json output"
+take_session=$(session_id_by_agent "$EVENTS_FILE" codex)
+output=$(run_adp "$REPO_ROOT" sessions show "$take_session")
+assert_contains "$output" "task_id: $take_task_id" "run take session output"
+assert_contains "$output" "run_finished" "run take session output"
+if [ "$(cat "$PHASES_FILE")" != "$phases_before_take" ]; then
+  fail "run --take changed phase evidence"
+fi
+if [ "$(runtime_entry_count "$ADP_RUNTIME_DIR")" != "$runtime_entries_before_take" ]; then
+  fail "run --take leaked a runtime directory"
+fi
+assert_no_git_side_effects "runtime audit run --take"
+assert_absent_project_artifacts "$PROJECT_ROOT"
+export ADP_EXPECT_TASK_ID="$task_id"
 output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)
 assert_contains "$output" "fake-codex" "codex run output"
 output=$(run_adp "$REPO_ROOT" run claude --workspace game-a --task "$task_id" -- --probe claude-payload)

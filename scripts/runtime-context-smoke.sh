@@ -128,10 +128,10 @@ test "\${ADP_HOME:-}" = "\$ADP_EXPECT_ADP_HOME"
 test "\${ADP_PROJECT_ROOT:-}" = "\$ADP_EXPECT_PROJECT_ROOT"
 test "\${ADP_PROFILE:-}" = "$profile"
 test "\${ADP_TASK_ID:-}" = "\$ADP_EXPECT_TASK_ID"
-test "\${ADP_TASK_TITLE:-}" = "Audit runtime context"
-test "\${ADP_TASK_STATUS:-}" = "ready"
-test "\${ADP_TASK_PRIORITY:-}" = "critical"
-test "\${ADP_TASK_PHASE:-}" = "p-context"
+test "\${ADP_TASK_TITLE:-}" = "\$ADP_EXPECT_TASK_TITLE"
+test "\${ADP_TASK_STATUS:-}" = "\$ADP_EXPECT_TASK_STATUS"
+test "\${ADP_TASK_PRIORITY:-}" = "\$ADP_EXPECT_TASK_PRIORITY"
+test "\${ADP_TASK_PHASE:-}" = "\$ADP_EXPECT_TASK_PHASE"
 if [ -n "\${ADP_CLI:-}" ]; then
   test "\$ADP_CLI" = "\$ADP_EXPECT_ADP_CLI"
   test -x "\$ADP_CLI"
@@ -145,7 +145,7 @@ grep -F -q "version: 1" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "session_id: \$ADP_SESSION_ID" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "workspace: context-a" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "task_id: \$ADP_EXPECT_TASK_ID" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
-grep -F -q "task_title: Audit runtime context" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "task_title: \$ADP_EXPECT_TASK_TITLE" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "project_root: \$ADP_EXPECT_PROJECT_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "runtime_root: \$ADP_RUNTIME_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "keep: false" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
@@ -157,11 +157,11 @@ grep -F -q -- "- Name: context-a" "$instructions"
 grep -F -q -- "- Agent: $agent" "$instructions"
 grep -F -q -- "- Profile: $profile" "$instructions"
 grep -F -q -- "- ID: \$ADP_EXPECT_TASK_ID" "$instructions"
-grep -F -q -- "- Title: Audit runtime context" "$instructions"
-grep -F -q -- "- Status: ready" "$instructions"
-grep -F -q -- "- Priority: critical" "$instructions"
-grep -F -q -- "- Phase: p-context" "$instructions"
-grep -F -q -- "- Description: Verify generated context surface" "$instructions"
+grep -F -q -- "- Title: \$ADP_EXPECT_TASK_TITLE" "$instructions"
+grep -F -q -- "- Status: \$ADP_EXPECT_TASK_STATUS" "$instructions"
+grep -F -q -- "- Priority: \$ADP_EXPECT_TASK_PRIORITY" "$instructions"
+grep -F -q -- "- Phase: \$ADP_EXPECT_TASK_PHASE" "$instructions"
+grep -F -q -- "- Description: \$ADP_EXPECT_TASK_DESCRIPTION" "$instructions"
 require_runtime_text "$instructions" "## ADP Planning Contract" "planning contract heading"
 require_runtime_text "$instructions" "ADP is the authoritative local planning and progress ledger" "planning source-of-truth contract"
 require_runtime_text "$instructions" "tasks take --workspace" "atomic task take command"
@@ -198,10 +198,10 @@ case "$config_kind" in
     grep -F -q 'memory_enabled = true' "$config"
     grep -F -q 'mcp_enabled = true' "$config"
     grep -F -q "task_id = \"\$ADP_EXPECT_TASK_ID\"" "$config"
-    grep -F -q 'task_title = "Audit runtime context"' "$config"
-    grep -F -q 'task_status = "ready"' "$config"
-    grep -F -q 'task_priority = "critical"' "$config"
-    grep -F -q 'task_phase = "p-context"' "$config"
+    grep -F -q "task_title = \"\$ADP_EXPECT_TASK_TITLE\"" "$config"
+    grep -F -q "task_status = \"\$ADP_EXPECT_TASK_STATUS\"" "$config"
+    grep -F -q "task_priority = \"\$ADP_EXPECT_TASK_PRIORITY\"" "$config"
+    grep -F -q "task_phase = \"\$ADP_EXPECT_TASK_PHASE\"" "$config"
     ;;
   json)
     grep -F -q '"adapter": "$agent"' "$config"
@@ -211,10 +211,10 @@ case "$config_kind" in
     grep -F -q '"memoryEnabled": true' "$config"
     grep -F -q '"mcpEnabled": true' "$config"
     grep -F -q "\"id\": \"\$ADP_EXPECT_TASK_ID\"" "$config"
-    grep -F -q '"title": "Audit runtime context"' "$config"
-    grep -F -q '"status": "ready"' "$config"
-    grep -F -q '"priority": "critical"' "$config"
-    grep -F -q '"phase": "p-context"' "$config"
+    grep -F -q "\"title\": \"\$ADP_EXPECT_TASK_TITLE\"" "$config"
+    grep -F -q "\"status\": \"\$ADP_EXPECT_TASK_STATUS\"" "$config"
+    grep -F -q "\"priority\": \"\$ADP_EXPECT_TASK_PRIORITY\"" "$config"
+    grep -F -q "\"phase\": \"\$ADP_EXPECT_TASK_PHASE\"" "$config"
     ;;
   *)
     printf 'unknown config kind: %s\n' "$config_kind" >&2
@@ -362,6 +362,11 @@ if [ -z "$TASK_ID" ]; then
   fail "could not parse task id from: $output"
 fi
 export ADP_EXPECT_TASK_ID="$TASK_ID"
+export ADP_EXPECT_TASK_TITLE="Audit runtime context"
+export ADP_EXPECT_TASK_STATUS="ready"
+export ADP_EXPECT_TASK_PRIORITY="critical"
+export ADP_EXPECT_TASK_PHASE="p-context"
+export ADP_EXPECT_TASK_DESCRIPTION="Verify generated context surface"
 
 assert_file "$WORKSPACE_DIR/planning/tasks.yaml"
 assert_file "$WORKSPACE_DIR/planning/phases.yaml"
@@ -438,6 +443,52 @@ output=$(run_adp "$REPO_ROOT" plan doctor --workspace context-a --format json)
 assert_contains "$output" '"workspace": "context-a"' "plan doctor json output"
 assert_contains "$output" '"status": "ok"' "plan doctor json output"
 assert_contains "$output" '"has_errors": false' "plan doctor json output"
+assert_absent_project_artifacts "$PROJECT_ROOT"
+
+info "running fake Codex with atomic task take"
+output=$(run_adp "$REPO_ROOT" tasks update --workspace context-a "$TASK_ID" --status review)
+assert_contains "$output" "status: review" "context task review output"
+output=$(run_adp "$REPO_ROOT" tasks add --workspace context-a --priority critical --phase p-context --description "Verify generated take context surface" "Audit runtime take context")
+assert_contains "$output" "task task-" "take task add output"
+TAKE_TASK_ID=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+if [ -z "$TAKE_TASK_ID" ]; then
+  fail "could not parse take task id from: $output"
+fi
+export ADP_EXPECT_TASK_ID="$TAKE_TASK_ID"
+export ADP_EXPECT_TASK_TITLE="Audit runtime take context"
+export ADP_EXPECT_TASK_STATUS="in_progress"
+export ADP_EXPECT_TASK_PRIORITY="critical"
+export ADP_EXPECT_TASK_DESCRIPTION="Verify generated take context surface"
+phases_before_take=$(cat "$WORKSPACE_DIR/planning/phases.yaml")
+progress_events_before_take=$(line_count "$WORKSPACE_DIR/planning/progress.jsonl")
+events_before_take=$(line_count "$EVENTS_FILE")
+output=$(run_adp "$REPO_ROOT" run codex --workspace context-a --take --owner context-run-take --lease 25m -- --context-codex)
+assert_contains "$output" "fake-codex" "codex take output"
+assert_contains "$output" "--context-codex" "codex take output"
+take_session=$(session_id_by_agent "$EVENTS_FILE" codex)
+if [ "$(line_count "$EVENTS_FILE")" != $((events_before_take + 2)) ]; then
+  cat "$EVENTS_FILE" >&2
+  fail "run --take should append two runtime events"
+fi
+if [ "$(line_count "$WORKSPACE_DIR/planning/progress.jsonl")" != $((progress_events_before_take + 1)) ]; then
+  cat "$WORKSPACE_DIR/planning/progress.jsonl" >&2
+  fail "run --take should append one task claim progress event"
+fi
+take_progress=$(tail -n 1 "$WORKSPACE_DIR/planning/progress.jsonl")
+assert_contains "$take_progress" "\"type\":\"task_claimed\"" "run take progress event"
+assert_contains "$take_progress" "\"task_id\":\"$TAKE_TASK_ID\"" "run take progress event"
+assert_contains "$take_progress" "\"owner\":\"context-run-take\"" "run take progress event"
+assert_contains "$(cat "$EVENTS_FILE")" "\"task_binding\":\"take\"" "run take event metadata"
+assert_contains "$(cat "$EVENTS_FILE")" "\"owner\":\"context-run-take\"" "run take event metadata"
+output=$(run_adp "$REPO_ROOT" tasks show --workspace context-a "$TAKE_TASK_ID")
+assert_contains "$output" "status: in_progress" "take task show output"
+assert_contains "$output" "owner: context-run-take" "take task show output"
+assert_contains "$output" "lease_expires_at: 20" "take task show output"
+output=$(run_adp "$REPO_ROOT" sessions show "$take_session")
+assert_contains "$output" "task_id: $TAKE_TASK_ID" "take session output"
+assert_contains "$output" "agent: codex" "take session output"
+assert_contains "$output" "run_finished" "take session output"
+assert_contains "$(cat "$WORKSPACE_DIR/planning/phases.yaml")" "$phases_before_take" "run take phases"
 assert_absent_project_artifacts "$PROJECT_ROOT"
 
 info "runtime context smoke passed"

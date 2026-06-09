@@ -20,6 +20,8 @@ ADP owns the local runtime boundary:
 
 The external agent CLI owns its own behavior after launch, including authentication, model selection, network access, tool permissions, prompt interpretation, and interactive behavior.
 
+Task ownership remains ADP-owned. A provider-native task panel, plan mode, or successful external process exit can mirror or inform local work, but it must not be treated as task completion, phase acceptance, commit evidence, push evidence, Git execution, or authoritative recovery state.
+
 ## Shared Runtime Contract
 
 The currently documented real-agent adapter contracts are `codex` and `claude`. Future adapter design notes should use neutral placeholders until an adapter is implemented and validated, and must not describe provider-native resume semantics.
@@ -29,6 +31,8 @@ For `adp run <agent> --workspace <name> -- <agent-args>`, ADP builds a runtime r
 - `.adp-runtime.yaml`, the ADP runtime manifest.
 - Adapter-generated instruction and configuration files.
 - Symlinks to files and directories from the real project root, unless a generated path takes precedence.
+
+When the operator passes `--task <task-id>`, ADP binds that existing task to the runtime. When the operator passes `--take --owner <owner> [--lease 4h]`, ADP atomically claims the next eligible task before runtime creation and binds the taken task to the runtime. `--take` and `--task` are mutually exclusive.
 
 The launched process receives:
 

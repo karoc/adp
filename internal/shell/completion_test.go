@@ -45,6 +45,7 @@ func TestRenderCompletionDefaultsToBash(t *testing.T) {
 		"_adp_completion_dynamic_values phases",
 		"report --workspace -w --format",
 		"--workspace -w --format --language",
+		"--workspace -w --profile -p --task --take --owner --lease --keep-runtime --",
 		"markdown json",
 		"text json",
 		"en zh-CN",
@@ -146,6 +147,7 @@ func TestRenderCompletionSupportsZsh(t *testing.T) {
 		"'markdown[Markdown report]'",
 		"'--language[report language]'",
 		"'zh-CN[Simplified Chinese]'",
+		"_values 'run option' '--workspace[workspace name]' '-w[workspace name]' '--profile[profile name]' '-p[profile name]' '--task[task id]' '--take[atomically take next task before launch]' '--owner[task owner]' '--lease[claim lease duration]' '--keep-runtime[keep runtime directory]' '--[pass following args to agent]'",
 		"compdef _adp_completion adp\n",
 	} {
 		if !strings.Contains(got, want) {

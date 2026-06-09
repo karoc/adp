@@ -8,7 +8,7 @@ English: [runtime-context-audit.md](runtime-context-audit.md)
 
 ## 启动边界
 
-完整启动形态是 `adp run <agent> --workspace <name> --profile <profile> --task <task-id> -- <agent-args>`。当普通 workspace 解析或 adapter 默认值已经足够时，workspace、profile 和 task 参数可以省略；但这个形态展示了所有会影响 Agent 可见上下文的输入。
+完整启动形态是 `adp run <agent> --workspace <name> --profile <profile> --task <task-id> -- <agent-args>`。如果需要启动时原子领取任务，则用 `--take --owner <owner> [--lease 4h]` 替代 `--task <task-id>`。当普通 workspace 解析或 adapter 默认值已经足够时，workspace、profile 和 task 参数可以省略；但这个形态展示了所有会影响 Agent 可见上下文的输入。
 
 启动时，ADP 会：
 
@@ -16,6 +16,7 @@ English: [runtime-context-audit.md](runtime-context-audit.md)
 - 从 `$ADP_HOME/workspaces/<workspace>/workspace.yaml` 读取 workspace config。
 - 从显式 `--profile`、workspace agent profile，或 `default` fallback 解析 adapter 和 selected profile。
 - 当传入 `--task <task-id>` 时，从 `$ADP_HOME/workspaces/<workspace>/planning` 读取 task metadata。
+- 当传入 `--take --owner <owner>` 时，在 runtime 创建前先在 planning lock 下原子领取下一个可领取 task，然后把该 task 作为 runtime-bound task 加载。
 - 在 `$ADP_RUNTIME_DIR` 下构建临时 runtime root。
 - 把 ADP-generated files 写入 runtime root。
 - 把真实项目文件 symlink 到 runtime root，且 generated paths 优先。
@@ -97,7 +98,7 @@ Base prompt、shared memory、rules 和 MCP references 都从 `$ADP_HOME` 下的
 
 ## Task Metadata
 
-当传入 `--task <task-id>` 时，ADP 会在启动 Agent 前从 workspace planning ledger 读取 task。缺失 task 会在 agent command 启动前失败。
+当传入 `--task <task-id>` 时，ADP 会在启动 Agent 前从 workspace planning ledger 读取 task。缺失 task 会在 agent command 启动前失败。当传入 `--take --owner <owner>` 时，ADP 会先领取下一个可领取 task，并把该 task 绑定到 runtime；没有可领取 task 时不会构建 runtime，也不会启动 agent command。`--take` 与 `--task` 互斥。
 
 Task metadata 会出现在：
 
@@ -108,7 +109,7 @@ Task metadata 会出现在：
 - 本地 `run_started` 和 `run_finished` events。
 - 从本地 events 派生的 session history。
 
-把 task 绑定到 runtime 不会自动 claim、complete、block、accept、commit 或 push 该 task 或 phase。这些仍然必须通过显式 terminal commands 完成，Git 也仍然由 operator 在 ADP 外部运行。
+使用 `--task` 把 task 绑定到 runtime 不会自动 claim、complete、block、accept、commit 或 push 该 task 或 phase。使用 `--take` 启动时，会在 runtime 创建前记录 ownership 并把被选中的 task 推进到 `in_progress`，但仍然不会完成 task、accept phase、记录 commit 或 push evidence、运行 Git，或根据 provider exit code 推断成功。
 
 ## 规划契约与任务框桥接
 
@@ -117,6 +118,7 @@ Task metadata 会出现在：
 ```bash
 adp tasks next --workspace <workspace> --format json
 adp tasks take --workspace <workspace> --owner <owner> --lease <duration> --format json
+adp run <agent> --workspace <workspace> --take --owner <owner> --lease <duration> -- <agent-args>
 adp tasks add --workspace <workspace> --phase <phase-id> --priority <priority> "<title>"
 adp tasks claim --workspace <workspace> <task-id> --owner <owner> --lease <duration>
 adp tasks update --workspace <workspace> <task-id> --status in_progress
@@ -127,7 +129,7 @@ adp phase status --workspace <workspace> --format json
 adp progress report --workspace <workspace> --format json
 ```
 
-如果外部工具提供原生 task 或 todo panel，Agent 应该为了可见性把当前 ADP task 镜像到那里。镜像可以包含 task ID、title、status、phase、owner 或 lease，以及本地 subtasks，但它只是工作视图。持久状态仍然属于 `$ADP_HOME/workspaces/<workspace>/planning/`。
+如果外部工具提供原生 task 或 todo panel，Agent 应该为了可见性把当前 ADP task 镜像到那里。对于 `adp run --take`，启动时被选择并领取的 task 就是 active ADP task。镜像可以包含 task ID、title、status、phase、owner 或 lease，以及本地 subtasks，但它只是工作视图。持久状态仍然属于 `$ADP_HOME/workspaces/<workspace>/planning/`。
 
 除非 provider 暴露稳定的本地 API，否则这个 bridge 当前是 instruction-level。ADP 不能抓取 provider-private todo state、把 provider task panel 视为权威状态、根据 agent exit code 推断 completion、自动 accept phase，或自动运行 Git。
 
@@ -147,7 +149,7 @@ adp plan preview --workspace <workspace> --file - --format json
 adp plan apply --workspace <workspace> --file - --format json
 ```
 
-Task ownership、status changes、blocker records 和 phase evidence 继续使用 ADP planning contract 中的 task 和 phase commands。Provider 原生 plan panels 不能被视为权威 planning storage 或 recovery evidence。
+Task ownership、status changes、blocker records 和 phase evidence 继续使用 ADP planning contract 中的 task 和 phase commands。如果 provider 在 `adp run --take` 后进入 plan mode，ADP task 已归属该 session，但 native plan items 在通过 ADP-approved flow 显式 apply 或执行前仍然只是 proposals。Provider 原生 plan panels 不能被视为权威 planning storage 或 recovery evidence。
 
 ## Runtime 环境变量
 

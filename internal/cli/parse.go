@@ -17,6 +17,9 @@ type runOptions struct {
 	workspace string
 	profile   string
 	taskID    string
+	take      bool
+	owner     string
+	lease     time.Duration
 	keep      bool
 	agentArgs []string
 }
@@ -49,7 +52,7 @@ type completionValuesOptions struct {
 
 func parseRunArgs(args []string) (runOptions, error) {
 	if len(args) == 0 {
-		return runOptions{}, errors.New("usage: adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]")
+		return runOptions{}, errors.New("usage: adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>|--take --owner <owner> [--lease <duration>]] [--keep-runtime] [-- <agent-args>...]")
 	}
 	opts := runOptions{agent: args[0]}
 	for i := 1; i < len(args); i++ {
@@ -76,11 +79,44 @@ func parseRunArgs(args []string) (runOptions, error) {
 			}
 			i++
 			opts.taskID = args[i]
+		case "--take":
+			opts.take = true
+		case "--owner":
+			if i+1 >= len(args) {
+				return runOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.owner = args[i]
+		case "--lease":
+			if i+1 >= len(args) {
+				return runOptions{}, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			lease, err := time.ParseDuration(args[i])
+			if err != nil {
+				return runOptions{}, fmt.Errorf("parse lease duration: %w", err)
+			}
+			if lease < 0 {
+				return runOptions{}, errors.New("lease must not be negative")
+			}
+			opts.lease = lease
 		case "--keep-runtime":
 			opts.keep = true
 		default:
 			return runOptions{}, fmt.Errorf("unknown run option %q", arg)
 		}
+	}
+	if opts.take && strings.TrimSpace(opts.taskID) != "" {
+		return runOptions{}, errors.New("--take cannot be combined with --task")
+	}
+	if opts.take && strings.TrimSpace(opts.owner) == "" {
+		return runOptions{}, errors.New("--owner is required with --take")
+	}
+	if !opts.take && strings.TrimSpace(opts.owner) != "" {
+		return runOptions{}, errors.New("--owner requires --take")
+	}
+	if !opts.take && opts.lease != 0 {
+		return runOptions{}, errors.New("--lease requires --take")
 	}
 	return opts, nil
 }

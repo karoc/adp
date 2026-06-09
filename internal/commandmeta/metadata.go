@@ -207,16 +207,19 @@ var rootCommands = []Command{
 	{
 		Name:        "run",
 		Description: "run an agent inside a runtime",
-		Usage:       []string{"adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]"},
+		Usage:       []string{"adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>|--take --owner <owner> [--lease <duration>]] [--keep-runtime] [-- <agent-args>...]"},
 		Options: describedValues(valueDescriptions{
 			"--workspace":    "workspace name",
 			"-w":             "workspace name",
 			"--profile":      "profile name",
 			"-p":             "profile name",
 			"--task":         "task id",
+			"--take":         "atomically take next task before launch",
+			"--owner":        "task owner",
+			"--lease":        "claim lease duration",
 			"--keep-runtime": "keep runtime directory",
 			"--":             "pass following args to agent",
-		}, "--workspace", "-w", "--profile", "-p", "--task", "--keep-runtime", "--"),
+		}, "--workspace", "-w", "--profile", "-p", "--task", "--take", "--owner", "--lease", "--keep-runtime", "--"),
 	},
 }
 

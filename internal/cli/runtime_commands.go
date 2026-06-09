@@ -108,7 +108,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 	if !ok {
 		return fmt.Errorf("unknown adapter %q; available: %s", opts.agent, strings.Join(a.deps.Adapters.Names(), ", "))
 	}
-	taskCtx, err := a.loadRunTaskContext(ctx, workspaceDir, opts.taskID)
+	taskCtx, err := a.loadRunTaskContext(ctx, workspaceDir, opts)
 	if err != nil {
 		return err
 	}
@@ -208,15 +208,27 @@ func (a *App) run(ctx context.Context, args []string) error {
 	return nil
 }
 
-func (a *App) loadRunTaskContext(ctx context.Context, workspaceDir string, taskID string) (adapters.TaskContext, error) {
-	taskID = strings.TrimSpace(taskID)
-	if taskID == "" {
+func (a *App) loadRunTaskContext(ctx context.Context, workspaceDir string, opts runOptions) (adapters.TaskContext, error) {
+	if !opts.take && strings.TrimSpace(opts.taskID) == "" {
 		return adapters.TaskContext{}, nil
 	}
 	if a.deps.TaskStoreFactory == nil {
 		return adapters.TaskContext{}, errors.New("task store is not configured")
 	}
-	task, err := a.deps.TaskStoreFactory(workspaceDir).Get(ctx, taskID)
+	store := a.deps.TaskStoreFactory(workspaceDir)
+	if opts.take {
+		task, err := store.Take(ctx, taskstore.TakeRequest{
+			Owner: opts.owner,
+			Lease: opts.lease,
+		})
+		if err != nil {
+			return adapters.TaskContext{}, fmt.Errorf("take task: %w", err)
+		}
+		return taskContext(task), nil
+	}
+
+	taskID := strings.TrimSpace(opts.taskID)
+	task, err := store.Get(ctx, taskID)
 	if err != nil {
 		return adapters.TaskContext{}, fmt.Errorf("load task %q: %w", taskID, err)
 	}
@@ -242,6 +254,13 @@ func runInvocationFields(opts runOptions, profile string, taskCtx adapters.TaskC
 		"keep_runtime":         opts.keep,
 		"workspace_resolution": workspaceResolutionSource(opts),
 		"profile_source":       profileSource(opts, profile),
+		"task_binding":         taskBindingSource(opts, taskCtx),
+	}
+	if opts.take {
+		invocation["task_take"] = map[string]any{
+			"owner":         strings.TrimSpace(opts.owner),
+			"lease_seconds": int64(opts.lease.Seconds()),
+		}
 	}
 	if cwd, err := os.Getwd(); err == nil {
 		invocation["original_cwd"] = cwd
@@ -256,6 +275,17 @@ func runInvocationFields(opts runOptions, profile string, taskCtx adapters.TaskC
 		}
 	}
 	return map[string]any{"invocation": invocation}
+}
+
+func taskBindingSource(opts runOptions, taskCtx adapters.TaskContext) string {
+	switch {
+	case opts.take:
+		return "take"
+	case !taskCtx.IsZero():
+		return "explicit"
+	default:
+		return "none"
+	}
 }
 
 func workspaceResolutionSource(opts runOptions) string {
