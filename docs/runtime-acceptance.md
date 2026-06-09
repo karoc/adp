@@ -119,6 +119,12 @@ The script also asserts that the real project root is not polluted with ADP runt
 - `phases.yaml`.
 - `progress.jsonl`.
 
+## Runtime Context Audit
+
+[docs/runtime-context-audit.md](runtime-context-audit.md) documents the launch-time context an agent sees inside an ADP runtime overlay: generated instruction files, adapter config files, selected profile, base prompt, shared memory, MCP references, task metadata, runtime environment variables, local event/session evidence, and project-root cleanliness.
+
+The fake runtime, broad audit, and focused runtime context smokes cover this behavior through `scripts/runtime-smoke.sh --fake`, `scripts/runtime-audit-smoke.sh`, and `scripts/runtime-context-smoke.sh`. The focused smoke stays local and deterministic, uses fake agents, and avoids network access, Git execution, hosted services, provider-native resume, and project-root report or planning exports.
+
 ## Operator Failure Drill Expectations
 
 Release candidate rehearsal should include negative drills in throwaway `ADP_HOME`, `ADP_RUNTIME_DIR`, and project roots when operator guidance is being audited. These drills are not new product scope; they verify that existing CLI errors and diagnostics point to the documented local fixes.
@@ -261,6 +267,7 @@ This smoke validates ADP's runtime responsibilities:
 - Agent command/profile diagnostics through workspace and global doctor commands, covering adapter default fallback, inline command arguments, path-like command wrappers, missing or ambiguous profile files, profile path escapes, unknown enabled agents, and reserved project-root paths.
 - Local build identity output through `adp version`.
 - Broad runtime audit smoke through `scripts/runtime-audit-smoke.sh`.
+- Focused runtime context smoke through `scripts/runtime-context-smoke.sh`.
 - Release readiness smoke through `scripts/release-readiness-smoke.sh`.
 - Release rehearsal smoke through `scripts/release-rehearsal-smoke.sh`.
 - Workspace-local task manager smoke through `scripts/task-manager-smoke.sh`.
@@ -281,6 +288,7 @@ Run the runtime smoke with the standard repository checks:
 scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
+scripts/runtime-context-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
 scripts/release-artifact-smoke.sh

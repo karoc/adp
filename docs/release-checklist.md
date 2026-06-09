@@ -25,6 +25,7 @@ The required gate runs these checks in order:
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
+scripts/runtime-context-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
 scripts/release-artifact-smoke.sh
@@ -100,6 +101,16 @@ The runtime audit smoke verifies:
 - Runtime entry points, events, sessions, restore-plan, runtime pruning, and project-root pollution guards.
 - Workspace lifecycle, diagnostics, task manager, phase gate, plan intake, and progress report surfaces through the current CLI.
 - Local-first boundaries: no hosted tracker sync, no automatic Git execution, no automatic task closure, no provider-native resume, and no project-root planning or report exports.
+
+`scripts/runtime-context-smoke.sh` builds the current `cmd/adp` binary, uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root, then verifies the launch-time runtime context without real provider CLIs or network access.
+
+The runtime context smoke verifies:
+
+- Generated Codex and Claude instruction files.
+- Adapter metadata files and selected workspace profiles.
+- Base prompt, shared memory, MCP references, task metadata, and runtime environment variables.
+- Local event/session evidence, workspace diagnostics, and project-root cleanliness.
+- Local-first boundaries: no hosted services, no automatic Git execution, no provider-native resume, and no project-root report or planning exports.
 
 `scripts/release-readiness-smoke.sh` builds the current `cmd/adp` binary, uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, a temporary project root, and a fake Git tripwire, then verifies release-readiness invariants that are independent of real provider CLIs.
 
@@ -219,6 +230,8 @@ This section is a quick map for default gate failures. For the operator drill fl
 If `scripts/runtime-smoke.sh --fake` fails, inspect the reported step first. The fake smoke is the highest-signal check for runtime overlay behavior, runtime manifest fields, adapter launch paths, local event history, session aggregation, and project-root pollution.
 
 If `scripts/runtime-audit-smoke.sh` fails, inspect whether the documented runtime audit matrix still matches the current CLI surface. The audit smoke is intentionally fake-runtime and local-only; failures should not be fixed by adding real Codex/Claude defaults, hosted services, automatic Git execution, provider-native resume, or project-root exports.
+
+If `scripts/runtime-context-smoke.sh` fails, inspect the generated instruction files, adapter metadata files, selected profiles, prompt, shared memory, MCP references, task metadata, runtime environment variables, local event/session evidence, workspace diagnostics, and project-root cleanliness. Do not fix context failures by adding hosted services, automatic Git execution, provider-native resume, real-provider default checks, or project-root report/planning exports.
 
 If `scripts/release-readiness-smoke.sh` fails, inspect phase evidence recording and the fake Git tripwire first. Phase accept, commit, and push commands must record local evidence only; failures should not be fixed by making ADP run Git automatically or by weakening the phase lifecycle gate.
 

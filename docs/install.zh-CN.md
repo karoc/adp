@@ -223,13 +223,14 @@ adp runtime prune --older-than 24h
 scripts/check-all.sh
 ```
 
-聚合 gate 包含 fake-agent runtime smoke、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go tests、vet、文件行数检查、双语文档检查和 diff 空白检查。
+聚合 gate 包含 fake-agent runtime smoke、广覆盖 runtime audit smoke、聚焦 runtime context smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go tests、vet、文件行数检查、双语文档检查和 diff 空白检查。
 
 如需定向 bootstrap 检查，运行：
 
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
+scripts/runtime-context-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
 scripts/release-artifact-smoke.sh
@@ -240,4 +241,4 @@ scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
 ```
 
-runtime smoke 会把当前 `cmd/adp` 二进制构建到临时目录，并使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时 project root。它可以在不安装真实 Codex 或 Claude CLI 的情况下验证 runtime overlay 路径。runtime audit smoke 会扩大覆盖面，验证 CLI help、JSON output、task/phase/plan/progress flow、session、restore planning、completion values 和 local-first runtime 边界。release readiness smoke 会验证 release gate invariant，例如 phase commit 和 push 只记录 evidence 而不会执行 Git。release rehearsal smoke 会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。release artifact smoke 会验证 package contents、checksum、install-from-artifact、无 `.git` source archive 构建和 local-only 排除边界。release operator drill smoke 会按 operator 顺序演练 clean source form、checksum、临时安装、fake-provider handoff 和本地 phase evidence 记录。install onboarding smoke 会验证源码、构建、临时安装 onboarding、fake-provider 首次运行、event 和 session evidence、project-root 干净状态，以及 Git 副作用 guard。example workspace smoke 会把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，并验证发布的示例仍能针对临时项目完成 bootstrap。plan intake smoke 会验证结构化本地 planning 输入可以只读 preview，并且只能显式 apply 到 `$ADP_HOME`，不会产生 project-root、runtime、Git 或 partial-write 副作用。
+runtime smoke 会把当前 `cmd/adp` 二进制构建到临时目录，并使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时 project root。它可以在不安装真实 Codex 或 Claude CLI 的情况下验证 runtime overlay 路径。runtime audit smoke 会扩大覆盖面，验证 CLI help、JSON output、task/phase/plan/progress flow、session、restore planning、completion values 和 local-first runtime 边界。runtime context smoke 聚焦 fake agents 收到的精确 launch context：generated instruction files、adapter metadata、selected profiles、prompt、shared memory、MCP references、task metadata、runtime environment variables、本地 evidence、diagnostics 和 project-root cleanliness。release readiness smoke 会验证 release gate invariant，例如 phase commit 和 push 只记录 evidence 而不会执行 Git。release rehearsal smoke 会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。release artifact smoke 会验证 package contents、checksum、install-from-artifact、无 `.git` source archive 构建和 local-only 排除边界。release operator drill smoke 会按 operator 顺序演练 clean source form、checksum、临时安装、fake-provider handoff 和本地 phase evidence 记录。install onboarding smoke 会验证源码、构建、临时安装 onboarding、fake-provider 首次运行、event 和 session evidence、project-root 干净状态，以及 Git 副作用 guard。example workspace smoke 会把 `examples/basic-workspace` 复制到临时 `ADP_HOME`，并验证发布的示例仍能针对临时项目完成 bootstrap。plan intake smoke 会验证结构化本地 planning 输入可以只读 preview，并且只能显式 apply 到 `$ADP_HOME`，不会产生 project-root、runtime、Git 或 partial-write 副作用。

@@ -11,6 +11,7 @@ run_step() {
 
 run_step scripts/runtime-smoke.sh --fake
 run_step scripts/runtime-audit-smoke.sh
+run_step scripts/runtime-context-smoke.sh
 run_step scripts/release-readiness-smoke.sh
 run_step scripts/release-rehearsal-smoke.sh
 run_step scripts/release-artifact-smoke.sh

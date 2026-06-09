@@ -25,6 +25,7 @@ scripts/check-all.sh
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
+scripts/runtime-context-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
 scripts/release-artifact-smoke.sh
@@ -100,6 +101,16 @@ runtime audit smoke 验证：
 - Runtime 入口、events、sessions、restore-plan、runtime pruning 和项目根目录污染防护。
 - 通过当前 CLI 覆盖 workspace lifecycle、diagnostics、task manager、phase gate、plan intake 和 progress report 表面。
 - 本地优先边界：不做 hosted tracker sync、不自动执行 Git、不自动关闭任务、不恢复 provider-native session，也不导出 project-root planning 或 report。
+
+`scripts/runtime-context-smoke.sh` 会构建当前 `cmd/adp` 二进制，使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时项目根目录，在不依赖真实 provider CLI 或网络访问的前提下验证 launch-time runtime context。
+
+runtime context smoke 验证：
+
+- 生成的 Codex 和 Claude instruction files。
+- Adapter metadata files 和选中的 workspace profiles。
+- Base prompt、shared memory、MCP references、task metadata 和 runtime environment variables。
+- 本地 event/session evidence、workspace diagnostics 和 project-root cleanliness。
+- 本地优先边界：不使用 hosted services、不自动执行 Git、不恢复 provider-native session，也不导出 project-root report 或 planning。
 
 `scripts/release-readiness-smoke.sh` 会构建当前 `cmd/adp` 二进制，使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、临时项目根目录和 fake Git tripwire，验证不依赖真实 provider CLI 的 release-readiness invariant。
 
@@ -219,6 +230,8 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 如果 `scripts/runtime-smoke.sh --fake` 失败，优先查看报告的失败步骤。fake smoke 是 runtime overlay 行为、runtime manifest 字段、adapter 启动路径、本地 event history、session 聚合和项目根目录污染防护的最高信号检查。
 
 如果 `scripts/runtime-audit-smoke.sh` 失败，优先检查文档中的 runtime audit matrix 是否仍匹配当前 CLI surface。audit smoke 刻意保持 fake-runtime 和 local-only；不能通过增加真实 Codex/Claude 默认路径、hosted service、automatic Git execution、provider-native resume 或 project-root export 来修复失败。
+
+如果 `scripts/runtime-context-smoke.sh` 失败，优先检查 generated instruction files、adapter metadata files、selected profiles、prompt、shared memory、MCP references、task metadata、runtime environment variables、本地 event/session evidence、workspace diagnostics 和 project-root cleanliness。不能通过增加 hosted services、automatic Git execution、provider-native resume、真实 provider 默认检查，或 project-root report/planning exports 来修复 context failures。
 
 如果 `scripts/release-readiness-smoke.sh` 失败，优先检查 phase evidence recording 和 fake Git tripwire。Phase accept、commit 和 push 命令只能记录本地 evidence；不能通过让 ADP 自动执行 Git 或削弱 phase lifecycle gate 来修复失败。
 

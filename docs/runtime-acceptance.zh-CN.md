@@ -119,6 +119,12 @@ fake Codex 和 Claude 命令会断言：
 - `phases.yaml`。
 - `progress.jsonl`。
 
+## Runtime Context 审计
+
+[docs/runtime-context-audit.zh-CN.md](runtime-context-audit.zh-CN.md) 记录 Agent 在 ADP runtime overlay 中启动时可见的上下文：generated instruction files、adapter config files、selected profile、base prompt、shared memory、MCP references、task metadata、runtime environment variables、本地 event/session evidence，以及 project-root cleanliness。
+
+fake runtime、广覆盖 audit 和聚焦 runtime context smokes 已通过 `scripts/runtime-smoke.sh --fake`、`scripts/runtime-audit-smoke.sh` 和 `scripts/runtime-context-smoke.sh` 覆盖该行为。聚焦 smoke 保持本地、确定性，使用 fake agents，并避免 network access、Git execution、hosted services、provider-native resume，以及 project-root report 或 planning exports。
+
 ## Operator Failure Drill 预期
 
 审计 operator guidance 时，release candidate rehearsal 应在一次性的 `ADP_HOME`、`ADP_RUNTIME_DIR` 和项目根目录中包含 negative drills。这些 drill 不是新产品范围；它们验证现有 CLI error 和 diagnostics 能把 operator 指向已记录的本地修复路径。
@@ -261,6 +267,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 - 通过 workspace 和全局 doctor 命令检查 agent command/profile diagnostics，覆盖 adapter default fallback、inline command arguments、路径型 command wrapper、缺失或重复的 profile 文件、profile path escape、未知 enabled agent，以及 project root 中的保留路径。
 - 通过 `adp version` 输出本地 build identity。
 - 通过 `scripts/runtime-audit-smoke.sh` 验收广覆盖 runtime audit。
+- 通过 `scripts/runtime-context-smoke.sh` 验收聚焦 runtime context。
 - 通过 `scripts/release-readiness-smoke.sh` 验收 release readiness。
 - 通过 `scripts/release-rehearsal-smoke.sh` 验收 release rehearsal。
 - 通过 `scripts/task-manager-smoke.sh` 验收 workspace-local task manager。
@@ -281,6 +288,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 scripts/check-all.sh
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
+scripts/runtime-context-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
 scripts/release-artifact-smoke.sh

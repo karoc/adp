@@ -12,7 +12,7 @@ English: [release-packaging.md](release-packaging.md)
 scripts/check-all.sh
 ```
 
-该门禁覆盖 fake runtime acceptance、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、example workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 whitespace 检查。CI 有意调用同一个脚本，避免 release evidence 被拆成本地路径和独立的 GitHub Actions 路径。
+该门禁覆盖 fake runtime acceptance、广覆盖 runtime audit smoke、聚焦 runtime context smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、example workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对以及 whitespace 检查。CI 有意调用同一个脚本，避免 release evidence 被拆成本地路径和独立的 GitHub Actions 路径。
 
 可选的真实 Codex 或 Claude CLI 检查只作为 operator evidence：
 

@@ -176,13 +176,15 @@ P3 提供项目规划和执行进度管理的本地 phase ledger。它会在 `$A
 scripts/check-all.sh
 ```
 
-聚合 gate 覆盖确定性 runtime smoke、广覆盖 runtime audit smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对和命令引用同步，以及 diff 空白检查。CI 使用同一个 `scripts/check-all.sh` gate，确保本地和自动化 release evidence 对齐。针对示例 workspace 的独立验证可运行 `scripts/example-workspace-smoke.sh`。
+聚合 gate 覆盖确定性 runtime smoke、广覆盖 runtime audit smoke、聚焦 runtime context smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对和命令引用同步，以及 diff 空白检查。CI 使用同一个 `scripts/check-all.sh` gate，确保本地和自动化 release evidence 对齐。针对示例 workspace 的独立验证可运行 `scripts/example-workspace-smoke.sh`。
 
 项目代码文件必须控制在 700 行以内。超过前按职责拆分。详见 [docs/engineering-standards.zh-CN.md](docs/engineering-standards.zh-CN.md)。
 
 文档默认语言为英文，并必须提供 `*.zh-CN.md` 简体中文对应文件。
 
 Runtime smoke 验收说明见 [docs/runtime-acceptance.zh-CN.md](docs/runtime-acceptance.zh-CN.md)。
+
+Agent 在 ADP runtime overlay 中启动时可见的上下文，见 [docs/runtime-context-audit.zh-CN.md](docs/runtime-context-audit.zh-CN.md)。
 
 任务管理和 P3 phase gate 规划见 [docs/task-management.zh-CN.md](docs/task-management.zh-CN.md)。
 
