@@ -129,9 +129,29 @@ ADP_SMOKE_REAL_CODEX=1 ADP_SMOKE_CODEX_BIN=/path/to/codex scripts/runtime-smoke.
 ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smoke.sh --real-claude
 ```
 
-These checks only confirm that the external command exists and that a lightweight `--version` or `--help` invocation completes. Default doctor diagnostics remain static and local: they can flag command shape, wrapper path, profile, and reserved-path risks, but they do not run provider CLIs. Neither path proves that a real interactive session can authenticate, select a model, reach a provider, or use external tools correctly.
+These checks only confirm that the external command exists and that a lightweight `--version` or `--help` invocation completes. They are command availability checks, not model invocation evidence. Default doctor diagnostics remain static and local: they can flag command shape, wrapper path, profile, and reserved-path risks, but they do not run provider CLIs. Neither path proves that a real interactive session can authenticate, select a model, reach a provider, consume quota, or use external tools correctly.
 
 Manual real-agent acceptance is operator-owned. It may require local credentials, network access, provider account quota, model access, and external tool permissions that ADP cannot create or validate deterministically.
+
+## Opt-In Real-Agent Invocation Smoke
+
+`scripts/real-agent-invocation-smoke.sh` is the dedicated path for explicit non-interactive Codex and Claude invocation evidence through ADP. It is separate from `scripts/runtime-smoke.sh --real-codex` and `scripts/runtime-smoke.sh --real-claude`: the runtime smoke's real flags check command availability, while the invocation smoke is intended to prove that ADP can hand off a constrained non-interactive request to the installed external CLIs in the current operator environment.
+
+The invocation smoke is not part of `scripts/check-all.sh`, and it must not become a default CI or release gate. Run it only when a release, audit, or operator note explicitly asks for real-agent invocation evidence and the operator accepts that the script may contact external providers, use account credentials already present on the machine, and consume provider quota.
+
+Run the script only with the explicit opt-in gates documented by the script or release procedure:
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
+
+The smoke should build or select the ADP binary under test, create temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, and project root paths, register a temporary workspace, invoke Codex and Claude through `adp run ...`, inspect local events and sessions, and then remove temporary state. It should not write planning files, reports, generated instruction files, provider output, or runtime metadata into the real repository project root.
+
+Evidence from this script must stay non-sensitive. Record only operational facts such as the ADP version or commit, external command paths, external command versions or first help lines, adapter names, workspace name, session IDs, exit statuses, sanitized timestamps, and whether each invocation path passed or failed. Do not record secrets, tokens, API keys, private prompts, account identifiers, full model responses, proprietary code excerpts, or provider-specific conversation IDs.
+
+A passing invocation smoke is environment-specific evidence. It does not guarantee that other operators have credentials, model access, available quota, stable network access, matching external CLI versions, equivalent tool permissions, or acceptable interactive session quality. A failure should be triaged as operator evidence first: verify local authentication, command paths, provider availability, quota, network access, and external CLI changes before changing ADP adapter assumptions.
 
 ## Manual Acceptance Steps
 
@@ -165,6 +185,12 @@ Then run the opt-in command availability checks only when those checks are inten
 ```bash
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
+```
+
+When release evidence intentionally includes actual non-interactive model invocation through ADP, run the dedicated invocation smoke after the command availability checks and keep its output redacted:
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
 ```
 
 For manual real-launch acceptance, create a separate temporary ADP home and runtime directory with the same `ADP_BIN`:
@@ -217,7 +243,7 @@ test ! -e "$tmp/project/progress.jsonl"
 
 Record the ADP commit or packaged version, `"$ADP_BIN" version` output, external command paths, external command versions or help output, workspace name, and any operator-specific flags used.
 
-Also record whether the evidence only proves command availability or whether a manual interactive `adp run ...` acceptance was completed.
+Also record whether the evidence only proves command availability, whether `scripts/real-agent-invocation-smoke.sh` completed non-interactive model invocation, or whether a manual interactive `adp run ...` acceptance was completed.
 
 ## Boundary And Failure Handling
 

@@ -36,7 +36,7 @@ extract_command_refs() {
 
   awk '
     function is_command_ref(value) {
-      return value ~ /^(adp([[:space:]]|$)|go run \.\/cmd\/adp([[:space:]]|$)|\.\/bin\/adp([[:space:]]|$)|scripts\/[A-Za-z0-9_.-]+|go test|go vet|git diff --check|ADP_SMOKE_|GOOS=|go build|go install|dist\/adp([[:space:]]|$)|export ADP_HOME|export ADP_RUNTIME_DIR|mkdir -p|cp -R|TASK_ID=|cd .+adp)/
+      return value ~ /^(adp([[:space:]]|$)|go run \.\/cmd\/adp([[:space:]]|$)|\.\/bin\/adp([[:space:]]|$)|scripts\/[A-Za-z0-9_.-]+|go test|go vet|git diff --check|ADP_SMOKE_|ADP_REAL_|GOOS=|go build|go install|dist\/adp([[:space:]]|$)|export ADP_HOME|export ADP_RUNTIME_DIR|mkdir -p|cp -R|TASK_ID=|cd .+adp)/
     }
 
     /^[[:space:]]*```/ {

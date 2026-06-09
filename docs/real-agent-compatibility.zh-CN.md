@@ -129,9 +129,29 @@ ADP_SMOKE_REAL_CODEX=1 ADP_SMOKE_CODEX_BIN=/path/to/codex scripts/runtime-smoke.
 ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smoke.sh --real-claude
 ```
 
-这些检查只确认外部命令存在，并且轻量的 `--version` 或 `--help` invocation 能完成。默认 doctor diagnostics 仍然是静态且本地的：它们可以提示 command 形态、wrapper 路径、profile 和 reserved path 风险，但不会运行 provider CLI。两类路径都不能证明真实交互 session 可以完成认证、选择模型、访问 provider 或正确使用外部工具。
+这些检查只确认外部命令存在，并且轻量的 `--version` 或 `--help` invocation 能完成。它们是 command availability checks，不是 model invocation evidence。默认 doctor diagnostics 仍然是静态且本地的：它们可以提示 command 形态、wrapper 路径、profile 和 reserved path 风险，但不会运行 provider CLI。两类路径都不能证明真实交互 session 可以完成认证、选择模型、访问 provider、消耗 quota，或正确使用外部工具。
 
 手工 real-agent acceptance 由 operator 负责。它可能需要本地凭据、网络访问、provider 账号额度、模型访问权限和外部工具权限，这些不是 ADP 能确定性创建或验证的内容。
+
+## Opt-In 真实 Agent 调用 Smoke
+
+`scripts/real-agent-invocation-smoke.sh` 是通过 ADP 显式收集非交互 Codex 和 Claude invocation evidence 的专用路径。它独立于 `scripts/runtime-smoke.sh --real-codex` 和 `scripts/runtime-smoke.sh --real-claude`：runtime smoke 的真实 flag 检查 command availability，而 invocation smoke 用于证明在当前 operator 环境中，ADP 可以把受限的非交互请求交给已安装的外部 CLI。
+
+invocation smoke 不属于 `scripts/check-all.sh`，并且不能变成默认 CI 或 release gate。只有当某个 release、audit 或 operator note 明确要求 real-agent invocation evidence，且 operator 接受该脚本可能访问外部 provider、使用机器上已有账号凭据并消耗 provider quota 时，才运行它。
+
+只能在脚本或 release procedure 记录的显式 opt-in gates 已满足时运行该脚本：
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
+
+该 smoke 应构建或选择正在被验收的 ADP binary，创建临时 `ADP_HOME`、`ADP_RUNTIME_DIR` 和 project root，注册临时 workspace，通过 `adp run ...` 调用 Codex 和 Claude，检查本地 events 和 sessions，然后删除临时状态。它不应把 planning files、reports、generated instruction files、provider output 或 runtime metadata 写入真实仓库项目根目录。
+
+该脚本产生的 evidence 必须保持非敏感。只记录 ADP version 或 commit、外部命令路径、外部命令版本或首行 help 输出、adapter names、workspace name、session IDs、exit statuses、已脱敏 timestamps，以及每条 invocation path 的 passed 或 failed 结果。不要记录 secrets、tokens、API keys、私有 prompts、账号标识、完整模型回复、专有代码片段，或 provider-specific conversation IDs。
+
+通过 invocation smoke 只是一份环境相关 evidence。它不保证其他 operator 拥有凭据、模型访问权限、可用 quota、稳定网络、相同外部 CLI 版本、等价工具权限或可接受的交互 session 质量。失败时应先按 operator evidence 排查：先验证本地认证、命令路径、provider 可用性、quota、网络访问和外部 CLI 变化，再修改 ADP adapter 假设。
 
 ## 手工验收步骤
 
@@ -165,6 +185,12 @@ scripts/check-all.sh
 ```bash
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
+```
+
+当 release evidence 明确包含通过 ADP 进行的真实非交互模型调用时，在命令可用性检查之后运行专用 invocation smoke，并保持输出脱敏：
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
 ```
 
 手工真实启动验收时，使用同一个 `ADP_BIN` 创建单独的临时 ADP home 和 runtime 目录：
@@ -217,7 +243,7 @@ test ! -e "$tmp/project/progress.jsonl"
 
 记录 ADP commit 或 packaged version、`"$ADP_BIN" version` 输出、外部命令路径、外部命令版本或 help 输出、workspace 名称，以及使用过的 operator-specific 参数。
 
-同时记录该 evidence 只证明命令可用性，还是已经完成了手工交互式 `adp run ...` 验收。
+同时记录该 evidence 只证明命令可用性，还是已经完成 `scripts/real-agent-invocation-smoke.sh` 的非交互模型调用，或已经完成手工交互式 `adp run ...` 验收。
 
 ## 边界与失败处理
 
