@@ -368,6 +368,7 @@ export ADP_EXPECT_TAKE_TASK_ID="$TAKE_TASK_ID"
 output=$(run_adp "$TMP_ROOT" tasks next --workspace onboarding-a --limit 1 --format json)
 assert_contains "$output" "\"$TAKE_TASK_ID\"" "tasks next json output"
 assert_contains "$output" '"eligible_count": 1' "tasks next json output"
+assert_contains "$output" '"claim_state": "unclaimed"' "tasks next json output"
 
 reset_git_tripwire
 events_before=$(line_count "$EVENTS_FILE")
@@ -389,6 +390,7 @@ fi
 output=$(run_adp "$TMP_ROOT" tasks show --workspace onboarding-a "$TAKE_TASK_ID")
 assert_contains "$output" "status: in_progress" "taken task show output"
 assert_contains "$output" "owner: trial-agent" "taken task show output"
+assert_contains "$output" "claim_state: leased" "taken task show output"
 assert_contains "$output" "lease_expires_at: 20" "taken task show output"
 
 output=$(run_adp "$TMP_ROOT" tasks renew --workspace onboarding-a "$TAKE_TASK_ID" --owner trial-agent --lease 45m)
@@ -407,6 +409,7 @@ output=$(run_adp "$TMP_ROOT" tasks stale --workspace onboarding-a --format json)
 assert_contains "$output" '"stale_count": 1' "tasks stale json output"
 assert_contains "$output" "\"$STALE_TASK_ID\"" "tasks stale json output"
 assert_contains "$output" '"owner": "abandoned-agent"' "tasks stale json output"
+assert_contains "$output" '"claim_state": "stale"' "tasks stale json output"
 
 output=$(run_adp "$TMP_ROOT" sessions restore-plan "$take_session")
 assert_contains "$output" "session_id: $take_session" "take restore-plan output"
@@ -419,6 +422,9 @@ assert_contains "$output" "# ADP Progress Report" "progress report output"
 assert_contains "$output" "$TAKE_TASK_ID" "progress report output"
 assert_contains "$output" "$STALE_TASK_ID" "progress report output"
 assert_contains "$output" "$take_session" "progress report output"
+assert_contains "$output" "Claim" "progress report output"
+assert_contains "$output" "leased to trial-agent" "progress report output"
+assert_contains "$output" "stale claim by abandoned-agent" "progress report output"
 assert_project_root_clean
 
 info "install onboarding smoke passed"

@@ -341,12 +341,15 @@ assert_contains "$output" "done" "completion status values output"
 output=$(run_adp "$REPO_ROOT" tasks list --workspace game-a --format json)
 assert_json_valid "$output" "tasks list json output"
 assert_contains "$output" "$task_id" "tasks list json output"
+assert_contains "$output" '"claim_state": "unclaimed"' "tasks list json output"
 output=$(run_adp "$REPO_ROOT" tasks next --workspace game-a --format json)
 assert_json_valid "$output" "tasks next json output"
 assert_contains "$output" "$task_id" "tasks next json output"
+assert_contains "$output" '"claim_state": "unclaimed"' "tasks next json output"
 output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id" --format json)
 assert_json_valid "$output" "tasks show json output"
 assert_contains "$output" "Bind runtime session to task" "tasks show json output"
+assert_contains "$output" '"claim_state": "unclaimed"' "tasks show json output"
 output=$(run_adp "$REPO_ROOT" tasks claim --workspace game-a "$task_id" --owner audit-agent --lease 10m)
 assert_contains "$output" "claimed by audit-agent" "tasks claim output"
 output=$(run_adp "$REPO_ROOT" completion values owners --workspace game-a)
@@ -366,6 +369,9 @@ if [ "$(line_count "$PROGRESS_FILE")" != $((renew_guard_events + 1)) ]; then
 fi
 assert_contains "$(tail -n 1 "$PROGRESS_FILE")" "\"type\":\"task_lease_renewed\"" "tasks renew progress event"
 assert_contains "$(tail -n 1 "$PROGRESS_FILE")" "\"owner\":\"audit-agent\"" "tasks renew progress event"
+output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id" --format json)
+assert_json_valid "$output" "tasks show renewed json output"
+assert_contains "$output" '"claim_state": "leased"' "tasks show renewed json output"
 output=$(run_adp "$REPO_ROOT" tasks release --workspace game-a "$task_id" --owner audit-agent)
 assert_contains "$output" "released" "tasks release output"
 output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority critical --phase p-audit --description "expired take claim" "Expired take handoff")
@@ -385,6 +391,7 @@ assert_contains "$output" "$stale_take_id" "tasks stale text output"
 assert_contains "$output" "stale-take-agent" "tasks stale text output"
 assert_contains "$output" "$stale_claim_id" "tasks stale text output"
 assert_contains "$output" "stale-claim-agent" "tasks stale text output"
+assert_contains "$output" "stale since" "tasks stale text output"
 assert_not_contains "$output" "$task_id" "tasks stale text output"
 output=$(run_adp "$REPO_ROOT" tasks stale --workspace game-a --format json)
 assert_json_valid "$output" "tasks stale json output"
@@ -392,6 +399,7 @@ assert_contains "$output" "\"$stale_take_id\"" "tasks stale json output"
 assert_contains "$output" "\"stale-take-agent\"" "tasks stale json output"
 assert_contains "$output" "\"$stale_claim_id\"" "tasks stale json output"
 assert_contains "$output" "\"lease_expires_at\"" "tasks stale json output"
+assert_contains "$output" "\"claim_state\": \"stale\"" "tasks stale json output"
 assert_read_only_lease_state "tasks stale" "$tasks_before_stale" "$phases_before_stale" "$progress_before_stale" "$events_before_stale" "$runtime_before_stale" "$project_before_stale" "$git_before_stale"
 output=$(run_adp "$REPO_ROOT" tasks take --workspace game-a --owner stale-take-reclaimer --lease 10m)
 assert_contains "$output" "task $stale_take_id taken by stale-take-reclaimer" "stale tasks take output"
@@ -448,6 +456,7 @@ assert_contains "$output" "# ADP 执行进度报告" "progress report Chinese ou
 output=$(run_adp "$REPO_ROOT" progress report --workspace game-a --format json)
 assert_json_valid "$output" "progress report json output"
 assert_contains "$output" '"runtime_sessions"' "progress report json output"
+assert_contains "$output" '"claim_state"' "progress report json output"
 
 info "auditing runtime, events, sessions, restore plan, and prune"
 env_output=$(run_adp "$REPO_ROOT" env game-a --cd)
@@ -489,6 +498,7 @@ output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$take_task_id" --fo
 assert_json_valid "$output" "run take task json output"
 assert_contains "$output" "\"status\": \"in_progress\"" "run take task json output"
 assert_contains "$output" "\"owner\": \"audit-run-take\"" "run take task json output"
+assert_contains "$output" "\"claim_state\": \"leased\"" "run take task json output"
 take_session=$(session_id_by_agent "$EVENTS_FILE" codex)
 output=$(run_adp "$REPO_ROOT" sessions show "$take_session")
 assert_contains "$output" "task_id: $take_task_id" "run take session output"

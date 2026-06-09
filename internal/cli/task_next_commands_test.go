@@ -5,6 +5,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
@@ -16,6 +17,9 @@ func TestTasksNextCommandPrintsPrioritizedWork(t *testing.T) {
 	done.Priority = "critical"
 	high := testTask("task-high", "High priority", taskstore.StatusReady)
 	high.Priority = "high"
+	high.Owner = "agent-active"
+	high.ClaimedAt = time.Now().UTC().Add(-time.Minute)
+	high.LeaseExpiresAt = time.Now().UTC().Add(time.Hour).Truncate(time.Second)
 	review := testTask("task-review", "Review medium", taskstore.StatusReview)
 	review.Priority = "medium"
 	store := &fakeTaskStore{tasks: []taskstore.Task{low, done, high, review}}
@@ -36,7 +40,7 @@ func TestTasksNextCommandPrintsPrioritizedWork(t *testing.T) {
 	if jsonCode != 0 {
 		t.Fatalf("tasks next json exit code = %d, stderr = %q", jsonCode, jsonErr.String())
 	}
-	for _, want := range []string{"workspace: game-a", "limit: 2", "task-high", "task-review"} {
+	for _, want := range []string{"workspace: game-a", "limit: 2", "task-high", "task-review", "agent-active", "leased until"} {
 		if !strings.Contains(textOut.String(), want) {
 			t.Fatalf("tasks next text missing %q: %q", want, textOut.String())
 		}
@@ -63,10 +67,13 @@ func TestTasksNextCommandPrintsPrioritizedWork(t *testing.T) {
 		t.Fatalf("json candidates length = %d, want 3: %+v", len(candidates), candidates)
 	}
 	assertJSONStringField(t, candidates[0], "id", "task-high")
+	assertJSONStringField(t, candidates[0], "claim_state", "leased")
 	assertJSONStringField(t, candidates[1], "id", "task-review")
+	assertJSONStringField(t, candidates[1], "claim_state", "unclaimed")
 	assertJSONStringField(t, candidates[2], "id", "task-low")
 	next := assertJSONObjectField(t, payload, "next")
 	assertJSONStringField(t, next, "id", "task-high")
+	assertJSONStringField(t, next, "claim_state", "leased")
 }
 
 func TestTasksNextCommandHandlesNoEligibleWorkAndInvalidArgs(t *testing.T) {

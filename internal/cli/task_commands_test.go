@@ -56,12 +56,12 @@ func TestTasksListAndShowCommandsReadTasks(t *testing.T) {
 	if listCode != 0 || showCode != 0 {
 		t.Fatalf("codes = (%d, %d), want both 0", listCode, showCode)
 	}
-	for _, want := range []string{"task-1", "ready", "Add task manager"} {
+	for _, want := range []string{"task-1", "ready", "unclaimed", "Add task manager"} {
 		if !strings.Contains(listOut.String(), want) {
 			t.Fatalf("tasks list missing %q: %q", want, listOut.String())
 		}
 	}
-	for _, want := range []string{"id: task-1", "title: Add task manager", "status: ready"} {
+	for _, want := range []string{"id: task-1", "title: Add task manager", "status: ready", "claim_state: unclaimed"} {
 		if !strings.Contains(showOut.String(), want) {
 			t.Fatalf("tasks show missing %q: %q", want, showOut.String())
 		}
@@ -91,12 +91,14 @@ func TestTasksListAndShowCommandsPrintJSON(t *testing.T) {
 
 	task := findJSONObject(t, decodeJSONObjectList(t, listOut.Bytes(), "tasks"), "id", "task-1")
 	assertJSONStringField(t, task, "status", "ready")
+	assertJSONStringField(t, task, "claim_state", "unclaimed")
 	assertJSONStringField(t, task, "phase", "phase-1.5")
 	assertJSONStringField(t, task, "title", "Add task manager")
 
 	detail := decodeJSONObject(t, showOut.Bytes())
 	assertJSONStringField(t, detail, "id", "task-1")
 	assertJSONStringField(t, detail, "status", "ready")
+	assertJSONStringField(t, detail, "claim_state", "unclaimed")
 	assertJSONStringField(t, detail, "priority", "high")
 	assertJSONStringField(t, detail, "phase", "phase-1.5")
 }
@@ -162,7 +164,7 @@ func TestTasksTakeCommandClaimsNextTask(t *testing.T) {
 	if store.takeReq.Owner != "agent-a" || store.takeReq.Lease != 45*time.Minute {
 		t.Fatalf("take request = %+v", store.takeReq)
 	}
-	for _, want := range []string{"task task-take taken by agent-a", "id: task-take", "status: in_progress", "owner: agent-a", "lease_expires_at: 2026"} {
+	for _, want := range []string{"task task-take taken by agent-a", "id: task-take", "status: in_progress", "owner: agent-a", "claim_state: leased", "lease_expires_at:"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("take output missing %q: %q", want, stdout.String())
 		}
@@ -187,6 +189,7 @@ func TestTasksTakeCommandPrintsJSON(t *testing.T) {
 	assertJSONStringField(t, task, "id", "task-take")
 	assertJSONStringField(t, task, "status", "in_progress")
 	assertJSONStringField(t, task, "owner", "agent-a")
+	assertJSONStringField(t, task, "claim_state", "claimed")
 }
 
 func TestTasksRenewCommandExtendsLease(t *testing.T) {
@@ -205,7 +208,7 @@ func TestTasksRenewCommandExtendsLease(t *testing.T) {
 	if store.renewReq.TaskID != "task-1" || store.renewReq.Owner != "agent-a" || store.renewReq.Lease != 50*time.Minute {
 		t.Fatalf("renew request = %+v", store.renewReq)
 	}
-	if !strings.Contains(stdout.String(), "task task-1 lease renewed until 2026") {
+	if !strings.Contains(stdout.String(), "task task-1 lease renewed until ") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
@@ -230,7 +233,7 @@ func TestTasksStaleCommandPrintsTextAndJSON(t *testing.T) {
 	if textCode != 0 {
 		t.Fatalf("text exit code = %d, output = %q", textCode, textOut.String())
 	}
-	for _, want := range []string{"workspace: game-a", "stale_count: 1", "task-stale", "agent-old", "Expired task"} {
+	for _, want := range []string{"workspace: game-a", "stale_count: 1", "task-stale", "agent-old", "stale since", "Expired task"} {
 		if !strings.Contains(textOut.String(), want) {
 			t.Fatalf("tasks stale text missing %q: %q", want, textOut.String())
 		}
@@ -243,6 +246,7 @@ func TestTasksStaleCommandPrintsTextAndJSON(t *testing.T) {
 	assertJSONNumberField(t, payload, "stale_count", 1)
 	task := findJSONObject(t, assertJSONObjectListField(t, payload, "tasks"), "id", "task-stale")
 	assertJSONStringField(t, task, "owner", "agent-old")
+	assertJSONStringField(t, task, "claim_state", "stale")
 	assertJSONStringField(t, task, "status", "in_progress")
 }
 

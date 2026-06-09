@@ -73,12 +73,12 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	if englishCode != 0 || markdownCode != 0 || chineseCode != 0 || jsonCode != 0 {
 		t.Fatalf("report codes = (%d, %d, %d, %d), stderr = %q, want all 0", englishCode, markdownCode, chineseCode, jsonCode, jsonErr.String())
 	}
-	for _, want := range []string{"# ADP Progress Report", "Workspace: game-a", "Total Tasks: 1", "p6-progress-report", "task-1", "codex-main", "passed: scripts/check-all.sh", "abc123: Add progress report", "pushed: origin/main", "## Runtime Sessions", "session-1", "codex", "/tmp/adp-runtime/session-1"} {
+	for _, want := range []string{"# ADP Progress Report", "Workspace: game-a", "Total Tasks: 1", "p6-progress-report", "task-1", "codex-main", "Claim", "claim: claimed by codex-main", "passed: scripts/check-all.sh", "abc123: Add progress report", "pushed: origin/main", "## Runtime Sessions", "session-1", "codex", "/tmp/adp-runtime/session-1"} {
 		if !strings.Contains(english.String(), want) {
 			t.Fatalf("English report missing %q: %q", want, english.String())
 		}
 	}
-	for _, want := range []string{"# ADP 执行进度报告", "工作区：game-a", "任务总数：1", "p6-progress-report", "task-1", "## Runtime 会话", "session-1", "/tmp/adp-runtime/session-1"} {
+	for _, want := range []string{"# ADP 执行进度报告", "工作区：game-a", "任务总数：1", "p6-progress-report", "task-1", "领取状态", "领取：codex-main 已领取", "## Runtime 会话", "session-1", "/tmp/adp-runtime/session-1"} {
 		if !strings.Contains(chinese.String(), want) {
 			t.Fatalf("Chinese report missing %q: %q", want, chinese.String())
 		}
@@ -95,8 +95,10 @@ func TestProgressReportCommandPrintsMarkdown(t *testing.T) {
 	assertJSONStringField(t, phaseJSON, "status", "pushed")
 	taskJSON := findJSONObject(t, assertJSONObjectListField(t, payload, "tasks"), "id", "task-1")
 	assertJSONStringField(t, taskJSON, "owner", "codex-main")
+	assertJSONStringField(t, taskJSON, "claim_state", "claimed")
 	nextJSON := findJSONObject(t, assertJSONObjectListField(t, payload, "next"), "id", "task-1")
 	assertJSONStringField(t, nextJSON, "status", "ready")
+	assertJSONStringField(t, nextJSON, "claim_state", "claimed")
 	evidenceJSON := findJSONObject(t, assertJSONObjectListField(t, payload, "phase_evidence"), "id", "p6-progress-report")
 	acceptanceJSON := assertJSONObjectField(t, evidenceJSON, "acceptance")
 	assertJSONStringField(t, acceptanceJSON, "result", "passed")

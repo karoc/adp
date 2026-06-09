@@ -82,6 +82,26 @@ func requireItem(label string, items []any, want string) any {
 	return items[index]
 }
 
+func requireObjectByID(label string, items []any, id string) map[string]any {
+	for _, item := range items {
+		object, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if stringField(object, "id") == id {
+			return object
+		}
+	}
+	fail("%s missing object with id %q", label, id)
+	return nil
+}
+
+func requireStringField(label string, object map[string]any, field string, want string) {
+	if got := stringField(object, field); got != want {
+		fail("%s field %s = %q, want %q", label, field, got, want)
+	}
+}
+
 func requireCountAtLeast(counts map[string]any, status string, want int) {
 	number, ok := counts[status].(float64)
 	if !ok || int(number) < want {
@@ -114,15 +134,20 @@ func main() {
 	p3 := requireItem("phases", phases, "p3")
 	requireContains("phase p3", p3, "pushed")
 	tasks := arrayField(root, "tasks")
-	requireItem("tasks", tasks, os.Args[2])
-	requireItem("tasks", tasks, os.Args[3])
-	requireItem("tasks", tasks, os.Args[4])
+	doneTask := requireObjectByID("tasks", tasks, os.Args[2])
+	criticalTask := requireObjectByID("tasks", tasks, os.Args[3])
+	lowTask := requireObjectByID("tasks", tasks, os.Args[4])
+	requireStringField("done task", doneTask, "claim_state", "leased")
+	requireStringField("critical task", criticalTask, "claim_state", "unclaimed")
+	requireStringField("low task", lowTask, "claim_state", "unclaimed")
 	next := arrayField(root, "next_work", "next")
 	criticalIndex := itemIndex(next, os.Args[3])
 	lowIndex := itemIndex(next, os.Args[4])
 	if criticalIndex < 0 || lowIndex < 0 {
 		fail("next work missing critical or low priority task")
 	}
+	requireStringField("critical next work", requireObjectByID("next work", next, os.Args[3]), "claim_state", "unclaimed")
+	requireStringField("low next work", requireObjectByID("next work", next, os.Args[4]), "claim_state", "unclaimed")
 	if criticalIndex > lowIndex {
 		fail("next work is not priority sorted: critical index %d, low index %d", criticalIndex, lowIndex)
 	}

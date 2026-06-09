@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/karoc/adp/internal/sessions"
 	taskstore "github.com/karoc/adp/internal/tasks"
@@ -243,15 +244,17 @@ func writeTaskReportEnglish(w io.Writer, tasks []taskstore.Task) {
 		return
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "| ID | Status | Priority | Phase | Owner | Title |")
-	fmt.Fprintln(w, "| --- | --- | --- | --- | --- | --- |")
+	now := time.Now().UTC()
+	fmt.Fprintln(w, "| ID | Status | Priority | Phase | Owner | Claim | Title |")
+	fmt.Fprintln(w, "| --- | --- | --- | --- | --- | --- | --- |")
 	for _, task := range tasks {
-		fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n",
+		fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s | %s |\n",
 			markdownCell(task.ID),
 			task.Status,
 			markdownCell(valueOrDash(task.Priority)),
 			markdownCell(valueOrDash(task.Phase)),
 			markdownCell(valueOrDash(task.Owner)),
+			markdownCell(taskClaimDetail(task, now)),
 			markdownCell(task.Title),
 		)
 	}
@@ -267,15 +270,17 @@ func writeTaskReportChinese(w io.Writer, tasks []taskstore.Task) {
 		return
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "| ID | 状态 | 优先级 | 阶段 | 负责人 | 标题 |")
-	fmt.Fprintln(w, "| --- | --- | --- | --- | --- | --- |")
+	now := time.Now().UTC()
+	fmt.Fprintln(w, "| ID | 状态 | 优先级 | 阶段 | 负责人 | 领取状态 | 标题 |")
+	fmt.Fprintln(w, "| --- | --- | --- | --- | --- | --- | --- |")
 	for _, task := range tasks {
-		fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n",
+		fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s | %s |\n",
 			markdownCell(task.ID),
 			task.Status,
 			markdownCell(valueOrDash(task.Priority)),
 			markdownCell(valueOrDash(task.Phase)),
 			markdownCell(valueOrDash(task.Owner)),
+			markdownCell(taskClaimDetailChinese(task, now)),
 			markdownCell(task.Title),
 		)
 	}
@@ -292,14 +297,15 @@ func writeNextWorkReportEnglish(w io.Writer, tasks []taskstore.Task) {
 		return
 	}
 	fmt.Fprintln(w)
+	now := time.Now().UTC()
 	for _, task := range open {
-		fmt.Fprintf(w, "- `%s` [%s] %s (priority: %s, phase: %s, owner: %s)\n",
+		fmt.Fprintf(w, "- `%s` [%s] %s (priority: %s, phase: %s, claim: %s)\n",
 			task.ID,
 			task.Status,
 			task.Title,
 			valueOrDash(task.Priority),
 			valueOrDash(task.Phase),
-			valueOrDash(task.Owner),
+			taskClaimHandoff(task, now),
 		)
 	}
 	fmt.Fprintln(w)
@@ -315,14 +321,15 @@ func writeNextWorkReportChinese(w io.Writer, tasks []taskstore.Task) {
 		return
 	}
 	fmt.Fprintln(w)
+	now := time.Now().UTC()
 	for _, task := range open {
-		fmt.Fprintf(w, "- `%s` [%s] %s（优先级：%s，阶段：%s，负责人：%s）\n",
+		fmt.Fprintf(w, "- `%s` [%s] %s（优先级：%s，阶段：%s，领取：%s）\n",
 			task.ID,
 			task.Status,
 			task.Title,
 			valueOrDash(task.Priority),
 			valueOrDash(task.Phase),
-			valueOrDash(task.Owner),
+			taskClaimHandoffChinese(task, now),
 		)
 	}
 	fmt.Fprintln(w)

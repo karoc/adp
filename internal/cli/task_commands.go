@@ -120,12 +120,14 @@ func (a *App) tasksNext(ctx context.Context, args []string) error {
 
 func (a *App) printTaskTable(tasks []taskstore.Task) error {
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(writer, "ID\tSTATUS\tOWNER\tPRIORITY\tPHASE\tUPDATED\tTITLE")
+	now := time.Now().UTC()
+	fmt.Fprintln(writer, "ID\tSTATUS\tOWNER\tCLAIM\tPRIORITY\tPHASE\tUPDATED\tTITLE")
 	for _, task := range tasks {
-		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			task.ID,
 			task.Status,
 			valueOrDash(task.Owner),
+			taskClaimDetail(task, now),
 			valueOrDash(task.Priority),
 			valueOrDash(task.Phase),
 			formatEventTime(task.UpdatedAt),
@@ -393,12 +395,14 @@ func (a *App) loadTaskStoreWithWorkspaceDir(ctx context.Context, workspace strin
 }
 
 func (a *App) printTask(task taskstore.Task) {
+	now := time.Now().UTC()
 	fmt.Fprintf(a.stdout, "id: %s\n", task.ID)
 	fmt.Fprintf(a.stdout, "title: %s\n", task.Title)
 	fmt.Fprintf(a.stdout, "status: %s\n", task.Status)
 	fmt.Fprintf(a.stdout, "priority: %s\n", valueOrDash(task.Priority))
 	fmt.Fprintf(a.stdout, "phase: %s\n", valueOrDash(task.Phase))
 	fmt.Fprintf(a.stdout, "owner: %s\n", valueOrDash(task.Owner))
+	fmt.Fprintf(a.stdout, "claim_state: %s\n", taskClaimState(task, now))
 	fmt.Fprintf(a.stdout, "claimed_at: %s\n", formatEventTime(task.ClaimedAt))
 	fmt.Fprintf(a.stdout, "lease_expires_at: %s\n", formatEventTime(task.LeaseExpiresAt))
 	fmt.Fprintf(a.stdout, "description: %s\n", valueOrDash(task.Description))

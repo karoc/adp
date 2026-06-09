@@ -97,6 +97,28 @@ adp phase push --workspace <workspace> <phase-id> --remote origin --branch main 
 
 `tasks next`、`tasks stale`、`phase status`、`progress report`、`plan preview` 和 `sessions restore-plan` 是 inspection 或 proposal 命令。`tasks add`、`plan apply`、`tasks take`、`tasks claim`、`tasks renew`、`tasks release`、`tasks done`、`tasks block`、`phase start`、`phase accept`、`phase commit` 和 `phase push` 会修改本地 ADP ledger。这些命令都不会自动运行 Git、自动关闭 phase、同步 hosted tracker、抓取 provider-private task panel，或把 planning/runtime 文件写入真实 project root。
 
+## 读取任务看板
+
+Operator 应把 ADP task list 当作本地看板。最快的读取路径是：
+
+```bash
+adp tasks next --workspace <workspace> --format json
+adp tasks stale --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
+```
+
+在 task JSON 中，`claim_state` 是派生的看板状态：`unclaimed`、`claimed`、`leased` 或 `stale`。`owner` 是当前持有该任务的人类或 Agent。`claimed_at` 是 ownership 被记录或刷新时的 UTC 时间戳。`lease_expires_at` 是当前 claim 的 UTC 截止时间；如果省略，表示该 claim 在 release 或同一 owner reclaim 前没有 lease expiration。当 `lease_expires_at` 存在且已经不晚于当前时间时，`claim_state` 会变成 `stale`。
+
+使用 `tasks next` 可以在 mutation 前查看按优先级排列的看板候选项。它是 preview，不是 reservation。`candidates` 和 `next` 条目会包含 `claim_state`；当底层 task 已有 owner 或 lease 时，也可以带上这些字段，operator 因而可以在决定 take、claim、release、renew 或继续 inspect 前区分未领取工作、进行中工作和 review 工作。
+
+使用 `tasks stale` 查看已过期的 `in_progress` claims。它的 JSON 包含 `stale_count` 和 `tasks` 列表。空 stale 列表只表示 ADP 当前没有看到已过期的 in-progress claims；不代表没有 ready work、没有 active work，或没有剩余 phase gate。
+
+使用 `progress report --format json` 获取更完整的 handoff snapshot。它包含带有 `claim_state` 的全部 task objects、按优先级排序的 `next` work、phase evidence，以及在本地 JSONL evidence 存在时的最近 runtime sessions。当需要启动另一个终端 Agent 时，这是合适的看板级视图，但它仍然只读，不能被持久化成第二份 planning store。
+
+启动 worker 时，优先使用 `adp run <agent> --take --owner <owner> --lease <duration>`，让看板领取和 runtime 启动处在同一个命令边界。被选中任务的 `claim_state`、`owner`、`claimed_at` 和 `lease_expires_at` 随后会出现在 task JSON；owner 和 lease 时间戳也会出现在 `ADP_TASK_OWNER`、`ADP_TASK_CLAIMED_AT`、`ADP_TASK_LEASE_EXPIRES_AT` 等 runtime 环境变量、生成的 adapter instructions，以及 runtime/session evidence 中。Provider 原生 task box 可以为了可见性镜像这些值，但 ADP 仍然是权威看板。
+
+过期或 stale claim 仍然需要显式 ADP 命令处理。ADP 不会自动 release 任务、恢复 worker、关闭工作、accept phase、运行 Git、push、抓取 provider-private state、同步 hosted tracker，或把 planning/runtime 文件写入真实 project root。
+
 ## ADP 规划契约
 
 ADP 是 workspace 的权威本地 planning 和 progress ledger。终端用户、Codex、Claude 以及后续 Agent 工具，都应该通过 ADP 命令创建、领取、更新、阻塞、释放和完成持久任务，而不是把任务状态的唯一副本保存在 provider 原生 todo list 或聊天记录里。
@@ -170,7 +192,7 @@ P6 增加了 Markdown report，P8 在同一个只读命令上扩展 JSON handoff
 
 该命令会向 stdout 打印本地 planning/execution handoff snapshot。它从 `$ADP_HOME` 读取 workspace planning 数据，默认输出英文 Markdown；只有显式传入 `--language zh-CN` 时才输出简体中文 Markdown。`--language` 只作用于 Markdown 输出；JSON 输出保留稳定的机器可读字段名和枚举值，供跨工具解析。
 
-传入 `--format json` 时，该命令会输出只读 handoff snapshot，包含 workspace、task 总数、phases、task counts、tasks、按优先级排序的 next work、phase evidence，以及在本地 JSONL runtime events 和 session 数据存在时的最近 runtime session evidence。JSON snapshot 是 inspection format，不是单独的状态存储。权威状态仍然是 `$ADP_HOME` 下的本地 planning ledger，以及 `$ADP_HOME/logs/events.jsonl` 等本地 JSONL evidence。
+传入 `--format json` 时，该命令会输出只读 handoff snapshot，包含 workspace、task 总数、phases、task counts、带有 `claim_state` 且存在时带有 `owner`、`claimed_at` 和 `lease_expires_at` 的 task objects、按优先级排序的 next work、phase evidence，以及在本地 JSONL runtime events 和 session 数据存在时的最近 runtime session evidence。JSON snapshot 是 inspection format，不是单独的状态存储。权威状态仍然是 `$ADP_HOME` 下的本地 planning ledger，以及 `$ADP_HOME/logs/events.jsonl` 等本地 JSONL evidence。
 
 该报告是 inspection view，不是状态流转命令。它不会追加 events、修改 task 状态、修改 phase 状态、创建 runtime 目录、启动 Agent、运行 Git、恢复 provider 原生会话，或把报告文件写入项目根目录。
 
@@ -198,7 +220,7 @@ JSON contract 包含：
 - `candidates`：按选择顺序排列的 candidate task list。
 - `next`：至少有一个 eligible task 时的第一个 candidate；没有 eligible work 时省略。
 
-每个 candidate 使用与 `adp tasks list --format json` 相同的 task object 形态，包括 task ID、标题、状态、优先级、phase ID、存在时的 owner 或 lease 信息，以及相关时的 blocker 摘要。
+每个 candidate 使用与 `adp tasks list --format json` 相同的 task object 形态，包括 task ID、标题、状态、优先级、phase ID、`claim_state`、存在时的 `owner`、`claimed_at`、`lease_expires_at`，以及相关时的 blocker 摘要。
 
 该 endpoint 保持只读。它不能领取任务、更新状态、修改 owner 或 lease、清理 blocker、修改 phase、追加 planning 或 runtime events、创建 runtime 目录、启动 Agent、运行 Git、推断验收、关闭任务、把输出文件写入项目根目录、与 hosted service 同步，或把 JSON 输出维护为第二份 planning store。
 
@@ -219,7 +241,7 @@ adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--form
 
 默认情况下，`planned`、`blocked`、`review`、`validated`、`done` 和 `canceled` 任务不会被领取。`review` 仍可出现在只读 `tasks next` snapshot 中，但 atomic pickup 不会分配 review work，除非后续明确增加对应选项。
 
-输出应包含与 task inspection commands 相同的 task object 形态，包括 task ID、title、status、priority、phase ID、owner、claimed timestamp，以及存在时的 lease expiration。JSON 输出只是本地工具的命令结果，不能成为第二份 planning store。
+输出应包含与 task inspection commands 相同的 task object 形态，包括 task ID、title、status、priority、phase ID、`claim_state`，以及存在时的 `owner`、`claimed_at` 和 `lease_expires_at`。JSON 输出只是本地工具的命令结果，不能成为第二份 planning store。
 
 `tasks take` 只做 task ownership mutation。它不能启动 runtime、运行 Git、验收 phase、记录 commit 或 push evidence、把 task 标记为 done、关闭 phase、根据 agent exit code 推断完成、同步 hosted tracker，或把 planning 文件写入真实 project root。Runtime launch 仍然是独立的 `adp run ...` 决策，task completion 仍然必须通过 `adp tasks done` 或其他显式 status 命令完成。
 
@@ -479,7 +501,7 @@ Format 行为：
 
 - `--format markdown` 和省略 `--format` 都输出 Markdown。
 - `--format json` 输出单个只读 handoff snapshot，供本地工具和终端 Agent 使用。
-- JSON snapshot 包含 workspace、task 总数、phases、task counts、tasks、按优先级排序的 next work、phase evidence，以及在本地 JSONL event/session 数据存在时的最近 runtime session evidence。
+- JSON snapshot 包含 workspace、task 总数、phases、task counts、带有 `claim_state` 且存在时带有 owner 和 lease 字段的 task objects、按优先级排序的 next work、phase evidence，以及在本地 JSONL event/session 数据存在时的最近 runtime session evidence。
 - `next work` 数据应按优先级排序，方便另一个本地工具不抓取 Markdown 也能选择可能的后续工作。
 - JSON 输出用于跨工具解析，不能被持久化或当作 ADP 的状态存储。
 

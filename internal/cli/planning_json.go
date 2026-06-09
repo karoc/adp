@@ -40,6 +40,7 @@ type taskJSON struct {
 	Priority       string  `json:"priority"`
 	Phase          string  `json:"phase"`
 	Owner          string  `json:"owner,omitempty"`
+	ClaimState     string  `json:"claim_state"`
 	ClaimedAt      *string `json:"claimed_at,omitempty"`
 	LeaseExpiresAt *string `json:"lease_expires_at,omitempty"`
 	Description    string  `json:"description,omitempty"`
@@ -212,6 +213,7 @@ func taskOutput(task taskstore.Task) taskJSON {
 		Priority:       task.Priority,
 		Phase:          task.Phase,
 		Owner:          task.Owner,
+		ClaimState:     taskClaimState(task, time.Now()),
 		ClaimedAt:      jsonTime(task.ClaimedAt),
 		LeaseExpiresAt: jsonTime(task.LeaseExpiresAt),
 		Description:    task.Description,

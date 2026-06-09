@@ -97,6 +97,28 @@ adp phase push --workspace <workspace> <phase-id> --remote origin --branch main 
 
 `tasks next`, `tasks stale`, `phase status`, `progress report`, `plan preview`, and `sessions restore-plan` are inspection or proposal commands. `tasks add`, `plan apply`, `tasks take`, `tasks claim`, `tasks renew`, `tasks release`, `tasks done`, `tasks block`, `phase start`, `phase accept`, `phase commit`, and `phase push` mutate the local ADP ledger. None of these commands run Git automatically, close a phase automatically, sync a hosted tracker, scrape provider-private task panels, or write planning/runtime files into the real project root.
 
+## Reading The Task Board
+
+Operators should treat the ADP task list as a local board. The fastest read path is:
+
+```bash
+adp tasks next --workspace <workspace> --format json
+adp tasks stale --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
+```
+
+In task JSON, `claim_state` is the derived board state: `unclaimed`, `claimed`, `leased`, or `stale`. `owner` is the human or agent that currently holds the task. `claimed_at` is the UTC timestamp when ownership was recorded or refreshed. `lease_expires_at` is the UTC deadline for the current claim; when it is omitted, the claim has no lease expiration until it is released or reclaimed by the same owner. When `lease_expires_at` is present and no longer in the future, `claim_state` becomes `stale`.
+
+Use `tasks next` to see prioritized board candidates before mutation. It is a preview, not a reservation. Its `candidates` and `next` entries include `claim_state` and can include active owner and lease fields when the underlying task has them, so an operator can distinguish unclaimed work from in-progress or review work before deciding whether to take, claim, release, renew, or inspect further.
+
+Use `tasks stale` to inspect expired `in_progress` claims. Its JSON includes `stale_count` and a `tasks` list. An empty stale list means ADP does not currently see expired in-progress claims; it does not mean there is no ready work, no active work, or no phase gate left to finish.
+
+Use `progress report --format json` for a broader handoff snapshot. It includes all task objects with `claim_state`, prioritized `next` work, phase evidence, and recent local runtime sessions when local JSONL evidence exists. It is the right board-wide view when starting another terminal agent, but it is still read-only and must not be persisted as a second planning store.
+
+When starting a worker, prefer `adp run <agent> --take --owner <owner> --lease <duration>` so the board pickup and runtime launch share one command boundary. The selected task's `claim_state`, `owner`, `claimed_at`, and `lease_expires_at` are then visible in task JSON, with owner and lease timestamps also visible in runtime environment variables such as `ADP_TASK_OWNER`, `ADP_TASK_CLAIMED_AT`, and `ADP_TASK_LEASE_EXPIRES_AT`, generated adapter instructions, and runtime/session evidence. Provider-native task boxes may mirror those values for visibility, but ADP remains the authoritative board.
+
+Expired or stale claims still require an explicit ADP command. ADP does not automatically release a task, recover a worker, close work, accept a phase, run Git, push, scrape provider-private state, sync hosted trackers, or write planning/runtime files into the real project root.
+
 ## ADP Planning Contract
 
 ADP is the authoritative local planning and progress ledger for a workspace. Terminal users, Codex, Claude, and future agent tools should create, claim, update, block, release, and complete durable work through ADP commands instead of keeping the only copy of task state in a provider-native todo list or chat transcript.
@@ -170,7 +192,7 @@ P6 added Markdown reporting, and P8 extends the same read-only command with a JS
 
 The command prints a local planning/execution handoff snapshot to stdout. It reads workspace planning data from `$ADP_HOME`, uses English Markdown by default, and emits Simplified Chinese Markdown only when `--language zh-CN` is provided. `--language` applies to Markdown output only; JSON output keeps stable machine-readable field names and enum values for cross-tool parsing.
 
-With `--format json`, the command emits a read-only handoff snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL runtime events and session data exist. The JSON snapshot is an inspection format, not a separate state store. The authoritative state remains the local planning ledger under `$ADP_HOME` plus local JSONL evidence such as `$ADP_HOME/logs/events.jsonl`.
+With `--format json`, the command emits a read-only handoff snapshot with workspace, total task count, phases, task counts, task objects including `claim_state` plus `owner`, `claimed_at`, and `lease_expires_at` when present, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL runtime events and session data exist. The JSON snapshot is an inspection format, not a separate state store. The authoritative state remains the local planning ledger under `$ADP_HOME` plus local JSONL evidence such as `$ADP_HOME/logs/events.jsonl`.
 
 The report is an inspection view, not a state transition. It does not append events, mutate task state, mutate phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into project roots.
 
@@ -198,7 +220,7 @@ The JSON contract includes:
 - `candidates`: candidate task list in selection order.
 - `next`: the first candidate when at least one task is eligible; omitted when there is no eligible work.
 
-Each candidate uses the same task object shape as `adp tasks list --format json`, including task ID, title, status, priority, phase ID, owner or lease information when present, and blocker summary when relevant.
+Each candidate uses the same task object shape as `adp tasks list --format json`, including task ID, title, status, priority, phase ID, `claim_state`, `owner`, `claimed_at`, `lease_expires_at` when present, and blocker summary when relevant.
 
 The endpoint is read-only. It must not claim a task, update status, change owners or leases, clear blockers, mutate phases, append planning or runtime events, create runtime directories, start agents, run Git, infer acceptance, close tasks, write output files into the project root, sync with a hosted service, or maintain JSON output as a second planning store.
 
@@ -219,7 +241,7 @@ By default, claimable tasks are:
 
 By default, `planned`, `blocked`, `review`, `validated`, `done`, and `canceled` tasks are not taken. `review` can still appear in read-only `tasks next` snapshots, but atomic pickup does not assign review work unless a future explicit option adds that behavior.
 
-The output should include the same task object shape used by task inspection commands, including task ID, title, status, priority, phase ID, owner, claimed timestamp, and lease expiration when present. JSON output is a command result for local tools; it is not a second planning store.
+The output should include the same task object shape used by task inspection commands, including task ID, title, status, priority, phase ID, `claim_state`, `owner`, `claimed_at`, and `lease_expires_at` when present. JSON output is a command result for local tools; it is not a second planning store.
 
 `tasks take` is a task-ownership mutation only. It must not launch a runtime, run Git, accept a phase, record commit or push evidence, mark the task done, close a phase, infer completion from an agent exit code, sync with a hosted tracker, or write planning files into the real project root. Runtime launch remains a separate `adp run ...` decision, and task completion remains explicit through `adp tasks done` or another explicit status command.
 
@@ -479,7 +501,7 @@ Format behavior:
 
 - `--format markdown` and omitted `--format` both produce Markdown.
 - `--format json` produces a single read-only handoff snapshot for local tools and terminal agents.
-- The JSON snapshot includes workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists.
+- The JSON snapshot includes workspace, total task count, phases, task counts, task objects with `claim_state` plus owner and lease fields when present, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists.
 - The `next work` data should be sorted by priority so another local tool can choose likely follow-up work without scraping Markdown.
 - JSON output is for cross-tool parsing and must not be persisted or treated as ADP's state store.
 

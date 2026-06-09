@@ -62,8 +62,9 @@ func (s *fakeTaskStore) Claim(_ context.Context, req taskstore.ClaimRequest) (ta
 	s.claimReq = req
 	task := testTask(req.TaskID, "Add task manager", taskstore.StatusInProgress)
 	task.Owner = req.Owner
+	task.ClaimedAt = time.Now().UTC().Truncate(time.Second)
 	if req.Lease > 0 {
-		task.LeaseExpiresAt = task.UpdatedAt.Add(req.Lease)
+		task.LeaseExpiresAt = task.ClaimedAt.Add(req.Lease).UTC().Truncate(time.Second)
 	}
 	return task, nil
 }
@@ -72,9 +73,9 @@ func (s *fakeTaskStore) Take(_ context.Context, req taskstore.TakeRequest) (task
 	s.takeReq = req
 	task := testTask("task-take", "Take next task", taskstore.StatusInProgress)
 	task.Owner = req.Owner
-	task.ClaimedAt = task.UpdatedAt
+	task.ClaimedAt = time.Now().UTC().Truncate(time.Second)
 	if req.Lease > 0 {
-		task.LeaseExpiresAt = task.UpdatedAt.Add(req.Lease)
+		task.LeaseExpiresAt = task.ClaimedAt.Add(req.Lease).UTC().Truncate(time.Second)
 	}
 	return task, nil
 }
@@ -83,9 +84,9 @@ func (s *fakeTaskStore) Renew(_ context.Context, req taskstore.RenewRequest) (ta
 	s.renewReq = req
 	task := testTask(req.TaskID, "Add task manager", taskstore.StatusInProgress)
 	task.Owner = req.Owner
-	task.ClaimedAt = task.UpdatedAt
+	task.ClaimedAt = time.Now().UTC().Truncate(time.Second)
 	if req.Lease > 0 {
-		task.LeaseExpiresAt = task.UpdatedAt.Add(req.Lease)
+		task.LeaseExpiresAt = task.ClaimedAt.Add(req.Lease).UTC().Truncate(time.Second)
 	}
 	return task, nil
 }
