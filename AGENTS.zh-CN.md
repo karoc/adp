@@ -49,8 +49,12 @@ scripts/check-all.sh
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
+scripts/runtime-context-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
+scripts/release-artifact-smoke.sh
+scripts/release-operator-drill-smoke.sh
+scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -125,6 +129,14 @@ scripts/runtime-audit-smoke.sh
 
 它使用 fake agent 和临时目录验证已发布 CLI 命令面、help 输出、JSON 可解析性、task/phase/plan/progress flow、session、restore planning、completion values，以及 local-first runtime 边界。
 
+聚焦 runtime context smoke 路径是：
+
+```bash
+scripts/runtime-context-smoke.sh
+```
+
+它通过 generated instruction files、adapter metadata、selected profiles、prompt、shared memory、MCP references、task metadata、runtime environment variables、本地 event/session evidence、workspace diagnostics 和 project-root cleanliness 验证 launch-time context。
+
 release readiness smoke 路径是：
 
 ```bash
@@ -141,6 +153,30 @@ scripts/release-rehearsal-smoke.sh
 
 它会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，使用隔离 ADP 路径 bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。
 
+release artifact smoke 路径是：
+
+```bash
+scripts/release-artifact-smoke.sh
+```
+
+它验证 package staging、checksums、manifest boundaries、install-from-artifact 行为、provider-free first-run rehearsal，以及不依赖 `.git` 的 source archive build。
+
+release operator drill smoke 路径是：
+
+```bash
+scripts/release-operator-drill-smoke.sh
+```
+
+它验证文档化 release commands、no-`.git` operator source 处理、release script syntax checks、显式 commit build metadata、checksum verification、installed `PATH` 行为、fake Codex handoff、本地 phase evidence、fake Git tripwire protection，以及 project-root cleanliness。
+
+install onboarding smoke 路径是：
+
+```bash
+scripts/install-onboarding-smoke.sh
+```
+
+它验证安装到临时 `GOBIN`、`PATH` precedence、首次使用 workspace registration、fake Codex/Claude command handling、task-bound context、本地 event/session/progress evidence、Git side-effect guards，以及 project-root cleanliness。
+
 可复制 example workspace smoke 路径是：
 
 ```bash
@@ -148,6 +184,22 @@ scripts/example-workspace-smoke.sh
 ```
 
 它验证 `examples/basic-workspace` 可以被复制到临时 `ADP_HOME`，指向临时项目根目录，并完成 diagnostics、show 和 kept runtime overlay 构建。
+
+task manager smoke 路径是：
+
+```bash
+scripts/task-manager-smoke.sh
+```
+
+它验证 workspace-local task、phase、planning doctor、next-work、progress、progress report、本地 phase evidence、read-only report generation，以及 project-root pollution protection。
+
+plan intake smoke 路径是：
+
+```bash
+scripts/plan-intake-smoke.sh
+```
+
+它验证来自文件和 stdin 的本地结构化 plan preview/apply、显式写入 `$ADP_HOME` 下的 ledger、failed 或 duplicate apply rollback、read-only preview、JSON inspection output，以及无 runtime、Git、event-log 或 project-root side effects。
 
 真实外部 CLI 检查是可选 release evidence，必须显式启用：
 

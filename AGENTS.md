@@ -49,8 +49,12 @@ If `scripts/check-all.sh` is unavailable while bootstrapping a change, run the u
 ```bash
 scripts/runtime-smoke.sh --fake
 scripts/runtime-audit-smoke.sh
+scripts/runtime-context-smoke.sh
 scripts/release-readiness-smoke.sh
 scripts/release-rehearsal-smoke.sh
+scripts/release-artifact-smoke.sh
+scripts/release-operator-drill-smoke.sh
+scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
@@ -125,6 +129,14 @@ scripts/runtime-audit-smoke.sh
 
 It verifies the published CLI command surface, help output, JSON parseability, task/phase/plan/progress flows, sessions, restore planning, completion values, and local-first runtime boundaries using fake agents and temporary directories only.
 
+The focused runtime context smoke path is:
+
+```bash
+scripts/runtime-context-smoke.sh
+```
+
+It verifies launch-time context through generated instruction files, adapter metadata, selected profiles, prompt, shared memory, MCP references, task metadata, runtime environment variables, local event/session evidence, workspace diagnostics, and project-root cleanliness.
+
 The release readiness smoke path is:
 
 ```bash
@@ -141,6 +153,30 @@ scripts/release-rehearsal-smoke.sh
 
 It copies the current non-ignored repository files into a temporary clean workspace, builds a preview binary with release ldflags, verifies copied docs and file limits, bootstraps the copied example workspace with isolated ADP paths, and checks phase evidence recording with a fake Git tripwire.
 
+The release artifact smoke path is:
+
+```bash
+scripts/release-artifact-smoke.sh
+```
+
+It verifies package staging, checksums, manifest boundaries, install-from-artifact behavior, provider-free first-run rehearsal, and source archive builds without relying on `.git`.
+
+The release operator drill smoke path is:
+
+```bash
+scripts/release-operator-drill-smoke.sh
+```
+
+It verifies documented release commands, no-`.git` operator source handling, release script syntax checks, explicit commit build metadata, checksum verification, installed `PATH` behavior, fake Codex handoff, local phase evidence, fake Git tripwire protection, and project-root cleanliness.
+
+The install onboarding smoke path is:
+
+```bash
+scripts/install-onboarding-smoke.sh
+```
+
+It verifies local install into a temporary `GOBIN`, `PATH` precedence, first-use workspace registration, fake Codex/Claude command handling, task-bound context, local event/session/progress evidence, Git side-effect guards, and project-root cleanliness.
+
 The copyable example workspace smoke path is:
 
 ```bash
@@ -148,6 +184,22 @@ scripts/example-workspace-smoke.sh
 ```
 
 It verifies that `examples/basic-workspace` can be copied into a temporary `ADP_HOME`, pointed at a temporary project root, diagnosed, shown, and used to build a kept runtime overlay.
+
+The task manager smoke path is:
+
+```bash
+scripts/task-manager-smoke.sh
+```
+
+It verifies workspace-local task, phase, planning doctor, next-work, progress, progress report, local phase evidence, read-only report generation, and project-root pollution protection.
+
+The plan intake smoke path is:
+
+```bash
+scripts/plan-intake-smoke.sh
+```
+
+It verifies local structured plan preview/apply from files and stdin, explicit ledger writes under `$ADP_HOME`, rollback on failed or duplicate apply, read-only preview, JSON inspection output, and no runtime, Git, event-log, or project-root side effects.
 
 Real external CLI checks are optional release evidence and must be explicitly enabled:
 

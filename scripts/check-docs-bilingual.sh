@@ -22,7 +22,7 @@ is_exempt_markdown() {
 
 should_compare_command_refs() {
   case "$1" in
-    README.md|docs/*.md|examples/*.md|examples/*/*.md|examples/*/*/*.md)
+    AGENTS.md|README.md|docs/*.md|examples/*.md|examples/*/*.md|examples/*/*/*.md)
       return 0
       ;;
     *)
