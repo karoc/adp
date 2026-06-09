@@ -104,11 +104,28 @@ adp_local workspace doctor game-a
 
 ## 真实 Provider
 
-真实 Codex 和 Claude 运行属于 opt-in operator check。先在 operator 机器上安装并认证外部 CLI，然后运行：
+真实 Codex 和 Claude 运行属于 opt-in operator check。上面的默认 onboarding 演练仍然保持 provider-free。Provider credentials、quota、model access、network behavior 和外部 CLI versions 都属于 operator environment concerns，不是 ADP quality guarantees。
+
+Command availability evidence 需要有意启用 runtime smoke 的真实 flag。这些检查确认外部命令存在，并且可以完成轻量 `--version` 或 `--help` probe；它们不会调用模型。
+
+```bash
+ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
+ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
+```
+
+非交互真实模型 invocation evidence 需要有意启用专用 invocation smoke。它可能联系外部 provider 并消耗 quota。它不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate。
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
+
+手工交互式 provider acceptance 独立于上述两条 smoke path。先在 operator 机器上安装并认证外部 CLI，然后运行：
 
 ```bash
 adp_local run codex --workspace game-a -- <codex-args>
 adp_local run claude --workspace game-a -- <claude-args>
 ```
 
-`--` 之后的参数由 provider 定义。ADP 会透传这些参数，但不定义其安全性、模型可用性、网络行为或认证状态。
+`--` 之后的参数由 provider 定义。ADP 会透传这些参数，但不定义其安全性、模型可用性、quota 使用、网络行为、认证状态或交互式 session 质量。Operator acceptance notes 应保持非敏感，不要记录凭据、token、账号标识、私有 prompt 或敏感模型输出。完整兼容性流程见 [real-agent-compatibility.zh-CN.md](real-agent-compatibility.zh-CN.md)。

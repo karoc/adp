@@ -23,7 +23,7 @@ Record these fields for every preview artifact:
 - Package contents manifest, either as an attached manifest path or a concise inline excerpt.
 - Explicit list of excluded local state, credentials, logs, and machine-specific files.
 - Failure triage notes for any required check that failed before the final passing run.
-- Optional real Codex or Claude CLI evidence, only when it was intentionally enabled.
+- Optional real-agent operator evidence, separated by command availability, non-interactive invocation, and manual interactive acceptance when any tier was intentionally enabled.
 - License notice: ADP is source-available for noncommercial learning, research, evaluation, and open collaboration; commercial use requires separate paid authorization.
 
 ## Build Evidence
@@ -102,17 +102,29 @@ If the manifest includes local state or misses required notices, classify the re
 
 Required gate failures must be recorded as failed operator evidence and must stop the release candidate. After a fix, rerun the failed command and the aggregate gate before replacing the failed note with passing evidence. Use [release-troubleshooting.md](release-troubleshooting.md) to classify build, checksum, manifest, install, source archive, and environment failures.
 
-Optional real Codex or Claude evidence can be recorded as `not run` when it was not intentionally enabled. A failed optional real CLI check blocks the release only when the release note claims real-agent compatibility beyond the deterministic fake gate.
+Optional real-agent evidence can be recorded as `not run` per tier when it was not intentionally enabled. A failed optional real-agent check blocks the release only when the release note claims that tier of real-agent compatibility beyond the deterministic fake gate.
 
-## Optional Real CLI Evidence
+## Optional Real-Agent Evidence
 
-Real Codex and Claude checks remain separate, opt-in operator evidence. They must not become default release gates because local credentials, provider access, quotas, network behavior, and external CLI versions vary by operator environment.
+Real Codex and Claude checks remain separate, opt-in operator evidence. They must not become default release gates because provider credentials, quota, model access, network behavior, and external CLI versions are operator environment concerns, not ADP quality guarantees. `scripts/check-all.sh` must remain provider-free.
 
-Only record these commands when intentionally run:
+Record optional evidence in distinct tiers:
+
+- Command availability evidence uses the runtime smoke real flags. It checks that the external command is available and can answer a lightweight `--version` or `--help` probe; it does not invoke a model.
 
 ```bash
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
-When they are not run, record `not run` rather than treating the release evidence as incomplete.
+- Non-interactive real model invocation evidence uses the dedicated invocation smoke. It may contact external providers and consume quota. It is not part of `scripts/check-all.sh` and must not become a default CI or release gate.
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
+
+- Manual interactive provider acceptance is a separate operator note for real `adp run ...` sessions. It is required only for release claims about interactive provider behavior, and the note must avoid credentials, tokens, account identifiers, private prompts, and sensitive model output.
+
+When a tier is not run, record `not run` for that tier rather than treating the release evidence as incomplete. For the full procedure and redaction guidance, see [real-agent-compatibility.md](real-agent-compatibility.md).

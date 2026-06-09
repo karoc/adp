@@ -48,6 +48,24 @@ run_adp_expect_code() {
   printf '%s\n' "$output"
 }
 
+run_script_expect_code() {
+  local want_code="$1"
+  local output
+  local code
+  shift
+
+  set +e
+  output=$(cd "$REPO_ROOT" && "$@" 2>&1)
+  code=$?
+  set -e
+
+  if [ "$code" != "$want_code" ]; then
+    printf '%s\n' "$output" >&2
+    fail "$* exit code $code, want $want_code"
+  fi
+  printf '%s\n' "$output"
+}
+
 assert_help() {
   local label="$1"
   local needle="$2"
@@ -153,6 +171,22 @@ setup_git_tripwire "$FAKE_BIN" "$GIT_TRIPWIRE_LOG"
 export ADP_HOME
 export ADP_RUNTIME_DIR
 export PATH="$FAKE_BIN:$PATH"
+
+info "auditing real-agent invocation smoke safety gates"
+output=$(run_script_expect_code 0 scripts/real-agent-invocation-smoke.sh --help)
+assert_contains "$output" "ADP_REAL_INVOKE_CODEX=1" "real invocation help output"
+assert_contains "$output" "ADP_REAL_INVOKE_CLAUDE=1" "real invocation help output"
+
+output=$(ADP_REAL_INVOKE_CODEX= ADP_REAL_INVOKE_CLAUDE= run_script_expect_code 1 scripts/real-agent-invocation-smoke.sh --codex)
+assert_contains "$output" "requires ADP_REAL_INVOKE_CODEX=1" "real invocation codex missing-gate output"
+assert_not_contains "$output" "building temporary adp binary" "real invocation codex missing-gate output"
+assert_not_contains "$output" "running real Codex through ADP" "real invocation codex missing-gate output"
+
+output=$(ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE= run_script_expect_code 1 scripts/real-agent-invocation-smoke.sh --all)
+assert_contains "$output" "requires ADP_REAL_INVOKE_CLAUDE=1" "real invocation all missing-gate output"
+assert_not_contains "$output" "building temporary adp binary" "real invocation all missing-gate output"
+assert_not_contains "$output" "running real Codex through ADP" "real invocation all missing-gate output"
+assert_not_contains "$output" "running real Claude through ADP" "real invocation all missing-gate output"
 
 info "building temporary adp binary"
 (cd "$REPO_ROOT" && go build -o "$ADP_BIN" ./cmd/adp)

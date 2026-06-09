@@ -190,38 +190,49 @@ The phase gate smoke path covers phase records, task claim ownership with leases
 
 `git diff --check` catches whitespace errors in the current diff.
 
-## Optional Real CLI Evidence
+## Optional Real-Agent Evidence
 
-Real Codex and Claude CLI checks are not part of the default gate. They are opt-in release evidence because local installations, credentials, model availability, network access, and interactive behavior vary by operator environment.
+Real Codex and Claude checks are not part of the default gate. They are opt-in release evidence because provider credentials, quota, model access, network behavior, external CLI versions, and interactive behavior vary by operator environment. These are operator environment concerns, not ADP quality guarantees.
 
-Keep this evidence separate from default gate evidence. A failure in optional real CLI checks does not fail the default release gate unless the release explicitly claims real-agent evidence.
+Keep this evidence separate from default gate evidence. `scripts/check-all.sh` remains provider-free. `scripts/real-agent-invocation-smoke.sh` is not part of `scripts/check-all.sh` and must not become a default CI or release gate. A failure in optional real-agent evidence does not fail the default release gate unless the release explicitly claims that evidence tier.
 
-Run the lightweight real Codex check only when the local Codex CLI is intentionally part of the release evidence:
+Command availability evidence uses the runtime smoke real flags. It confirms that the external command exists and that a lightweight `--version` or `--help` invocation completes. It does not invoke a model or prove provider account readiness.
 
 ```bash
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
-```
-
-Run the lightweight real Claude check only when the local Claude CLI is intentionally part of the release evidence:
-
-```bash
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
-The real CLI smoke confirms that the external command exists and that a lightweight `--version` or `--help` invocation completes. It does not prove that a full interactive agent session, provider credentials, account quota, model selection, external tool permission, or network path is ready.
+Non-interactive real model invocation evidence uses the dedicated invocation smoke. It proves only that, in the current operator environment, ADP can hand off a constrained non-interactive request to the installed external CLI. It may contact providers and consume quota.
 
-When real CLI evidence is collected, record:
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
 
-- The command that was run.
+Manual interactive provider acceptance is a third, separate operator note for real `adp run ...` sessions:
+
+```bash
+adp run codex --workspace <name> --task <task-id> -- <codex-args>
+adp run claude --workspace <name> --task <task-id> -- <claude-args>
+```
+
+Manual interactive evidence is required for any release note that claims interactive provider workflow readiness. Non-interactive invocation evidence does not validate interactive session quality, provider-native resume, external tool permissions, user-specific shell startup behavior, or broad model performance.
+
+When optional real-agent evidence is collected, record:
+
+- The evidence tier: command availability, non-interactive invocation, or manual interactive acceptance.
+- The command that was run and the enabled gate variable, such as `ADP_SMOKE_REAL_CODEX=1`, `ADP_SMOKE_REAL_CLAUDE=1`, `ADP_REAL_INVOKE_CODEX=1`, or `ADP_REAL_INVOKE_CLAUDE=1`.
 - The resolved command path from `command -v` or the explicit override path.
-- The enabled gate variable, such as `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1`.
 - The Codex or Claude CLI version when available, or the first `--help` line when `--version` is not supported.
 - Whether the smoke passed through `--version` or fell back to `--help`.
 - The operating system and shell.
-- Any environment overrides such as `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN`.
-- Whether a separate manual interactive session was completed.
+- Any environment overrides such as `ADP_SMOKE_CODEX_BIN`, `ADP_SMOKE_CLAUDE_BIN`, `ADP_REAL_CODEX_BIN`, `ADP_REAL_CLAUDE_BIN`, model overrides, timeout overrides, or budget overrides.
+- For non-interactive invocation, non-sensitive session/event evidence and project-root cleanliness evidence.
+- Whether a separate manual interactive session was completed, when claimed.
 
-Manual interactive evidence is required for any release note that claims real-agent compatibility beyond command availability. Do not paste credentials, tokens, account identifiers, private prompts, or sensitive model output into release notes; record only non-sensitive operator evidence.
+Do not paste credentials, tokens, account identifiers, private prompts, or sensitive model output into release notes; record only non-sensitive operator evidence. For the full procedure, use [real-agent-compatibility.md](real-agent-compatibility.md).
 
 ## Failure Triage
 
@@ -243,7 +254,9 @@ If `scripts/release-operator-drill-smoke.sh` fails, inspect the no-`.git` source
 
 If `scripts/install-onboarding-smoke.sh` fails, inspect local build metadata, temporary `GOBIN`, `PATH` ordering, temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, workspace registration, fake Codex path, fake Claude guard, task-bound context, local event/session/progress evidence, fake Git tripwire output, and project-root pollution scan. Do not repair onboarding failures by requiring real provider CLIs, writing ADP state into the project root, or adding hosted setup steps.
 
-If an optional real CLI check fails because `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1` is missing, treat it as an intentionally unenabled operator check. If the command is unavailable, install the external CLI on that machine or set `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN` to the intended command path. If both `--version` and `--help` fail, classify it as an external CLI, wrapper, or operator-environment evidence gap unless the deterministic fake gate or ADP launch contract also fails.
+If an optional command availability check fails because `ADP_SMOKE_REAL_CODEX=1` or `ADP_SMOKE_REAL_CLAUDE=1` is missing, treat it as an intentionally unenabled operator check. If the command is unavailable, install the external CLI on that machine or set `ADP_SMOKE_CODEX_BIN` or `ADP_SMOKE_CLAUDE_BIN` to the intended command path. If both `--version` and `--help` fail, classify it as an external CLI, wrapper, or operator-environment evidence gap unless the deterministic fake gate or ADP launch contract also fails.
+
+If `scripts/real-agent-invocation-smoke.sh` fails because `ADP_REAL_INVOKE_CODEX=1` or `ADP_REAL_INVOKE_CLAUDE=1` is missing, treat it as an intentionally unenabled operator check. Authentication, quota, billing, model access, provider response, and network failures are operator environment evidence gaps unless the default fake gate or ADP's local launch/session/project-root cleanliness contract also fails. Manual interactive provider failures belong in operator acceptance notes and do not change the default release gate.
 
 If an operator drill fails before a smoke script starts because the workspace cannot be resolved, distinguish the two common cases. `workspace not found: <name>` means the requested name is absent from the local registry; run `adp workspace list`, add the workspace with `adp workspace add <name> <project-root>`, or pass the registered name through `--workspace` or `ADP_WORKSPACE`. `workspace is required; pass --workspace, set ADP_WORKSPACE, or run from inside a registered project` means no workspace was selected. Do not create project-root planning files as a workaround.
 
@@ -297,14 +310,14 @@ Before a release candidate is announced, an operator should also confirm:
 - Packaged CLI artifacts were built with version, commit, and build-date ldflags and `adp version` reports the expected values.
 - README and focused docs describe the current CLI surface without Web, UI, SaaS, cloud sync, hosted tracker, hosted orchestration, automatic Git execution, automatic task closure, provider-native resume, or project-root report export drift.
 - Active development phases have local evidence for acceptance, commit, and successful push before the next phase starts, and `adp phase status --workspace <name> --format json` agrees that the next planned phase can start.
-- Any claimed real-agent compatibility has matching opt-in real CLI evidence and, when needed, manual interactive acceptance notes.
+- Any claimed real-agent compatibility names the evidence tier, and each claimed tier has matching opt-in evidence: command availability, non-interactive invocation, and/or manual interactive acceptance.
 
 ## Out Of Scope
 
 The release gate does not validate:
 
-- Provider accounts or billing.
-- Remote model availability.
+- Provider credentials, accounts, quota, or billing.
+- Remote model access or availability.
 - External network reliability.
 - Real interactive Codex or Claude session quality.
 - User-specific shell startup files.

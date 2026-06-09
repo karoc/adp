@@ -23,7 +23,7 @@ English: [release-evidence.md](release-evidence.md)
 - Package contents manifest，可以是 attached manifest path，也可以是简短 inline excerpt。
 - 明确列出被排除的 local state、credentials、logs 和 machine-specific files。
 - 最终 passing run 之前任何 required check 失败时的 failure triage notes。
-- 可选真实 Codex 或 Claude CLI evidence，仅在有意启用时记录。
+- 可选 real-agent operator evidence；如果有意启用，应按 command availability、非交互 invocation、手工交互式 acceptance 分开记录。
 - License notice：ADP 以 source-available 形式提供给非商业学习、研究、评估和开源协作用途；商业使用必须取得单独的付费授权。
 
 ## 构建 Evidence
@@ -102,17 +102,29 @@ tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort
 
 required gate failures 必须记录为 failed operator evidence，并且必须停止该 release candidate。修复后，应先重新运行失败 command 和 aggregate gate，再把失败记录替换为 passing evidence。使用 [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md) 对 build、checksum、manifest、install、source archive 和 environment failures 进行分类。
 
-如果真实 Codex 或 Claude evidence 没有被有意启用，可以记录为 `not run`。只有当 release note 声明了 deterministic fake gate 之外的 real-agent compatibility 时，失败的 optional real CLI check 才会阻塞 release。
+如果 real-agent evidence 没有被有意启用，可以按 tier 记录为 `not run`。只有当 release note 声明了 deterministic fake gate 之外的对应 real-agent compatibility tier 时，失败的 optional real-agent check 才会阻塞 release。
 
-## 可选真实 CLI Evidence
+## 可选 Real-Agent Evidence
 
-真实 Codex 和 Claude 检查仍然是独立、opt-in 的 operator evidence。由于本地 credentials、provider access、quotas、network behavior 和外部 CLI versions 会随 operator environment 变化，它们不能成为默认 release gates。
+真实 Codex 和 Claude 检查仍然是独立、opt-in 的 operator evidence。Provider credentials、quota、model access、network behavior 和外部 CLI versions 都属于 operator environment concerns，不是 ADP quality guarantees。`scripts/check-all.sh` 必须保持 provider-free。
 
-只有在有意运行时，才记录这些命令：
+可选 evidence 应按不同 tier 记录：
+
+- Command availability evidence 使用 runtime smoke 的真实 flag。它检查外部命令可用，并且可以完成轻量 `--version` 或 `--help` probe；它不会调用模型。
 
 ```bash
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
-未运行时，应记录 `not run`，而不是把 release evidence 视为不完整。
+- 非交互真实模型 invocation evidence 使用专用 invocation smoke。它可能联系外部 provider 并消耗 quota。它不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate。
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
+
+- 手工交互式 provider acceptance 是真实 `adp run ...` session 的独立 operator note。只有 release claims 涉及交互式 provider 行为时才需要它，并且 note 不能包含凭据、token、账号标识、私有 prompt 或敏感模型输出。
+
+某个 tier 未运行时，应为该 tier 记录 `not run`，而不是把 release evidence 视为不完整。完整流程和脱敏要求见 [real-agent-compatibility.zh-CN.md](real-agent-compatibility.zh-CN.md)。

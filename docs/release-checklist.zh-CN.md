@@ -190,38 +190,49 @@ phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership
 
 `git diff --check` 检查当前 diff 中的空白错误。
 
-## 可选真实 CLI 证据
+## 可选 Real-Agent 证据
 
-真实 Codex 和 Claude CLI 检查不属于默认门禁。它们是 opt-in release evidence，因为本地安装、凭据、模型可用性、网络访问和交互行为都会随 operator 环境变化。
+真实 Codex 和 Claude 检查不属于默认门禁。它们是 opt-in release evidence，因为 provider credentials、quota、model access、network behavior、外部 CLI versions 和交互行为都会随 operator environment 变化。这些都是 operator environment concerns，不是 ADP quality guarantees。
 
-这类证据必须与默认门禁证据分开记录。除非该 release 明确声明 real-agent evidence，否则可选真实 CLI 检查失败不应导致默认 release gate 失败。
+这类证据必须与默认门禁证据分开记录。`scripts/check-all.sh` 保持 provider-free。`scripts/real-agent-invocation-smoke.sh` 不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate。除非该 release 明确声明对应 evidence tier，否则可选 real-agent evidence 失败不应导致默认 release gate 失败。
 
-只有在本地 Codex CLI 被明确纳入 release evidence 时，才运行轻量真实 Codex 检查：
+Command availability evidence 使用 runtime smoke 的真实 flag。它确认外部命令存在，并且轻量 `--version` 或 `--help` invocation 可以完成。它不会调用模型，也不能证明 provider account readiness。
 
 ```bash
 ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
-```
-
-只有在本地 Claude CLI 被明确纳入 release evidence 时，才运行轻量真实 Claude 检查：
-
-```bash
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
-真实 CLI smoke 会确认外部命令存在，并且轻量 `--version` 或 `--help` invocation 可以完成。它不能证明完整交互式 agent session、provider 凭据、账号额度、模型选择、外部工具权限或网络路径已经 ready。
+非交互真实模型 invocation evidence 使用专用 invocation smoke。它只证明在当前 operator environment 中，ADP 可以把受限的非交互请求交给已安装的外部 CLI。它可能联系 provider 并消耗 quota。
 
-收集真实 CLI evidence 时，应记录：
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
 
-- 执行过的命令。
+手工交互式 provider acceptance 是第三类独立 operator note，用于真实 `adp run ...` session：
+
+```bash
+adp run codex --workspace <name> --task <task-id> -- <codex-args>
+adp run claude --workspace <name> --task <task-id> -- <claude-args>
+```
+
+任何 release note 如果声明交互式 provider workflow readiness，都必须有手工交互式 evidence。非交互 invocation evidence 不验证交互式 session 质量、provider-native resume、外部工具权限、用户特定 shell startup behavior 或广泛模型表现。
+
+收集可选 real-agent evidence 时，应记录：
+
+- Evidence tier：command availability、非交互 invocation，或手工交互式 acceptance。
+- 执行过的命令，以及已启用的 gate 变量，例如 `ADP_SMOKE_REAL_CODEX=1`、`ADP_SMOKE_REAL_CLAUDE=1`、`ADP_REAL_INVOKE_CODEX=1` 或 `ADP_REAL_INVOKE_CLAUDE=1`。
 - `command -v` 解析到的命令路径，或显式 override 路径。
-- 已启用的 gate 变量，例如 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1`。
 - 可用时记录 Codex 或 Claude CLI 版本；当 `--version` 不支持时，记录第一行 `--help` 输出。
 - smoke 是通过 `--version` 通过，还是回退到 `--help` 通过。
 - 操作系统和 shell。
-- `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 等环境覆盖。
-- 是否完成了单独的手工交互式 session。
+- `ADP_SMOKE_CODEX_BIN`、`ADP_SMOKE_CLAUDE_BIN`、`ADP_REAL_CODEX_BIN`、`ADP_REAL_CLAUDE_BIN`、model overrides、timeout overrides 或 budget overrides 等环境覆盖。
+- 对于非交互 invocation，记录非敏感 session/event evidence 和 project-root cleanliness evidence。
+- 声明时，记录是否完成了单独的手工交互式 session。
 
-任何超出命令可用性的 real-agent compatibility release note，都必须有手工交互式 evidence。不要把凭据、token、账号标识、私有 prompt 或敏感模型输出粘贴到 release notes；只记录非敏感 operator evidence。
+不要把凭据、token、账号标识、私有 prompt 或敏感模型输出粘贴到 release notes；只记录非敏感 operator evidence。完整流程见 [real-agent-compatibility.zh-CN.md](real-agent-compatibility.zh-CN.md)。
 
 ## 失败定位
 
@@ -243,7 +254,9 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 如果 `scripts/install-onboarding-smoke.sh` 失败，优先检查 local build metadata、临时 `GOBIN`、`PATH` ordering、临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、workspace registration、fake Codex path、fake Claude guard、task-bound context、本地 event/session/progress evidence、fake Git tripwire output 和 project-root pollution scan。不能通过要求真实 provider CLI、把 ADP state 写入 project root，或增加 hosted setup steps 来修复 onboarding failures。
 
-如果可选真实 CLI 检查因为缺少 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1` 而失败，应把它视为 operator 尚未显式启用该检查。如果命令不可用，应在该机器上安装外部 CLI，或通过 `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 指向预期命令路径。如果 `--version` 和 `--help` 都失败，应归类为外部 CLI、wrapper 或 operator 环境的 evidence gap，除非确定性 fake gate 或 ADP launch contract 也同时失败。
+如果可选 command availability 检查因为缺少 `ADP_SMOKE_REAL_CODEX=1` 或 `ADP_SMOKE_REAL_CLAUDE=1` 而失败，应把它视为 operator 尚未显式启用该检查。如果命令不可用，应在该机器上安装外部 CLI，或通过 `ADP_SMOKE_CODEX_BIN` 或 `ADP_SMOKE_CLAUDE_BIN` 指向预期命令路径。如果 `--version` 和 `--help` 都失败，应归类为外部 CLI、wrapper 或 operator environment evidence gap，除非确定性 fake gate 或 ADP launch contract 也同时失败。
+
+如果 `scripts/real-agent-invocation-smoke.sh` 因为缺少 `ADP_REAL_INVOKE_CODEX=1` 或 `ADP_REAL_INVOKE_CLAUDE=1` 而失败，应把它视为 operator 尚未显式启用该检查。Authentication、quota、billing、model access、provider response 和 network failures 都属于 operator environment evidence gaps，除非默认 fake gate 或 ADP 的本地 launch/session/project-root cleanliness contract 也失败。手工交互式 provider failures 应记录在 operator acceptance notes 中，不改变默认 release gate。
 
 如果 operator drill 在 smoke 脚本启动前就因为 workspace 无法解析而失败，要区分两个常见情况。`workspace not found: <name>` 表示请求的名称不在本地 registry 中；运行 `adp workspace list`，用 `adp workspace add <name> <project-root>` 添加 workspace，或通过 `--workspace` / `ADP_WORKSPACE` 传入已注册名称。`workspace is required; pass --workspace, set ADP_WORKSPACE, or run from inside a registered project` 表示没有选择 workspace。不要用在项目根目录创建 planning 文件的方式绕过它。
 
@@ -297,14 +310,14 @@ go test -count=1 ./test/e2e
 - packaged CLI artifact 使用 version、commit 和 build-date ldflags 构建，且 `adp version` 报告符合预期。
 - README 和 focused docs 描述当前 CLI surface，且没有 Web、UI、SaaS、cloud sync、hosted tracker、hosted orchestration、automatic Git execution、automatic task closure、provider-native resume 或 project-root report export 偏移。
 - 活跃开发阶段在下一阶段开始前，已有 acceptance、commit 和 successful push 的本地证据，并且 `adp phase status --workspace <name> --format json` 同意下一 planned phase 可以启动。
-- 任何声明的 real-agent compatibility 都有对应的 opt-in real CLI evidence，必要时还有手工交互式验收记录。
+- 任何声明的 real-agent compatibility 都标明 evidence tier，并且每个声明的 tier 都有对应 opt-in evidence：command availability、非交互 invocation，和/或手工交互式 acceptance。
 
 ## 范围之外
 
 发布门禁不验证：
 
-- provider 账号或 billing。
-- 远程模型可用性。
+- provider credentials、账号、quota 或 billing。
+- 远程 model access 或 availability。
 - 外部网络可靠性。
 - 真实交互式 Codex 或 Claude session 质量。
 - 用户特定的 shell startup files。

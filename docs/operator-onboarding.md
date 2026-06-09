@@ -104,11 +104,28 @@ Use `examples/basic-workspace` when you need a copyable configuration reference 
 
 ## Real Providers
 
-Real Codex and Claude runs are opt-in operator checks. Install and authenticate the external CLI on the operator machine first, then run:
+Real Codex and Claude runs are opt-in operator checks. The default onboarding rehearsal above remains provider-free. Provider credentials, quota, model access, network behavior, and external CLI versions are operator environment concerns, not ADP quality guarantees.
+
+For command availability evidence, intentionally enable the runtime smoke real flags. These checks confirm that the external command is present and can answer a lightweight `--version` or `--help` probe; they do not invoke a model.
+
+```bash
+ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
+ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
+```
+
+For non-interactive real model invocation evidence, intentionally enable the dedicated invocation smoke. It may contact external providers and consume quota. It is not part of `scripts/check-all.sh` and must not become a default CI or release gate.
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
+
+Manual interactive provider acceptance is separate from both smoke paths. Install and authenticate the external CLI on the operator machine first, then run:
 
 ```bash
 adp_local run codex --workspace game-a -- <codex-args>
 adp_local run claude --workspace game-a -- <claude-args>
 ```
 
-Arguments after `--` are provider-specific. ADP forwards them but does not define their safety, model availability, network behavior, or authentication state.
+Arguments after `--` are provider-specific. ADP forwards them but does not define their safety, model availability, quota use, network behavior, authentication state, or interactive session quality. Keep any operator acceptance notes non-sensitive and do not record credentials, tokens, account identifiers, private prompts, or sensitive model output. For the full compatibility procedure, see [real-agent-compatibility.md](real-agent-compatibility.md).
