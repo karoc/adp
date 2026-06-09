@@ -50,6 +50,7 @@ func TestSymlinkBackendGeneratedReservedPathsWinOverProjectConflicts(t *testing.
 	projectRoot := t.TempDir()
 	writeProjectFile(t, projectRoot, "AGENTS.md", []byte("real agents\n"))
 	writeProjectFile(t, projectRoot, filepath.Join(".codex", "config.toml"), []byte("real codex\n"))
+	writeProjectFile(t, projectRoot, filepath.Join(".codex", "local.toml"), []byte("project local codex\n"))
 
 	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
 	result, err := NewSymlinkBackend().Materialize(context.Background(), Request{
@@ -67,10 +68,37 @@ func TestSymlinkBackendGeneratedReservedPathsWinOverProjectConflicts(t *testing.
 
 	assertFileContent(t, filepath.Join(runtimeRoot, "AGENTS.md"), "adp agents\n")
 	assertFileContent(t, filepath.Join(runtimeRoot, ".codex", "config.toml"), "adp codex\n")
+	assertSymlinkTarget(t, filepath.Join(runtimeRoot, ".codex", "local.toml"), filepath.Join(projectRoot, ".codex", "local.toml"))
 	assertFileContent(t, filepath.Join(projectRoot, "AGENTS.md"), "real agents\n")
 	assertFileContent(t, filepath.Join(projectRoot, ".codex", "config.toml"), "real codex\n")
 	assertNotSymlink(t, filepath.Join(runtimeRoot, ".codex"))
-	assertConflictPaths(t, result.Conflicts, "AGENTS.md", ".codex")
+	assertConflictPaths(t, result.Conflicts, "AGENTS.md", filepath.Join(".codex", "config.toml"))
+}
+
+func TestSymlinkBackendMergesGeneratedDirectoriesWithProjectChildren(t *testing.T) {
+	projectRoot := t.TempDir()
+	writeProjectFile(t, projectRoot, filepath.Join(".claude", "settings.json"), []byte("project settings\n"))
+	writeProjectFile(t, projectRoot, filepath.Join(".claude", "settings.local.json"), []byte("project local settings\n"))
+	writeProjectFile(t, projectRoot, filepath.Join(".claude", "commands", "review.md"), []byte("review command\n"))
+
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	result, err := NewSymlinkBackend().Materialize(context.Background(), Request{
+		WorkspaceName: "game-a",
+		ProjectRoot:   projectRoot,
+		RuntimeRoot:   runtimeRoot,
+		Files: []adapters.GeneratedFile{
+			{Path: ".claude/settings.json", Data: []byte("adp settings\n")},
+		},
+	})
+	if err != nil {
+		t.Fatalf("materialize: %v", err)
+	}
+
+	assertFileContent(t, filepath.Join(runtimeRoot, ".claude", "settings.json"), "adp settings\n")
+	assertSymlinkTarget(t, filepath.Join(runtimeRoot, ".claude", "settings.local.json"), filepath.Join(projectRoot, ".claude", "settings.local.json"))
+	assertSymlinkTarget(t, filepath.Join(runtimeRoot, ".claude", "commands"), filepath.Join(projectRoot, ".claude", "commands"))
+	assertFileContent(t, filepath.Join(projectRoot, ".claude", "settings.json"), "project settings\n")
+	assertConflictPaths(t, result.Conflicts, filepath.Join(".claude", "settings.json"))
 }
 
 func TestSymlinkBackendRejectsUnsafeGeneratedFilePaths(t *testing.T) {

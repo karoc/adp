@@ -126,6 +126,7 @@ func TestRegistryDiagnoseReportsProjectReservedPaths(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(projectRoot, ".codex"), 0o755); err != nil {
 		t.Fatalf("create .codex: %v", err)
 	}
+	writeFile(t, filepath.Join(projectRoot, ".codex", "config.toml"), "project codex\n")
 	if err := os.Mkdir(filepath.Join(projectRoot, "planning"), 0o755); err != nil {
 		t.Fatalf("create planning: %v", err)
 	}
@@ -145,9 +146,35 @@ func TestRegistryDiagnoseReportsProjectReservedPaths(t *testing.T) {
 	}
 
 	assertDiagnostic(t, report, DiagnosticCodeProjectRootReservedPath, DiagnosticLevelWarning, filepath.Join(projectRoot, "AGENTS.md"))
-	assertDiagnostic(t, report, DiagnosticCodeProjectRootReservedPath, DiagnosticLevelWarning, filepath.Join(projectRoot, ".codex"))
+	assertDiagnostic(t, report, DiagnosticCodeProjectRootReservedPath, DiagnosticLevelWarning, filepath.Join(projectRoot, ".codex", "config.toml"))
 	assertDiagnostic(t, report, DiagnosticCodeProjectRootReservedPath, DiagnosticLevelWarning, filepath.Join(projectRoot, "planning"))
 	assertNoDiagnosticPath(t, report, DiagnosticCodeProjectRootReservedPath, filepath.Join(projectRoot, "CLAUDE.md"))
+}
+
+func TestRegistryDiagnoseAllowsProviderLocalProjectFiles(t *testing.T) {
+	registry, _ := newTestRegistry(t)
+	projectRoot := createProject(t)
+	if err := os.Mkdir(filepath.Join(projectRoot, ".codex"), 0o755); err != nil {
+		t.Fatalf("create .codex: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(projectRoot, ".claude"), 0o755); err != nil {
+		t.Fatalf("create .claude: %v", err)
+	}
+	writeFile(t, filepath.Join(projectRoot, ".codex", "local.toml"), "project local codex\n")
+	writeFile(t, filepath.Join(projectRoot, ".claude", "settings.local.json"), "project local claude\n")
+
+	if _, err := registry.Add(context.Background(), "game-a", projectRoot); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	report, err := registry.Diagnose(context.Background(), "game-a")
+	if err != nil {
+		t.Fatalf("Diagnose() error = %v", err)
+	}
+
+	assertNoDiagnosticPath(t, report, DiagnosticCodeProjectRootReservedPath, filepath.Join(projectRoot, ".codex"))
+	assertNoDiagnosticPath(t, report, DiagnosticCodeProjectRootReservedPath, filepath.Join(projectRoot, ".codex", "local.toml"))
+	assertNoDiagnosticPath(t, report, DiagnosticCodeProjectRootReservedPath, filepath.Join(projectRoot, ".claude"))
+	assertNoDiagnosticPath(t, report, DiagnosticCodeProjectRootReservedPath, filepath.Join(projectRoot, ".claude", "settings.local.json"))
 }
 
 func TestRegistryDiagnoseReportsSymlinkResourceEscapes(t *testing.T) {

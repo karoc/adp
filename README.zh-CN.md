@@ -132,7 +132,7 @@ test -z "$ROOT_LEAKS"
 └── internal -> /srv/game-a/internal
 ```
 
-Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 symlink 进入 runtime root。ADP 生成路径在 runtime 视图中优先，原始项目目录不会被修改。
+Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 symlink 进入 runtime root。ADP 生成路径在 runtime 视图中优先，原始项目目录不会被修改。当项目已经存在 `.codex/` 或 `.claude/` 等 provider-local configuration directories 时，非冲突子文件仍会在 runtime overlay 中可见；ADP 只在 `.codex/config.toml` 和 `.claude/settings.json` 等精确生成路径上优先。
 
 `adp env <workspace> --cd` 会输出 POSIX shell exports，并保留 runtime overlay，适合 shell-hook 工作流让调用方 shell 进入 runtime。
 

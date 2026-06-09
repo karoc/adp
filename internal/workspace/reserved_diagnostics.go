@@ -19,11 +19,11 @@ var globalProjectReservedPaths = []string{
 var agentProjectReservedPaths = map[string][]string{
 	"codex": {
 		"AGENTS.md",
-		".codex",
+		".codex/config.toml",
 	},
 	"claude": {
 		"CLAUDE.md",
-		".claude",
+		".claude/settings.json",
 	},
 }
 

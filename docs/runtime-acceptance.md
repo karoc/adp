@@ -119,6 +119,8 @@ The script also asserts that the real project root is not polluted with ADP runt
 - `phases.yaml`.
 - `progress.jsonl`.
 
+The fake smoke uses a clean temporary project root for this pollution check. In real projects that already contain provider-local directories such as `.codex/` or `.claude/`, ADP should preserve non-conflicting children in the runtime overlay while still warning only on exact ADP-generated paths such as `.codex/config.toml` or `.claude/settings.json`.
+
 ## Runtime Context Audit
 
 [docs/runtime-context-audit.md](runtime-context-audit.md) documents the launch-time context an agent sees inside an ADP runtime overlay: generated instruction files, adapter config files, selected profile, base prompt, shared memory, MCP references, task metadata, runtime environment variables, local event/session evidence, and project-root cleanliness.

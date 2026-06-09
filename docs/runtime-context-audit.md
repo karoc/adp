@@ -39,6 +39,8 @@ $ADP_RUNTIME_DIR/<workspace>-<session>/
 
 A Claude launch sees the same runtime model with `CLAUDE.md` and `.claude/settings.json` instead of `AGENTS.md` and `.codex/config.toml`.
 
+If the real project already has provider-local configuration directories such as `.codex/` or `.claude/`, ADP merges non-conflicting children into the runtime overlay. For example, project-owned `.claude/settings.local.json` remains visible to a Claude runtime, while ADP-generated `.claude/settings.json` wins over any project file at that exact path. Conflicts are runtime evidence; the real project directory is not modified.
+
 The generated `.adp-runtime.yaml` manifest records ADP ownership and cleanup metadata: manifest version, session ID, workspace name, optional task ID and title, project root, runtime root, creation time, keep flag, and `generated_by: adp`. Runtime pruning uses this manifest as compatibility evidence before deleting an ADP-owned runtime directory.
 
 ## Instruction Files
@@ -74,6 +76,8 @@ The Codex metadata contains an `[adp]` table with adapter name, workspace name, 
 The Claude metadata contains an `adp` JSON object with adapter name, workspace name, project root, effective profile, memory enabled state, MCP enabled state, and a task object when a task is bound.
 
 These files are ADP metadata, not a full or current declaration of either external provider CLI's native configuration schema. External CLI authentication, model selection, network behavior, tool permissions, and prompt interpretation remain owned by the external command and the local operator.
+
+Project-owned provider-local files that do not collide with these exact generated paths are linked into the runtime overlay. This preserves existing local provider configuration without letting project files override ADP's runtime metadata.
 
 ## Profile, Prompt, Memory, And MCP
 

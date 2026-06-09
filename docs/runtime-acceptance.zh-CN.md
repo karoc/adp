@@ -119,6 +119,8 @@ fake Codex 和 Claude 命令会断言：
 - `phases.yaml`。
 - `progress.jsonl`。
 
+fake smoke 会使用干净的临时 project root 做这项污染检查。对于已经包含 `.codex/` 或 `.claude/` 等 provider-local directories 的真实项目，ADP 应在 runtime overlay 中保留非冲突子文件，同时只对 `.codex/config.toml` 或 `.claude/settings.json` 等 ADP 精确生成路径发出 warning。
+
 ## Runtime Context 审计
 
 [docs/runtime-context-audit.zh-CN.md](runtime-context-audit.zh-CN.md) 记录 Agent 在 ADP runtime overlay 中启动时可见的上下文：generated instruction files、adapter config files、selected profile、base prompt、shared memory、MCP references、task metadata、runtime environment variables、本地 event/session evidence，以及 project-root cleanliness。

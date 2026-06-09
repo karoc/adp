@@ -103,6 +103,8 @@ The generated `CLAUDE.md` contains ADP runtime instructions assembled from the w
 
 The generated `.claude/settings.json` contains ADP metadata for the runtime session. It is an ADP-generated file and should not be treated as a complete statement of the external Claude CLI's current settings schema.
 
+If the real project already has provider-local configuration such as `.claude/settings.local.json`, ADP preserves non-conflicting files in the runtime overlay. ADP-generated metadata still wins at the exact `.claude/settings.json` path so a project file cannot override the runtime session metadata.
+
 ADP forwards `--` arguments directly:
 
 ```bash

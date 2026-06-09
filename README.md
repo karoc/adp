@@ -132,7 +132,7 @@ When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the
 └── internal -> /srv/game-a/internal
 ```
 
-Agent-specific files are generated from the ADP workspace config. Real project files are linked into the runtime root. ADP-generated paths take priority inside the runtime view, and the original project directory is not modified.
+Agent-specific files are generated from the ADP workspace config. Real project files are linked into the runtime root. ADP-generated paths take priority inside the runtime view, and the original project directory is not modified. When a project already has provider-local configuration directories such as `.codex/` or `.claude/`, non-conflicting children remain visible in the runtime overlay; ADP wins only at exact generated paths such as `.codex/config.toml` and `.claude/settings.json`.
 
 `adp env <workspace> --cd` prints POSIX shell exports for a kept runtime overlay. This is intended for shell-hook workflows and leaves the runtime directory in place so the calling shell can enter it.
 

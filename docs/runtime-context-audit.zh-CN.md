@@ -39,6 +39,8 @@ $ADP_RUNTIME_DIR/<workspace>-<session>/
 
 Claude 启动使用相同 runtime 模型，但看到的是 `CLAUDE.md` 和 `.claude/settings.json`，而不是 `AGENTS.md` 和 `.codex/config.toml`。
 
+如果真实项目已经存在 `.codex/` 或 `.claude/` 等 provider-local configuration directories，ADP 会把非冲突子文件合并进 runtime overlay。例如，项目拥有的 `.claude/settings.local.json` 在 Claude runtime 中仍然可见，而 ADP 生成的 `.claude/settings.json` 会在这个精确路径上优先于项目文件。冲突会作为 runtime evidence 记录；真实项目目录不会被修改。
+
 生成的 `.adp-runtime.yaml` manifest 会记录 ADP ownership 和 cleanup metadata：manifest version、session ID、workspace name、可选 task ID 和 title、project root、runtime root、创建时间、keep flag，以及 `generated_by: adp`。Runtime pruning 会先把该 manifest 作为 compatibility evidence，再删除 ADP-owned runtime 目录。
 
 ## 指令文件
@@ -74,6 +76,8 @@ Codex metadata 包含一个 `[adp]` table，其中有 adapter name、workspace n
 Claude metadata 包含一个 `adp` JSON object，其中有 adapter name、workspace name、project root、effective profile、memory enabled state、MCP enabled state，以及绑定 task 时的 task object。
 
 这些文件是 ADP metadata，不是任何外部 provider CLI 当前原生配置 schema 的完整声明。外部 CLI authentication、model selection、network behavior、tool permissions 和 prompt interpretation 仍由外部命令和本地 operator 负责。
+
+不与这些精确生成路径冲突的项目 provider-local files 会被链接进 runtime overlay。这样可以保留既有本地 provider 配置，同时不允许项目文件覆盖 ADP runtime metadata。
 
 ## Profile、Prompt、Memory 与 MCP
 

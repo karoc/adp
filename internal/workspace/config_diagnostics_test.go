@@ -244,9 +244,9 @@ func TestRegistryDiagnoseReportsEveryReservedProjectRootPath(t *testing.T) {
 		{rel: "phases.yaml"},
 		{rel: "progress.jsonl"},
 		{rel: "AGENTS.md"},
-		{rel: ".codex", dir: true},
+		{rel: filepath.Join(".codex", "config.toml")},
 		{rel: "CLAUDE.md"},
-		{rel: ".claude", dir: true},
+		{rel: filepath.Join(".claude", "settings.json")},
 	}
 	for _, reserved := range reservedPaths {
 		path := filepath.Join(projectRoot, reserved.rel)
@@ -255,6 +255,9 @@ func TestRegistryDiagnoseReportsEveryReservedProjectRootPath(t *testing.T) {
 				t.Fatalf("create reserved directory %s: %v", reserved.rel, err)
 			}
 			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("create parent for reserved path %s: %v", reserved.rel, err)
 		}
 		writeFile(t, path, "reserved\n")
 	}

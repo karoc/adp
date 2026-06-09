@@ -103,6 +103,8 @@ claude
 
 生成的 `.claude/settings.json` 包含本次 runtime session 的 ADP metadata。它是 ADP 生成文件，不应被视为外部 Claude CLI 当前 settings schema 的完整声明。
 
+如果真实项目已经存在 `.claude/settings.local.json` 等 provider-local configuration，ADP 会在 runtime overlay 中保留非冲突文件。ADP 生成的 metadata 仍会在精确的 `.claude/settings.json` 路径上优先，避免项目文件覆盖本次 runtime session metadata。
+
 ADP 会直接透传 `--` 之后的参数：
 
 ```bash
