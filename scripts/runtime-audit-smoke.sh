@@ -253,11 +253,15 @@ assert_help "completion values help" "adp completion values <agents|workspaces|p
 assert_help "events help" "adp events list" events --help
 assert_help "events list help" "adp events list" events list --help
 assert_help "sessions help" "adp sessions restore-plan" sessions --help
+assert_help "sessions help restore note" "restore-plan - print read-only rerun guidance" sessions --help
 assert_help "sessions restore-plan help" "adp sessions restore-plan <session-id>" sessions restore-plan --help
 assert_help "runtime help" "adp runtime prune" runtime --help
 assert_help "runtime prune help" "adp runtime prune" runtime prune --help
 assert_help "tasks help" "adp tasks next" tasks --help
 assert_help "tasks help take" "adp tasks take" tasks --help
+assert_help "tasks help board description" "manage the local workspace task board" tasks --help
+assert_help "tasks help take description" "take - atomically claim next work" tasks --help
+assert_help "tasks help stale description" "stale - inspect expired in-progress claims" tasks --help
 assert_help "tasks add help" "adp tasks add" tasks add --help
 assert_help "tasks take help" "adp tasks take" tasks take --help
 assert_help "tasks claim help" "adp tasks claim" tasks claim --help
@@ -266,8 +270,11 @@ assert_help "tasks help stale" "adp tasks stale" tasks --help
 assert_help "tasks renew help" "adp tasks renew" tasks renew --help
 assert_help "tasks stale help" "adp tasks stale" tasks stale --help
 assert_help "plan help" "adp plan preview" plan --help
+assert_help "plan help preview description" "preview - validate plan input without writing" plan --help
 assert_help "plan doctor help" "adp plan doctor" plan doctor --help
 assert_help "phase help" "adp phase accept" phase --help
+assert_help "phase help evidence description" "accept - record validation evidence" phase --help
+assert_help "phase help push description" "push - record push evidence" phase --help
 assert_help "phase commit help" "adp phase commit" phase commit --help
 assert_help "progress help" "adp progress report" progress --help
 assert_help "progress report help" "adp progress report" progress report --help

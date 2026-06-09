@@ -155,6 +155,7 @@ cat > "${ADP_REHEARSAL_ROOT}/fake-bin/codex" <<'SH'
 printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
 test -n "${ADP_SESSION_ID:-}"
 test -n "${ADP_RUNTIME_ROOT:-}"
+test -n "${ADP_TASK_ID:-}"
 test "$(pwd)" = "$ADP_RUNTIME_ROOT"
 test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
 SH
@@ -169,16 +170,23 @@ adp workspace doctor game-a
 adp doctor game-a
 TASK_ID=$(adp tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 test -n "$TASK_ID"
-adp run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
+adp tasks next --workspace game-a --format json
+adp run codex --workspace game-a --take --owner first-agent --lease 30m -- --example-smoke
+adp tasks renew --workspace game-a "$TASK_ID" --owner first-agent --lease 30m
+adp tasks stale --workspace game-a --format json
+adp progress report --workspace game-a --format json
+SESSION_ID=$(adp sessions list --workspace game-a --agent codex --task "$TASK_ID" | sed -n '2s/ .*//p')
+test -n "$SESSION_ID"
+adp sessions restore-plan "$SESSION_ID"
+adp plan doctor --workspace game-a --format json
 adp events list --workspace game-a --task "$TASK_ID" --limit 5
 adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
-adp plan doctor --workspace game-a --format json
 adp progress --workspace game-a --format json
 ROOT_LEAKS="$(find "${ADP_REHEARSAL_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name .adp-runtime.yaml -o -name planning -o -name tasks.yaml -o -name phases.yaml -o -name progress.jsonl \) -print)"
 test -z "$ROOT_LEAKS"
 ```
 
-最后的 project-root 泄漏检查应该通过且没有输出。这次演练会把 ADP 状态放在临时 `$ADP_HOME` 下，把 runtime overlay 放在临时 `$ADP_RUNTIME_DIR` 下，使用 fake local `codex`，不会运行 Git，也不会把 planning 或 report export 写入 project root。
+最后的 project-root 泄漏检查应该通过且没有输出。这次演练会把 ADP 状态放在临时 `$ADP_HOME` 下，把 runtime overlay 放在临时 `$ADP_RUNTIME_DIR` 下，使用 fake local `codex`，不会运行 Git，也不会把 planning 或 report export 写入 project root。可见的任务流是：用 `tasks next` 做只读选择，用 `run --take --owner --lease` 在启动时原子领取任务，用 `tasks renew` 和 `tasks stale` 维护 lease，用 `progress report` 交接上下文，用 `sessions restore-plan` 获取只读重启建议，并用 `plan doctor` 做本地 ledger diagnostics。
 
 ## Bootstrap Workspace
 
@@ -217,6 +225,13 @@ adp env game-a --cd
 ```bash
 adp run codex --workspace game-a -- <agent-args>
 adp run claude --workspace game-a -- <agent-args>
+```
+
+当 Agent 应在启动时领取下一项符合条件的 ADP task，可以把领取和 runtime 创建放在同一个命令里：
+
+```bash
+adp run codex --workspace game-a --take --owner codex-main --lease 4h -- <agent-args>
+adp run claude --workspace game-a --take --owner claude-main --lease 4h -- <agent-args>
 ```
 
 这些命令需要已安装并完成认证的对应外部 CLI。`--` 之后的参数会透传给外部 agent 命令。ADP 不定义某个外部 CLI 支持或安全的具体参数；这需要在 operator 机器上用已安装的 CLI 验证。默认不依赖 provider 的验证路径使用上面的隔离演练。当你需要一份包含 Codex 和 Claude profile、base prompt、shared memory 与 MCP 设置的可复制 workspace 配置时，再使用 `examples/basic-workspace` 和 `scripts/example-workspace-smoke.sh`。

@@ -804,6 +804,10 @@ Phase process gate：
 
 后续工作按“是否能增强 ADP 的 terminal-first runtime 和 workspace 管理闭环”排序，同时避免偏向 hosted project management 或 dashboard。
 
+ADP planning ledger 是 task、phase、acceptance、commit 和 push 状态的权威来源。本文档只是面向人的 roadmap 摘要；如果它与 `adp phase status`、`adp phase list`、`adp tasks list` 或 `adp plan doctor` 不一致，应以 `$ADP_HOME` 下的本地 ledger 为准，并更新本文档摘要。
+
+根据 2026-06-09 的本地 ledger 快照：到 P46 为止的已完成切片都已 pushed，P47 是当前 active 的 trial-readiness polish 切片。下面的未来 backlog 只是候选项；执行前必须先创建明确的 ADP phase 和 task。
+
 - P0 已完成：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
 - P1 已完成：Runtime task binding。增加 `adp run <agent> --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
 - P2 已完成：Early preview hardening。动态 agent/workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明已纳入聚合门禁和 runtime smoke。
@@ -835,8 +839,29 @@ Phase process gate：
 - P23 line pressure audit tooling 已完成：`scripts/check-file-lines.sh --audit` 会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的文件，默认阈值为 600，并以退出码 0 结束，便于在触及 700 行硬限制前规划拆分阶段。必跑的 `scripts/check-file-lines.sh` 硬门禁和 `scripts/check-all.sh` pass/fail 语义保持不变。
 - P24 phase gate status and ordering hardening 已完成：`adp phase status [--workspace <name>] [--format text|json]` 暴露只读本地 gate snapshot；新 phase 带有显式本地 order；phase start 会拒绝跳过更早 planned 或 unfinished phases；successful push evidence 不能被 failed push evidence 覆盖。
 - P25 shell completion renderer split 已完成：bash 和 zsh completion rendering 已拆到按 shell 区分的文件中，同时 `RenderCompletion`、command-name validation、基于 metadata 的候选项、动态本地 value endpoints 以及公开 `adp completion` 行为保持不变。该阶段只属于维护性的 line-pressure 工作，不新增命令、shell 类型、Web/SaaS 行为、automatic Git execution、hosted orchestration、provider-native resume 或 project-root exports。
-- P40 deep shell completion hardening 已完成：bash 和 zsh completion 现在通过只读 `adp completion values` 端点覆盖本地 task ID、phase ID、session ID、task owner 和 task status。端点只读取 `$ADP_HOME` 下的 planning 或 event 状态；不会修改 task、phase、runtime overlay、provider、Git 或 project root。
 - P26 planning ledger doctor 已完成：`adp plan doctor [--workspace <name>] [--format text|json]` 会报告 task、phase、progress-log、lock 和 phase-gate invariants 的只读本地 diagnostics；error diagnostics 返回退出码 `2`；focused tests 和 task-manager smoke 覆盖健康与坏账本路径，并且不做 automatic repair、Git execution、runtime mutation、hosted tracker sync 或 project-root exports。
-- 已完成的 Phase 1 slices 保持同一组非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
+- P27-P39 release、runtime、operator 和 provider-compatibility hardening 已完成：real CLI acceptance runbooks、adapter extension boundaries、runtime audit polish、release readiness 和 rehearsal evidence、preview artifact dry runs、operator onboarding、runtime-context configuration audit、AGENTS guide consistency、真实 Codex/Claude invocation evidence、release-evidence alignment，以及 project provider-config overlay compatibility 都已完成验证并 pushed，同时保留 local-first 边界。
+- P40 deep shell completion hardening 已完成：bash 和 zsh completion 现在通过只读 `adp completion values` 端点覆盖本地 task ID、phase ID、session ID、task owner 和 task status。端点只读取 `$ADP_HOME` 下的 planning 或 event 状态；不会修改 task、phase、runtime overlay、provider、Git 或 project root。
+- P41 runtime planning contract and taskbox bridge 已完成：生成给 Codex、Claude 和未来 adapter 的 runtime instructions 现在会声明 ADP 是权威 task ledger，暴露 `ADP_CLI`，并允许 provider 原生 task panel mirror 当前 ADP task，但不能成为 durable planning store。
+- P42 tool plan mode bridge 已完成：provider 原生 plan mode 只作为 proposal 和 scratch view；`adp plan preview` 保持只读，`adp plan apply` 必须经过显式批准后才会修改本地 ADP ledger。
+- P43 atomic task take 已完成：`adp tasks take` 会在本地 planning lock 下领取下一个 eligible task，并处理 owner 和 lease，确保多个 Agent 从同一 task board 取任务时不会重复占有。
+- P44 run take bridge 已完成：`adp run <agent> --take` 可以在启动 Agent 时原子领取任务，把选中的 task 绑定到 runtime context 和 events，并且与 `--task` 互斥，同时避免 automatic task completion 或 Git side effects。
+- P45 task lease maintenance 已完成：`adp tasks renew` 会带 owner 校验地延长 active ownership；`adp tasks stale` 会列出过期的 in-progress claims，便于恢复，同时不修改状态也不抓取 provider-private sessions。
+- P46 lease-aware runtime handoff polish 已完成：task owner、claim time 和 lease expiration 现在会进入生成的 runtime instructions、environment、manifest 和 run-event snapshots，让 Agent 能通过 ADP 续租、检查 stale work 并进行恢复交接。
+
+当前 active 切片：
+
+- P47 trial readiness and docs usability polish 正在进行：把 roadmap 和 command-surface 文档与当前 CLI 对齐，增加友好的 first-trial workflow，验证 local-first trial path，并让产品更容易理解，同时不增加 Web UI、SaaS sync、hosted orchestration、automatic Git execution、automatic task closure、provider-private state scraping 或 project-root planning/runtime files。
+
+P47 之后的优先级候选 backlog：
+
+- 高：Preview release candidate evidence。准备 `v0.1.0-preview` 风格的 release slice，包含本地 artifact evidence、install verification、release notes 和面向 operator 的 acceptance records，同时保持 Git tag 和 push 都是手动且显式的操作。
+- 高：Task-board visibility polish。在 `tasks next`、`progress report` 和 operator docs 等只读 planning view 中更清晰地展示 owner、claim、lease 和 stale-work 线索，让交接在启动 Agent 前就容易理解。
+- 高：First-trial runtime smoke consolidation。用一条清晰的 acceptance path 覆盖 init、workspace setup、task creation、task take、lease renewal、stale inspection、progress report、restore-plan 和 project-root cleanliness，保持友好 trial workflow 可重复且 provider-free。
+- 中：Generic adapter contract。在 Codex/Claude 路径达到 trial-ready 后，定义面向未来工具的稳定 adapter boundary，但不加入 provider-private state scraping 或 provider-native resume 语义。
+- 中：Recovery drill polish。文档化并测试 interrupted-agent recovery，通过 `tasks stale`、显式 reclaim、`sessions restore-plan` 和 `run --take` 完成交接，确保每条恢复路径仍以 ADP 为权威并需要 operator 批准。
+- 低：Local replay proposal。可以考虑未来增加一个从 ADP-owned invocation evidence 启动新本地 run 的命令，但只能作为显式 proposal/execution flow，不能成为 provider-native conversation resume。
+
+已完成的 Phase 1 slices 和未来候选项保持同一组非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
 每个阶段切片必须先完成 validation、acceptance、commit、push 和 evidence record，然后再开始下一阶段。

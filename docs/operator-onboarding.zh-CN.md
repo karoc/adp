@@ -41,7 +41,7 @@ adp_local version
 
 ## 隔离首次运行
 
-在确认安装路径可信前，先使用临时状态。这次演练会注册一个临时 workspace，运行 fake `codex` provider，记录本地 events 和 sessions，并验证 project root 保持干净。
+在确认安装路径可信前，先使用临时状态。这次演练会注册一个临时 workspace，检查任务看板，通过原子 `run --take` 运行 fake `codex` provider，记录本地 events 和 sessions，检查 lease 维护，并验证 project root 保持干净。
 
 ```bash
 ADP_ONBOARDING_ROOT="$(mktemp -d)"
@@ -56,6 +56,7 @@ cat > "${ADP_ONBOARDING_ROOT}/fake-bin/codex" <<'SH'
 printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
 test -n "${ADP_SESSION_ID:-}"
 test -n "${ADP_RUNTIME_ROOT:-}"
+test -n "${ADP_TASK_ID:-}"
 test "$(pwd)" = "$ADP_RUNTIME_ROOT"
 test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
 test -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
@@ -73,10 +74,25 @@ adp_local version
 
 TASK_ID=$(adp_local tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 test -n "$TASK_ID"
-adp_local run codex --workspace game-a --task "$TASK_ID" -- --onboarding-smoke
+adp_local tasks next --workspace game-a --format json
+adp_local run codex --workspace game-a --take --owner first-agent --lease 30m -- --onboarding-smoke
+adp_local tasks show --workspace game-a "$TASK_ID"
+adp_local tasks renew --workspace game-a "$TASK_ID" --owner first-agent --lease 30m
+adp_local tasks stale --workspace game-a --format json
+adp_local progress report --workspace game-a --format json
+SESSION_ID=$(adp_local sessions list --workspace game-a --agent codex --task "$TASK_ID" | sed -n '2s/ .*//p')
+test -n "$SESSION_ID"
+adp_local sessions restore-plan "$SESSION_ID"
+adp_local plan doctor --workspace game-a --format json
+
+BOARD_TASK_ID=$(adp_local tasks add --workspace game-a --priority normal "Validate board pickup" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+test -n "$BOARD_TASK_ID"
+TAKEN_ID=$(adp_local tasks take --workspace game-a --owner second-agent --lease 30m | sed -n 's/^task \(task-[^ ]*\) taken .*/\1/p')
+test -n "$TAKEN_ID"
+adp_local tasks release --workspace game-a "$TAKEN_ID" --owner second-agent
+adp_local tasks done --workspace game-a "$TASK_ID"
 adp_local events list --workspace game-a --task "$TASK_ID" --limit 5
 adp_local sessions list --workspace game-a --agent codex --task "$TASK_ID"
-adp_local plan doctor --workspace game-a --format json
 adp_local progress --workspace game-a --format json
 adp_local runtime prune --older-than 24h --dry-run
 
@@ -84,7 +100,7 @@ ROOT_LEAKS="$(find "${ADP_ONBOARDING_ROOT}/project" -maxdepth 2 \( -name AGENTS.
 test -z "$ROOT_LEAKS"
 ```
 
-最后一条命令应该成功，并且不会打印 project-root 泄漏项。ADP 状态位于临时 `$ADP_HOME`，runtime overlay 位于临时 `$ADP_RUNTIME_DIR`，provider 命令是本地 fake `codex` 脚本。
+最后一条命令应该成功，并且不会打印 project-root 泄漏项。ADP 状态位于临时 `$ADP_HOME`，runtime overlay 位于临时 `$ADP_RUNTIME_DIR`，provider 命令是本地 fake `codex` 脚本。演练中的只读 inspection 命令包括 `tasks next`、`tasks stale`、`progress report`、`sessions list`、`sessions restore-plan`、`plan doctor`、`events list` 和 `progress`；会修改本地 ledger 的命令包括 `tasks add`、`run --take`、`tasks renew`、`tasks take`、`tasks release` 和 `tasks done`。
 
 ## 切换到持久本地使用
 

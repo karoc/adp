@@ -8,7 +8,7 @@ ADP keeps AI agent configuration outside the project directory, then builds a te
 
 ## Current MVP
 
-Implemented Phase 1 foundations:
+Implemented Phase 1 foundations. If you are trying ADP for the first time, start with [Quick Start](#quick-start); the list below is the command reference snapshot.
 
 - `adp init`
 - `adp workspace add <name> <project-root>`
@@ -29,14 +29,14 @@ Implemented Phase 1 foundations:
 - `adp sessions restore-plan <session-id>`
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 - `adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>`
-- `adp tasks list/next/show/update/claim/release/done/block`
+- `adp tasks list/next/take/stale/show/update/claim/renew/release/done/block`
 - `adp plan preview [--workspace <name>] --file <path|-> [--format <text|json>]`
 - `adp plan apply [--workspace <name>] --file <path|-> [--format <text|json>]`
 - `adp plan doctor [--workspace <name>] [--format <text|json>]`
 - `adp phase add/list/show/status/start/accept/commit/push`
 - `adp progress [--workspace <name>] [--format <text|json>]`
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format <markdown|json>]`
-- `adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>] [--keep-runtime] [-- <agent-args>...]`
+- `adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>|--take --owner <owner> [--lease <duration>]] [--keep-runtime] [-- <agent-args>...]`
 - `adp enter <workspace> [--keep-runtime]`
 - local workspace registry under `$ADP_HOME`
 - symlink-based runtime overlay under `$ADP_RUNTIME_DIR`
@@ -53,7 +53,7 @@ For installation and bootstrap details, see [docs/install.md](docs/install.md). 
 
 Choose a source, built-binary, or temporary-install path first. The smoke-first path below builds a local binary and uses `ADP_BIN`; for a release artifact, set `ADP_BIN` to the installed artifact path. To run from source during development, replace `"$ADP_BIN" <command>` with `go run ./cmd/adp <command>`.
 
-The rehearsal uses temporary ADP state, a temporary project root, and a fake `codex` command. It does not require real Codex or Claude CLIs, does not run Git, and should leave the real project root free of ADP-generated files.
+The rehearsal uses temporary ADP state, a temporary project root, and a fake `codex` command. It does not require real Codex or Claude CLIs, does not run Git, and should leave the real project root free of ADP-generated files. The flow is intentionally close to mature CLI quickstarts: install one command, initialize local state, add a workspace, inspect before mutating, atomically take work when launching an agent, then verify local evidence.
 
 ```bash
 mkdir -p bin
@@ -73,6 +73,7 @@ cat > "${ADP_SMOKE_ROOT}/fake-bin/codex" <<'SH'
 printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
 test -n "${ADP_SESSION_ID:-}"
 test -n "${ADP_RUNTIME_ROOT:-}"
+test -n "${ADP_TASK_ID:-}"
 test "$(pwd)" = "$ADP_RUNTIME_ROOT"
 test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
 test -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
@@ -94,14 +95,28 @@ export PATH="${ADP_SMOKE_ROOT}/fake-bin:${PATH}"
 TASK_ID=$("$ADP_BIN" tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 test -n "$TASK_ID"
 "$ADP_BIN" completion values tasks --workspace game-a
-"$ADP_BIN" run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
+"$ADP_BIN" tasks next --workspace game-a --format json
+"$ADP_BIN" run codex --workspace game-a --take --owner first-agent --lease 30m -- --example-smoke
+"$ADP_BIN" tasks show --workspace game-a "$TASK_ID"
+"$ADP_BIN" tasks renew --workspace game-a "$TASK_ID" --owner first-agent --lease 30m
+"$ADP_BIN" tasks stale --workspace game-a --format json
+"$ADP_BIN" progress report --workspace game-a --format json
+SESSION_ID=$("$ADP_BIN" sessions list --workspace game-a --agent codex --task "$TASK_ID" | sed -n '2s/ .*//p')
+test -n "$SESSION_ID"
+"$ADP_BIN" sessions restore-plan "$SESSION_ID"
+"$ADP_BIN" plan doctor --workspace game-a --format json
+
+BOARD_TASK_ID=$("$ADP_BIN" tasks add --workspace game-a --priority normal "Validate board pickup" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+test -n "$BOARD_TASK_ID"
+TAKEN_ID=$("$ADP_BIN" tasks take --workspace game-a --owner second-agent --lease 30m | sed -n 's/^task \(task-[^ ]*\) taken .*/\1/p')
+test -n "$TAKEN_ID"
+"$ADP_BIN" tasks release --workspace game-a "$TAKEN_ID" --owner second-agent
+"$ADP_BIN" tasks done --workspace game-a "$TASK_ID"
 "$ADP_BIN" events list --workspace game-a --task "$TASK_ID" --limit 5
 "$ADP_BIN" tasks list --workspace game-a --format json
 "$ADP_BIN" tasks next --workspace game-a --limit 0 --format json
-"$ADP_BIN" plan doctor --workspace game-a --format json
 "$ADP_BIN" progress --workspace game-a --format json
 "$ADP_BIN" progress report --workspace game-a
-"$ADP_BIN" progress report --workspace game-a --format json
 "$ADP_BIN" sessions list --workspace game-a --agent codex --task "$TASK_ID"
 "$ADP_BIN" completion values sessions --workspace game-a
 "$ADP_BIN" runtime prune --older-than 24h --dry-run
@@ -116,7 +131,7 @@ Useful environment variables:
 - `ADP_HOME`: ADP home directory. Defaults to `~/.adp`.
 - `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`. Do not point it at the filesystem root, a project root, a directory inside a project root, or a directory that contains the project root. Prefer a direct local directory; symlink runtime parents are reported as warnings by doctor commands.
 - `ADP_WORKSPACE`: default workspace for commands that accept a workspace.
-- `ADP_TASK_ID`, `ADP_TASK_TITLE`, `ADP_TASK_STATUS`, `ADP_TASK_PRIORITY`, and `ADP_TASK_PHASE`: available inside runtimes launched with `adp run <agent> --task <task-id>`.
+- `ADP_TASK_ID`, `ADP_TASK_TITLE`, `ADP_TASK_STATUS`, `ADP_TASK_PRIORITY`, and `ADP_TASK_PHASE`: available inside runtimes launched with `adp run <agent> --task <task-id>` or `adp run <agent> --take --owner <owner>`.
 
 When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the current directory to a registered project root.
 
@@ -161,7 +176,7 @@ P16 hardens the command surface with a local metadata contract that keeps usage 
 
 `adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered pruneable only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp` and a matching `runtime_root`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
 
-`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; `adp phase status` adds a compact gate snapshot with the open phase, next planned phase, whether the next phase can start, and the next required action. `adp plan doctor` adds read-only local diagnostics for task, phase, progress-log, lock, and phase-gate consistency and returns exit code `2` when error-level diagnostics exist. The authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. `adp run <agent> --task <task-id>` binds that local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
+`adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; `adp phase status` adds a compact gate snapshot with the open phase, next planned phase, whether the next phase can start, and the next required action. `adp plan doctor` adds read-only local diagnostics for task, phase, progress-log, lock, and phase-gate consistency and returns exit code `2` when error-level diagnostics exist. The authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. Use `adp tasks take --owner <owner>` when a worker should atomically take one board item without launching an agent, and use `adp run <agent> --take --owner <owner>` when task pickup and runtime launch should share one command boundary. Long-running workers can renew with `adp tasks renew`; interrupted leases are visible through read-only `adp tasks stale`. `adp run <agent> --task <task-id>` and `adp run <agent> --take ...` bind local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
 
 `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a local planning/execution handoff snapshot to stdout. The default output remains English Markdown; `--language zh-CN` applies to Markdown only. `--format json` emits a machine-readable, read-only snapshot with workspace, total task count, phases, task counts, tasks, priority-sorted next work, phase evidence, and recent runtime session evidence when local JSONL event/session data exists. JSON output is for cross-tool parsing and must not become a separate state store. The report command is read-only and does not append events, mutate task or phase state, create runtime directories, run agents, run Git, resume provider-native conversations, or write report files into the project root.
 

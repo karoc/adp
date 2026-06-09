@@ -69,10 +69,11 @@ func TestCommandHelpIncludesUsageAndValues(t *testing.T) {
 		t.Fatal("CommandHelp(tasks) returned false")
 	}
 	for _, want := range []string{
-		"adp tasks - manage workspace task state",
+		"adp tasks - manage the local workspace task board",
 		"Usage:",
 		"adp tasks add",
 		"Subcommands:",
+		"take - atomically claim next work",
 		"Options:",
 		"--workspace - workspace name",
 	} {

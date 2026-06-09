@@ -47,6 +47,56 @@ The first task-management slice provides:
 
 Smoke scripts should assert only the task-management commands that exist in the current tree, and should not add placeholder checks for planned commands.
 
+## Workflow At A Glance
+
+For a first trial or a new sub-agent, read the command surface in this order:
+
+1. Inspect before changing state:
+
+```bash
+adp workspace doctor <workspace>
+adp tasks next --workspace <workspace> --format json
+adp phase status --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
+```
+
+2. Create or import planned work explicitly:
+
+```bash
+adp tasks add --workspace <workspace> --phase <phase-id> --priority high "<title>"
+adp plan preview --workspace <workspace> --file plan.yaml --format json
+adp plan apply --workspace <workspace> --file plan.yaml --format json
+```
+
+3. Take one item from the board:
+
+```bash
+adp tasks take --workspace <workspace> --owner <owner> --lease 4h --format json
+adp run codex --workspace <workspace> --take --owner <owner> --lease 4h -- <codex-args>
+adp run claude --workspace <workspace> --take --owner <owner> --lease 4h -- <claude-args>
+```
+
+Use `tasks take` when a worker should atomically claim a task without launching a runtime. Use `run --take` when claim and runtime launch should happen together. Use `run --task <task-id>` only when a human or previous step has already assigned a specific task.
+
+4. Maintain and hand off work:
+
+```bash
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease 4h
+adp tasks stale --workspace <workspace> --format json
+adp sessions restore-plan <session-id>
+```
+
+5. Finish through explicit local commands:
+
+```bash
+adp tasks done --workspace <workspace> <task-id>
+adp phase accept --workspace <workspace> <phase-id> --command "scripts/check-all.sh" --result passed
+adp phase commit --workspace <workspace> <phase-id> --hash <commit-hash>
+adp phase push --workspace <workspace> <phase-id> --remote origin --branch main --result pushed
+```
+
+`tasks next`, `tasks stale`, `phase status`, `progress report`, `plan preview`, and `sessions restore-plan` are inspection or proposal commands. `tasks add`, `plan apply`, `tasks take`, `tasks claim`, `tasks renew`, `tasks release`, `tasks done`, `tasks block`, `phase start`, `phase accept`, `phase commit`, and `phase push` mutate the local ADP ledger. None of these commands run Git automatically, close a phase automatically, sync a hosted tracker, scrape provider-private task panels, or write planning/runtime files into the real project root.
+
 ## ADP Planning Contract
 
 ADP is the authoritative local planning and progress ledger for a workspace. Terminal users, Codex, Claude, and future agent tools should create, claim, update, block, release, and complete durable work through ADP commands instead of keeping the only copy of task state in a provider-native todo list or chat transcript.

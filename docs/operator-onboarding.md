@@ -41,7 +41,7 @@ For a released artifact, replace `./bin/adp` in the last block with the unpacked
 
 ## Isolated First Run
 
-Use temporary state until the install path is trusted. This rehearsal registers a temporary workspace, runs a fake `codex` provider, records local events and sessions, and verifies that the project root stays clean.
+Use temporary state until the install path is trusted. This rehearsal registers a temporary workspace, inspects the task board, runs a fake `codex` provider through atomic `run --take`, records local events and sessions, checks lease maintenance, and verifies that the project root stays clean.
 
 ```bash
 ADP_ONBOARDING_ROOT="$(mktemp -d)"
@@ -56,6 +56,7 @@ cat > "${ADP_ONBOARDING_ROOT}/fake-bin/codex" <<'SH'
 printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
 test -n "${ADP_SESSION_ID:-}"
 test -n "${ADP_RUNTIME_ROOT:-}"
+test -n "${ADP_TASK_ID:-}"
 test "$(pwd)" = "$ADP_RUNTIME_ROOT"
 test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
 test -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
@@ -73,10 +74,25 @@ adp_local version
 
 TASK_ID=$(adp_local tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 test -n "$TASK_ID"
-adp_local run codex --workspace game-a --task "$TASK_ID" -- --onboarding-smoke
+adp_local tasks next --workspace game-a --format json
+adp_local run codex --workspace game-a --take --owner first-agent --lease 30m -- --onboarding-smoke
+adp_local tasks show --workspace game-a "$TASK_ID"
+adp_local tasks renew --workspace game-a "$TASK_ID" --owner first-agent --lease 30m
+adp_local tasks stale --workspace game-a --format json
+adp_local progress report --workspace game-a --format json
+SESSION_ID=$(adp_local sessions list --workspace game-a --agent codex --task "$TASK_ID" | sed -n '2s/ .*//p')
+test -n "$SESSION_ID"
+adp_local sessions restore-plan "$SESSION_ID"
+adp_local plan doctor --workspace game-a --format json
+
+BOARD_TASK_ID=$(adp_local tasks add --workspace game-a --priority normal "Validate board pickup" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+test -n "$BOARD_TASK_ID"
+TAKEN_ID=$(adp_local tasks take --workspace game-a --owner second-agent --lease 30m | sed -n 's/^task \(task-[^ ]*\) taken .*/\1/p')
+test -n "$TAKEN_ID"
+adp_local tasks release --workspace game-a "$TAKEN_ID" --owner second-agent
+adp_local tasks done --workspace game-a "$TASK_ID"
 adp_local events list --workspace game-a --task "$TASK_ID" --limit 5
 adp_local sessions list --workspace game-a --agent codex --task "$TASK_ID"
-adp_local plan doctor --workspace game-a --format json
 adp_local progress --workspace game-a --format json
 adp_local runtime prune --older-than 24h --dry-run
 
@@ -84,7 +100,7 @@ ROOT_LEAKS="$(find "${ADP_ONBOARDING_ROOT}/project" -maxdepth 2 \( -name AGENTS.
 test -z "$ROOT_LEAKS"
 ```
 
-The last command should succeed without printing project-root leaks. ADP state is under temporary `$ADP_HOME`, runtime overlays are under temporary `$ADP_RUNTIME_DIR`, and the provider command is the fake local `codex` script.
+The last command should succeed without printing project-root leaks. ADP state is under temporary `$ADP_HOME`, runtime overlays are under temporary `$ADP_RUNTIME_DIR`, and the provider command is the fake local `codex` script. Read-only inspection commands in the rehearsal include `tasks next`, `tasks stale`, `progress report`, `sessions list`, `sessions restore-plan`, `plan doctor`, `events list`, and `progress`; mutating commands include `tasks add`, `run --take`, `tasks renew`, `tasks take`, `tasks release`, and `tasks done`.
 
 ## Move To Durable Local Use
 

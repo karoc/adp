@@ -155,6 +155,7 @@ cat > "${ADP_REHEARSAL_ROOT}/fake-bin/codex" <<'SH'
 printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
 test -n "${ADP_SESSION_ID:-}"
 test -n "${ADP_RUNTIME_ROOT:-}"
+test -n "${ADP_TASK_ID:-}"
 test "$(pwd)" = "$ADP_RUNTIME_ROOT"
 test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
 SH
@@ -169,16 +170,23 @@ adp workspace doctor game-a
 adp doctor game-a
 TASK_ID=$(adp tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 test -n "$TASK_ID"
-adp run codex --workspace game-a --task "$TASK_ID" -- --example-smoke
+adp tasks next --workspace game-a --format json
+adp run codex --workspace game-a --take --owner first-agent --lease 30m -- --example-smoke
+adp tasks renew --workspace game-a "$TASK_ID" --owner first-agent --lease 30m
+adp tasks stale --workspace game-a --format json
+adp progress report --workspace game-a --format json
+SESSION_ID=$(adp sessions list --workspace game-a --agent codex --task "$TASK_ID" | sed -n '2s/ .*//p')
+test -n "$SESSION_ID"
+adp sessions restore-plan "$SESSION_ID"
+adp plan doctor --workspace game-a --format json
 adp events list --workspace game-a --task "$TASK_ID" --limit 5
 adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
-adp plan doctor --workspace game-a --format json
 adp progress --workspace game-a --format json
 ROOT_LEAKS="$(find "${ADP_REHEARSAL_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name .adp-runtime.yaml -o -name planning -o -name tasks.yaml -o -name phases.yaml -o -name progress.jsonl \) -print)"
 test -z "$ROOT_LEAKS"
 ```
 
-The final project-root leak check should pass without output. This rehearsal keeps ADP state under temporary `$ADP_HOME`, keeps runtime overlays under temporary `$ADP_RUNTIME_DIR`, uses a fake local `codex`, does not run Git, and does not write planning or report exports into the project root.
+The final project-root leak check should pass without output. This rehearsal keeps ADP state under temporary `$ADP_HOME`, keeps runtime overlays under temporary `$ADP_RUNTIME_DIR`, uses a fake local `codex`, does not run Git, and does not write planning or report exports into the project root. The visible task flow is `tasks next` for read-only selection, `run --take --owner --lease` for atomic launch-time pickup, `tasks renew` and `tasks stale` for lease maintenance, `progress report` for handoff, `sessions restore-plan` for read-only restart guidance, and `plan doctor` for local ledger diagnostics.
 
 ## Bootstrap A Workspace
 
@@ -217,6 +225,13 @@ Run an agent through ADP:
 ```bash
 adp run codex --workspace game-a -- <agent-args>
 adp run claude --workspace game-a -- <agent-args>
+```
+
+When the agent should take the next eligible ADP task at launch, keep pickup and runtime creation in one command:
+
+```bash
+adp run codex --workspace game-a --take --owner codex-main --lease 4h -- <agent-args>
+adp run claude --workspace game-a --take --owner claude-main --lease 4h -- <agent-args>
 ```
 
 These commands require the corresponding external CLI to be installed and authenticated. Arguments after `--` are forwarded to the external agent command. ADP does not define which arguments are safe or supported by a particular external CLI; verify that with the installed CLI on the operator machine. Use the isolated rehearsal above for the default provider-free validation path. Use `examples/basic-workspace` and `scripts/example-workspace-smoke.sh` when you need a copyable workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings.

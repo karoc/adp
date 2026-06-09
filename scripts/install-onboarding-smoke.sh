@@ -53,6 +53,29 @@ assert_project_root_clean() {
   done
 }
 
+line_count() {
+  local path="$1"
+
+  assert_file "$path"
+  wc -l < "$path" | tr -d '[:space:]'
+}
+
+session_id_by_agent() {
+  local events_file="$1"
+  local agent="$2"
+  local id
+
+  id=$(
+    {
+      grep '"type":"run_started"' "$events_file" |
+        grep "\"agent\":\"$agent\"" |
+        sed -n 's/.*"session_id":"\([^"]*\)".*/\1/p' |
+        tail -n 1
+    } || true
+  )
+  printf '%s\n' "$id"
+}
+
 release_ldflags() {
   printf '%s' "-s -w"
   printf ' %s' "-X github.com/karoc/adp/internal/cli.Version=$VERSION"
@@ -103,13 +126,33 @@ test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
 test -f "$ADP_RUNTIME_ROOT/.codex/config.toml"
 test -L "$ADP_RUNTIME_ROOT/go.mod"
 test -f "$ADP_RUNTIME_ROOT/go.mod"
-test "$ADP_TASK_ID" = "$ADP_EXPECT_TASK_ID"
-test "${ADP_TASK_TITLE:-}" = "Run install onboarding"
-grep -F -q "$ADP_EXPECT_TASK_ID" "$ADP_RUNTIME_ROOT/AGENTS.md"
-grep -F -q "Run install onboarding" "$ADP_RUNTIME_ROOT/AGENTS.md"
-grep -F -q "$ADP_EXPECT_TASK_ID" "$ADP_RUNTIME_ROOT/.codex/config.toml"
 test "$#" -eq 1
-test "$1" = "--install-onboarding"
+
+case "$1" in
+  --install-onboarding)
+    test "$ADP_TASK_ID" = "$ADP_EXPECT_TASK_ID"
+    test "${ADP_TASK_TITLE:-}" = "Run install onboarding"
+    grep -F -q "$ADP_EXPECT_TASK_ID" "$ADP_RUNTIME_ROOT/AGENTS.md"
+    grep -F -q "Run install onboarding" "$ADP_RUNTIME_ROOT/AGENTS.md"
+    grep -F -q "$ADP_EXPECT_TASK_ID" "$ADP_RUNTIME_ROOT/.codex/config.toml"
+    ;;
+  --trial-take)
+    test "$ADP_TASK_ID" = "$ADP_EXPECT_TAKE_TASK_ID"
+    test "${ADP_TASK_TITLE:-}" = "Claim trial workflow"
+    test "${ADP_TASK_STATUS:-}" = "in_progress"
+    test "${ADP_TASK_OWNER:-}" = "trial-agent"
+    test -n "${ADP_TASK_CLAIMED_AT:-}"
+    test -n "${ADP_TASK_LEASE_EXPIRES_AT:-}"
+    grep -F -q "$ADP_EXPECT_TAKE_TASK_ID" "$ADP_RUNTIME_ROOT/AGENTS.md"
+    grep -F -q "Claim trial workflow" "$ADP_RUNTIME_ROOT/AGENTS.md"
+    grep -F -q "trial-agent" "$ADP_RUNTIME_ROOT/AGENTS.md"
+    grep -F -q "$ADP_EXPECT_TAKE_TASK_ID" "$ADP_RUNTIME_ROOT/.codex/config.toml"
+    ;;
+  *)
+    printf 'unexpected fake-codex argument: %s\n' "$1" >&2
+    exit 99
+    ;;
+esac
 EOF
   chmod 755 "$path"
 }
@@ -311,6 +354,71 @@ assert_contains "$output" '"status": "ok"' "plan doctor json output"
 assert_contains "$output" '"task_count": 1' "plan doctor json output"
 assert_contains "$output" '"phase_count": 1' "plan doctor json output"
 assert_contains "$output" '"has_errors": false' "plan doctor json output"
+assert_project_root_clean
+
+info "checking friendly trial workflow pickup, lease, stale, and restore guidance"
+output=$(run_adp "$TMP_ROOT" tasks add --workspace onboarding-a --priority critical --phase p-install --description "atomic worker pickup" "Claim trial workflow")
+assert_contains "$output" "task task-" "trial take task add output"
+TAKE_TASK_ID=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+if [ -z "$TAKE_TASK_ID" ]; then
+  fail "could not parse take task id from: $output"
+fi
+export ADP_EXPECT_TAKE_TASK_ID="$TAKE_TASK_ID"
+
+output=$(run_adp "$TMP_ROOT" tasks next --workspace onboarding-a --limit 1 --format json)
+assert_contains "$output" "\"$TAKE_TASK_ID\"" "tasks next json output"
+assert_contains "$output" '"eligible_count": 1' "tasks next json output"
+
+reset_git_tripwire
+events_before=$(line_count "$EVENTS_FILE")
+output=$(run_adp "$TMP_ROOT" run codex --workspace onboarding-a --take --owner trial-agent --lease 30m -- --trial-take)
+assert_contains "$output" "fake-codex" "run take fake codex output"
+assert_contains "$output" "--trial-take" "run take fake codex output"
+assert_no_git_side_effects "install onboarding run --take"
+assert_project_root_clean
+if [ "$(line_count "$EVENTS_FILE")" != $((events_before + 2)) ]; then
+  fail "run --take should append two runtime events"
+fi
+
+take_session=$(session_id_by_agent "$EVENTS_FILE" codex)
+if [ -z "$take_session" ]; then
+  cat "$EVENTS_FILE" >&2
+  fail "run --take session id missing in event log"
+fi
+
+output=$(run_adp "$TMP_ROOT" tasks show --workspace onboarding-a "$TAKE_TASK_ID")
+assert_contains "$output" "status: in_progress" "taken task show output"
+assert_contains "$output" "owner: trial-agent" "taken task show output"
+assert_contains "$output" "lease_expires_at: 20" "taken task show output"
+
+output=$(run_adp "$TMP_ROOT" tasks renew --workspace onboarding-a "$TAKE_TASK_ID" --owner trial-agent --lease 45m)
+assert_contains "$output" "task $TAKE_TASK_ID lease renewed until" "tasks renew output"
+
+output=$(run_adp "$TMP_ROOT" tasks add --workspace onboarding-a --priority low --phase p-install --description "expired worker claim" "Recover stale trial workflow")
+assert_contains "$output" "task task-" "stale task add output"
+STALE_TASK_ID=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
+if [ -z "$STALE_TASK_ID" ]; then
+  fail "could not parse stale task id from: $output"
+fi
+output=$(run_adp "$TMP_ROOT" tasks claim --workspace onboarding-a "$STALE_TASK_ID" --owner abandoned-agent --lease 1ms)
+assert_contains "$output" "task $STALE_TASK_ID claimed by abandoned-agent" "stale task claim output"
+sleep 1
+output=$(run_adp "$TMP_ROOT" tasks stale --workspace onboarding-a --format json)
+assert_contains "$output" '"stale_count": 1' "tasks stale json output"
+assert_contains "$output" "\"$STALE_TASK_ID\"" "tasks stale json output"
+assert_contains "$output" '"owner": "abandoned-agent"' "tasks stale json output"
+
+output=$(run_adp "$TMP_ROOT" sessions restore-plan "$take_session")
+assert_contains "$output" "session_id: $take_session" "take restore-plan output"
+assert_contains "$output" "status: ready" "take restore-plan output"
+assert_contains "$output" "adp run codex --workspace onboarding-a --task $TAKE_TASK_ID" "take restore-plan output"
+assert_contains "$output" "-- --trial-take" "take restore-plan output"
+
+output=$(run_adp "$TMP_ROOT" progress report --workspace onboarding-a)
+assert_contains "$output" "# ADP Progress Report" "progress report output"
+assert_contains "$output" "$TAKE_TASK_ID" "progress report output"
+assert_contains "$output" "$STALE_TASK_ID" "progress report output"
+assert_contains "$output" "$take_session" "progress report output"
 assert_project_root_clean
 
 info "install onboarding smoke passed"

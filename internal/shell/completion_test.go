@@ -117,7 +117,7 @@ func TestRenderCompletionSupportsZsh(t *testing.T) {
 		"'workspace:manage registered workspaces'",
 		"'completion:render shell completion script'",
 		"'sessions:summarize ADP session history'",
-		"'tasks:manage workspace task state'",
+		"'tasks:manage the local workspace task board'",
 		"'plan:preview, apply, or diagnose local planning state'",
 		"'phase:manage workspace phase gates'",
 		"'progress:summarize workspace execution progress'",

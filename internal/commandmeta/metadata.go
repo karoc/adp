@@ -30,7 +30,14 @@ var rootCommands = []Command{
 			"adp workspace rename <old-name> <new-name>",
 			"adp workspace doctor [name]",
 		},
-		Subcommands: values("add", "list", "show", "remove", "rename", "doctor"),
+		Subcommands: describedValues(valueDescriptions{
+			"add":    "register a project root",
+			"list":   "list registered workspaces",
+			"show":   "show one workspace",
+			"remove": "remove workspace registration",
+			"rename": "rename workspace registration",
+			"doctor": "diagnose workspace config",
+		}, "add", "list", "show", "remove", "rename", "doctor"),
 	},
 	{
 		Name:        "enter",
@@ -76,7 +83,7 @@ var rootCommands = []Command{
 		Name:        "events",
 		Description: "read ADP event logs",
 		Usage:       []string{"adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]"},
-		Subcommands: values("list"),
+		Subcommands: describedValues(valueDescriptions{"list": "list runtime events"}, "list"),
 		Options: describedValues(valueDescriptions{
 			"--workspace": "filter by workspace",
 			"-w":          "filter by workspace",
@@ -94,7 +101,11 @@ var rootCommands = []Command{
 			"adp sessions show <session-id>",
 			"adp sessions restore-plan <session-id>",
 		},
-		Subcommands: values("list", "show", "restore-plan"),
+		Subcommands: describedValues(valueDescriptions{
+			"list":         "list runtime sessions",
+			"show":         "show one session",
+			"restore-plan": "print read-only rerun guidance",
+		}, "list", "show", "restore-plan"),
 		Options: describedValues(valueDescriptions{
 			"--workspace": "filter by workspace",
 			"-w":          "filter by workspace",
@@ -107,7 +118,7 @@ var rootCommands = []Command{
 		Name:        "runtime",
 		Description: "manage ADP runtime directories",
 		Usage:       []string{"adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]"},
-		Subcommands: values("prune"),
+		Subcommands: describedValues(valueDescriptions{"prune": "delete stale ADP-owned runtimes"}, "prune"),
 		Options: describedValues(valueDescriptions{
 			"--older-than":   "minimum runtime age",
 			"--include-kept": "include kept runtimes",
@@ -116,7 +127,7 @@ var rootCommands = []Command{
 	},
 	{
 		Name:        "tasks",
-		Description: "manage workspace task state",
+		Description: "manage the local workspace task board",
 		Usage: []string{
 			"adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>",
 			"adp tasks list [--workspace <name>] [--format <text|json>]",
@@ -131,7 +142,20 @@ var rootCommands = []Command{
 			"adp tasks done [--workspace <name>] <task-id>",
 			"adp tasks block [--workspace <name>] <task-id> --reason <reason>",
 		},
-		Subcommands: values("add", "list", "next", "take", "stale", "show", "update", "claim", "renew", "release", "done", "block"),
+		Subcommands: describedValues(valueDescriptions{
+			"add":     "add a task to the board",
+			"list":    "list tasks",
+			"next":    "preview next claimable work",
+			"take":    "atomically claim next work",
+			"stale":   "inspect expired in-progress claims",
+			"show":    "show one task",
+			"update":  "set task status",
+			"claim":   "claim a selected task",
+			"renew":   "extend an owned task lease",
+			"release": "release a claim",
+			"done":    "mark a task done",
+			"block":   "mark a task blocked",
+		}, "add", "list", "next", "take", "stale", "show", "update", "claim", "renew", "release", "done", "block"),
 		Options: describedValues(valueDescriptions{
 			"--workspace":   "workspace name",
 			"-w":            "workspace name",
@@ -154,7 +178,11 @@ var rootCommands = []Command{
 			"adp plan apply [--workspace <name>] --file <path|-> [--format <text|json>]",
 			"adp plan doctor [--workspace <name>] [--format <text|json>]",
 		},
-		Subcommands: values("preview", "apply", "doctor"),
+		Subcommands: describedValues(valueDescriptions{
+			"preview": "validate plan input without writing",
+			"apply":   "write validated plan input",
+			"doctor":  "diagnose local planning ledger",
+		}, "preview", "apply", "doctor"),
 		Options: describedValues(valueDescriptions{
 			"--workspace": "workspace name",
 			"-w":          "workspace name",
@@ -176,7 +204,16 @@ var rootCommands = []Command{
 			"adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]",
 			"adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]",
 		},
-		Subcommands: values("add", "list", "show", "status", "start", "accept", "commit", "push"),
+		Subcommands: describedValues(valueDescriptions{
+			"add":    "add a phase",
+			"list":   "list phases",
+			"show":   "show one phase",
+			"status": "show next gate action",
+			"start":  "start the next planned phase",
+			"accept": "record validation evidence",
+			"commit": "record commit evidence",
+			"push":   "record push evidence",
+		}, "add", "list", "show", "status", "start", "accept", "commit", "push"),
 		Options: describedValues(valueDescriptions{
 			"--workspace": "workspace name",
 			"-w":          "workspace name",
