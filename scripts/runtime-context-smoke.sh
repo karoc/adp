@@ -165,14 +165,26 @@ grep -F -q -- "- Description: \$ADP_EXPECT_TASK_DESCRIPTION" "$instructions"
 require_runtime_text "$instructions" "## ADP Planning Contract" "planning contract heading"
 require_runtime_text "$instructions" "ADP is the authoritative local planning and progress ledger" "planning source-of-truth contract"
 require_runtime_text "$instructions" "tasks take --workspace" "atomic task take command"
+require_runtime_text "$instructions" "Inspect stale claims" "stale claim inspection guidance"
+require_runtime_text "$instructions" "tasks stale --workspace" "stale claim inspection command"
+require_runtime_text "$instructions" "Claim selected work" "selected task claim guidance"
+require_runtime_text "$instructions" "tasks claim --workspace" "selected task claim command"
+require_runtime_text "$instructions" "Renew this task" "task-bound lease renewal guidance"
+require_runtime_text "$instructions" "tasks renew --workspace" "task-bound lease renewal command"
+require_runtime_text "$instructions" "ADP_WORKSPACE" "task-bound lease renewal workspace"
+require_runtime_text "$instructions" "ADP_TASK_ID" "task-bound lease renewal task id"
 require_runtime_text "$instructions" "scratch space only" "provider taskbox boundary"
 require_runtime_text "$instructions" "## Tool Taskbox Bridge" "taskbox bridge heading"
 require_runtime_text "$instructions" "mirror the active ADP task" "taskbox mirror guidance"
+require_runtime_text "$instructions" "do not treat provider-native task state as authoritative" "taskbox authority boundary"
+require_runtime_text "$instructions" "Do not sync provider-private todo state back into ADP automatically" "taskbox automatic sync guard"
 require_runtime_text "$instructions" "## Tool Plan Mode Bridge" "plan mode bridge heading"
 require_runtime_text "$instructions" "proposal view" "plan mode proposal boundary"
+require_runtime_text "$instructions" "do not edit project files, complete tasks, accept phases, commit, or push" "plan mode execution guard"
 require_runtime_text "$instructions" "plan preview --workspace" "plan mode preview command"
 require_runtime_text "$instructions" "plan apply --workspace" "plan mode apply command"
 require_runtime_text "$instructions" "not ADP phase acceptance" "plan mode phase boundary"
+require_runtime_text "$instructions" "Provider-native plan approval is not ADP phase acceptance" "plan mode phase acceptance guard"
 if [ -n "\${ADP_CLI:-}" ]; then
   require_runtime_text "$instructions" "ADP_CLI" "ADP CLI hint"
 fi
@@ -384,6 +396,9 @@ output=$(run_adp "$PROJECT_ROOT" run claude --task "$TASK_ID" -- --context-claud
 assert_contains "$output" "fake-claude" "claude output"
 assert_contains "$output" "--context-claude" "claude output"
 assert_absent_project_artifacts "$PROJECT_ROOT"
+output=$(run_adp "$REPO_ROOT" tasks show --workspace context-a "$TASK_ID")
+assert_contains "$output" "status: ready" "task-bound run task state"
+assert_contains "$output" "owner: -" "task-bound run task state"
 
 if [ "$(line_count "$EVENTS_FILE")" != "4" ]; then
   cat "$EVENTS_FILE" >&2
@@ -488,7 +503,9 @@ output=$(run_adp "$REPO_ROOT" sessions show "$take_session")
 assert_contains "$output" "task_id: $TAKE_TASK_ID" "take session output"
 assert_contains "$output" "agent: codex" "take session output"
 assert_contains "$output" "run_finished" "take session output"
-assert_contains "$(cat "$WORKSPACE_DIR/planning/phases.yaml")" "$phases_before_take" "run take phases"
+if [ "$(cat "$WORKSPACE_DIR/planning/phases.yaml")" != "$phases_before_take" ]; then
+  fail "run --take changed phase evidence"
+fi
 assert_absent_project_artifacts "$PROJECT_ROOT"
 
 info "runtime context smoke passed"

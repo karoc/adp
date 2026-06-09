@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"io/fs"
+	"time"
 
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/schema"
@@ -25,13 +26,16 @@ type Context struct {
 }
 
 type TaskContext struct {
-	ID            string
-	Title         string
-	Status        string
-	Priority      string
-	Phase         string
-	Description   string
-	BlockedReason string
+	ID             string
+	Title          string
+	Status         string
+	Priority       string
+	Phase          string
+	Owner          string
+	ClaimedAt      time.Time
+	LeaseExpiresAt time.Time
+	Description    string
+	BlockedReason  string
 }
 
 func (t TaskContext) IsZero() bool {

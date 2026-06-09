@@ -105,6 +105,8 @@ Read-only review agents must be told not to edit files.
 
 Interrupted workers are recovered through ADP, not through provider-private state. Operators can inspect expired in-progress claims with `adp tasks stale --workspace <workspace> [--format text|json]`; after a lease expires, another worker can reclaim the task through `adp tasks take` or an explicit `adp tasks claim` according to ADP ownership rules. Do not infer completion, phase acceptance, commit evidence, push evidence, or Git state from a provider task box, plan panel, or process exit.
 
+Runtime handoff snapshots, progress reports, session restore-plan output, and provider-native task or plan panels are inspection or mirror surfaces only. They may help another terminal agent orient itself, but durable ownership, lease renewal, stale recovery, task completion, phase acceptance, commit evidence, push evidence, and Git execution must stay on explicit ADP commands. Runtime and planning files must stay under `$ADP_RUNTIME_DIR` and `$ADP_HOME`, not in real project roots.
+
 ## Implementation Principles
 
 - Prefer existing package boundaries and local patterns over new abstractions.

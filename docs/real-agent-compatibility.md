@@ -36,6 +36,19 @@ When the operator passes `--task <task-id>`, ADP binds that existing task to the
 
 For long-running real-agent work, the owner renews ADP task ownership with `adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>`. Interrupted sessions become visible through the read-only `adp tasks stale --workspace <workspace> [--format text|json]` view, and expired work is reclaimed only through ADP ownership commands such as `tasks take` or explicit `tasks claim`.
 
+Real-agent handoff must stay lease-aware. The operator or worker should inspect the ADP task and local session evidence, renew before continuing long work, and use `tasks stale` before reclaiming interrupted work:
+
+```bash
+adp tasks show --workspace <workspace> <task-id> --format json
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks stale --workspace <workspace> --format json
+adp sessions restore-plan <session-id>
+```
+
+Provider-native task panels and plan panels may mirror the active ADP task or a proposed next-step list, but they are compatibility surfaces, not the recovery ledger. ADP must not scrape provider-private state, infer completion from provider exit, accept phases, record commit or push evidence, run Git, apply plans, or start the next phase from those surfaces. Runtime artifacts remain under `ADP_RUNTIME_DIR`; planning ledgers, progress, events, and sessions remain under `ADP_HOME`.
+
+When an external CLI has a native plan mode, treat it as proposal-only. Structured changes should pass read-only `adp plan preview --workspace <workspace> --file - --format json`, then become durable only after explicit operator approval through `adp plan apply --workspace <workspace> --file - --format json`. If the provider entered plan mode after `adp run --take`, ADP already owns the taken task for that session, but the native plan still cannot complete tasks, accept phases, run Git, or become recovery evidence.
+
 The launched process receives:
 
 - Working directory: the runtime root.

@@ -202,6 +202,31 @@ adp tasks stale --workspace <workspace> [--format text|json]
 
 通过 `adp run --take` 启动的 worker 应在长时间执行期间、lease 过期前主动续租。如果 session 意外中断，过期 claim 会通过 `tasks stale` 可见；lease 过期后，其他 worker 可以按 ADP ownership rules 使用 `tasks take` 或显式 `tasks claim` 接管任务。这些命令都不会自动把任务标记为 done、accept phase、记录 commit 或 push evidence、执行 Git、抓取 provider-private task box，或把 provider plan panel 当作恢复状态。
 
+## Lease-Aware Runtime Handoff
+
+Runtime handoff 由 ADP 主导。Worker 交接时，应留下足够的本地 evidence，让下一个 operator 或终端 Agent 能回答四个问题：哪个 ADP task 是 active task、谁拥有它、lease 何时过期、下一步需要执行哪个显式 ADP 命令。
+
+推荐的 handoff inspection commands 是：
+
+```bash
+adp tasks show --workspace <workspace> <task-id> --format json
+adp tasks stale --workspace <workspace> --format json
+adp phase status --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
+adp sessions list --workspace <workspace> --task <task-id>
+adp sessions restore-plan <session-id>
+```
+
+如果 worker 仍在推进工作，应在交接前或 lease 过期前续租：
+
+```bash
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+```
+
+如果工作被中断，应先用 `tasks stale` 检查。过期工作只能通过 `adp tasks take` 或显式 `adp tasks claim` 接管；不能从 provider-private task boxes、plan panels、chat transcripts、conversation IDs、process exits 或 native resume state 恢复 ownership。
+
+Provider 原生 task panels 可以镜像 active ADP task，provider 原生 plan mode 可以暂存 proposals，但两者都不是 handoff ledger。Handoff 不会自动完成 task、accept phase、记录 commit 或 push evidence、运行 Git、apply plan、启动下一阶段，或把 planning/runtime 文件写入真实 project root。Runtime artifacts 保留在 `$ADP_RUNTIME_DIR` 下；planning ledgers、progress、events 和 sessions 保留在 `$ADP_HOME` 下。
+
 ## Phase Gate Status 范围
 
 P24 增加一个只读的 phase gate snapshot，面向本地工具和终端 Agent：

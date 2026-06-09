@@ -114,6 +114,28 @@ adp sessions restore-plan <session-id>
 
 如果手动运行建议命令，它会启动一次新的本地 Agent run，并产生新的 session ID。它不会 attach 到之前的 provider conversation。
 
+## Lease-Aware Handoff
+
+`sessions restore-plan` 只是 handoff clue，不是 handoff ledger。它可以根据本地 invocation evidence 还原安全的启动形态，但不能证明前一个 worker 仍然拥有任务、不能续租、不能接管中断工作，也不能知道 provider-private state 中的任何信息。
+
+对于 task-bound sessions，应把 restore planning 与 ADP planning inspection 配合使用：
+
+```bash
+adp tasks show --workspace <workspace> <task-id> --format json
+adp tasks stale --workspace <workspace> --format json
+adp phase status --workspace <workspace> --format json
+```
+
+同一 owner 继续长时间任务时，应在 lease 过期前续租：
+
+```bash
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+```
+
+worker 中断且 lease 已过期时，只能通过 `adp tasks take` 或显式 `adp tasks claim` 接管。不要把 provider conversation IDs、native task panels、plan panels、chat transcripts、process exits 或 native resume state 当作 ownership evidence。
+
+Plan-mode compatibility 遵循同一边界。Provider 原生 plan panel 可以镜像建议的重启方案或下一步 checklist，但结构化 plan 变更只有通过 `adp plan preview` 和明确批准后的 `adp plan apply` 才会持久化。Restore planning 不能自动编辑文件、complete tasks、accept phases、commit、push、运行 Git、apply plans、启动 runtimes，或把 runtime/planning 文件写入真实 project root。
+
 ## 操作规则
 
 - 将 restore-plan output 视为指导，而不是自动修复或 resume 动作。
@@ -122,5 +144,6 @@ adp sessions restore-plan <session-id>
 - 长时间 ownership 使用 `adp tasks renew` 续租；意外中断后使用 `adp tasks stale` 查看 lease 已过期的 in-progress claims。
 - 只通过 `adp tasks take` 或显式 `adp tasks claim` 等 ADP ownership commands 接管过期工作。
 - 通过 `adp tasks update`、`adp tasks done` 或 `adp tasks block` 显式推进 task 状态。
+- 将 provider 原生 plan 和 task panels 视为 mirror 或 scratch surfaces，而不是 recovery evidence。
 - 将 restore-plan checks 与 `adp events list`、`adp sessions list`、`adp sessions show` 配合使用，保留本地 acceptance evidence。
 - 不要把 restore-plan 描述为云同步、远程 issue 跟踪、托管编排、provider-private state scraping、automatic task completion 或 provider-native resume。

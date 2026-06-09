@@ -36,6 +36,19 @@ Task ownership 和 lease recovery 仍由 ADP 管理。Provider 原生 task panel
 
 对于长时间运行的真实 Agent 工作，owner 使用 `adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>` 续租 ADP task ownership。中断 sessions 通过只读的 `adp tasks stale --workspace <workspace> [--format text|json]` 视图可见；过期工作只能通过 `tasks take` 或显式 `tasks claim` 等 ADP ownership commands 接管。
 
+真实 Agent handoff 必须 lease-aware。Operator 或 worker 应检查 ADP task 和本地 session evidence，继续长时间工作前先续租，并在接管中断工作前使用 `tasks stale`：
+
+```bash
+adp tasks show --workspace <workspace> <task-id> --format json
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+adp tasks stale --workspace <workspace> --format json
+adp sessions restore-plan <session-id>
+```
+
+Provider 原生 task panels 和 plan panels 可以镜像 active ADP task 或建议的 next-step list，但它们只是 compatibility surfaces，不是 recovery ledger。ADP 不能抓取 provider-private state、根据 provider exit 推断 completion、accept phases、记录 commit 或 push evidence、运行 Git、apply plans，或根据这些表面启动下一阶段。Runtime artifacts 保留在 `ADP_RUNTIME_DIR` 下；planning ledgers、progress、events 和 sessions 保留在 `ADP_HOME` 下。
+
+当外部 CLI 支持原生 plan mode 时，应把它视为 proposal-only。结构化变更应先通过只读的 `adp plan preview --workspace <workspace> --file - --format json`，然后只有在 operator 明确批准后，才能通过 `adp plan apply --workspace <workspace> --file - --format json` 持久化。如果 provider 在 `adp run --take` 后进入 plan mode，ADP 已为该 session 拥有被领取的 task，但原生 plan 仍不能 complete tasks、accept phases、运行 Git，或成为 recovery evidence。
+
 被启动的进程会收到：
 
 - 工作目录：runtime root。

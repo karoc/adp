@@ -36,16 +36,19 @@ var (
 var sessionIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 type Manifest struct {
-	Version     int       `yaml:"version"`
-	SessionID   string    `yaml:"session_id"`
-	Workspace   string    `yaml:"workspace"`
-	TaskID      string    `yaml:"task_id,omitempty"`
-	TaskTitle   string    `yaml:"task_title,omitempty"`
-	ProjectRoot string    `yaml:"project_root"`
-	RuntimeRoot string    `yaml:"runtime_root"`
-	CreatedAt   time.Time `yaml:"created_at"`
-	Keep        bool      `yaml:"keep"`
-	GeneratedBy string    `yaml:"generated_by"`
+	Version            int       `yaml:"version"`
+	SessionID          string    `yaml:"session_id"`
+	Workspace          string    `yaml:"workspace"`
+	TaskID             string    `yaml:"task_id,omitempty"`
+	TaskTitle          string    `yaml:"task_title,omitempty"`
+	TaskOwner          string    `yaml:"task_owner,omitempty"`
+	TaskClaimedAt      time.Time `yaml:"task_claimed_at,omitempty"`
+	TaskLeaseExpiresAt time.Time `yaml:"task_lease_expires_at,omitempty"`
+	ProjectRoot        string    `yaml:"project_root"`
+	RuntimeRoot        string    `yaml:"runtime_root"`
+	CreatedAt          time.Time `yaml:"created_at"`
+	Keep               bool      `yaml:"keep"`
+	GeneratedBy        string    `yaml:"generated_by"`
 }
 
 type BuildRequest struct {
@@ -95,16 +98,19 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 	}
 	runtimeRoot := filepath.Join(runtimeParent, req.Config.Workspace.Name+"-"+sessionID)
 	files, err := appendRuntimeManifest(req.Files, Manifest{
-		Version:     ManifestVersion,
-		SessionID:   sessionID,
-		Workspace:   req.Config.Workspace.Name,
-		TaskID:      req.Task.ID,
-		TaskTitle:   req.Task.Title,
-		ProjectRoot: req.Config.Project.Root,
-		RuntimeRoot: runtimeRoot,
-		CreatedAt:   time.Now().UTC(),
-		Keep:        req.Keep,
-		GeneratedBy: ManifestGeneratedBy,
+		Version:            ManifestVersion,
+		SessionID:          sessionID,
+		Workspace:          req.Config.Workspace.Name,
+		TaskID:             req.Task.ID,
+		TaskTitle:          req.Task.Title,
+		TaskOwner:          req.Task.Owner,
+		TaskClaimedAt:      req.Task.ClaimedAt,
+		TaskLeaseExpiresAt: req.Task.LeaseExpiresAt,
+		ProjectRoot:        req.Config.Project.Root,
+		RuntimeRoot:        runtimeRoot,
+		CreatedAt:          time.Now().UTC(),
+		Keep:               req.Keep,
+		GeneratedBy:        ManifestGeneratedBy,
 	})
 	if err != nil {
 		return nil, err
@@ -164,6 +170,15 @@ func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Confi
 		env["ADP_TASK_STATUS"] = task.Status
 		env["ADP_TASK_PRIORITY"] = task.Priority
 		env["ADP_TASK_PHASE"] = task.Phase
+		if strings.TrimSpace(task.Owner) != "" {
+			env["ADP_TASK_OWNER"] = task.Owner
+		}
+		if !task.ClaimedAt.IsZero() {
+			env["ADP_TASK_CLAIMED_AT"] = task.ClaimedAt.UTC().Format(time.RFC3339)
+		}
+		if !task.LeaseExpiresAt.IsZero() {
+			env["ADP_TASK_LEASE_EXPIRES_AT"] = task.LeaseExpiresAt.UTC().Format(time.RFC3339)
+		}
 	}
 	return env
 }

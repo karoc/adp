@@ -1,9 +1,11 @@
 package shared
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/karoc/adp/internal/adapters/api"
 	"github.com/karoc/adp/internal/schema"
@@ -34,15 +36,17 @@ func TestLaunchBuildsProviderNeutralSpec(t *testing.T) {
 		t.Fatalf("Dir = %q", spec.Dir)
 	}
 	for key, want := range map[string]string{
-		"EXISTING":         "1",
-		"ADP_AGENT":        "future-agent",
-		"ADP_WORKSPACE":    "demo",
-		"ADP_PROJECT_ROOT": "/srv/demo",
-		"ADP_PROFILE":      "builder",
-		"ADP_RUNTIME_ROOT": "/tmp/adp-runtime/session-1",
-		"ADP_SESSION_ID":   "session-1",
-		"ADP_TASK_ID":      "task-20260608-0099",
-		"ADP_TASK_TITLE":   "Validate adapter boundary",
+		"EXISTING":                  "1",
+		"ADP_AGENT":                 "future-agent",
+		"ADP_WORKSPACE":             "demo",
+		"ADP_PROJECT_ROOT":          "/srv/demo",
+		"ADP_PROFILE":               "builder",
+		"ADP_RUNTIME_ROOT":          "/tmp/adp-runtime/session-1",
+		"ADP_SESSION_ID":            "session-1",
+		"ADP_TASK_ID":               "task-20260608-0099",
+		"ADP_TASK_TITLE":            "Validate adapter boundary",
+		"ADP_TASK_OWNER":            "codex-main",
+		"ADP_TASK_LEASE_EXPIRES_AT": "2026-06-09T12:00:00Z",
 	} {
 		if spec.Env[key] != want {
 			t.Fatalf("Env[%s] = %q, want %q; env=%#v", key, spec.Env[key], want, spec.Env)
@@ -75,9 +79,14 @@ func TestInstructionsIncludePlanningContractAndTaskboxBridge(t *testing.T) {
 		"$ADP_CLI tasks stale --workspace \"demo\" --format json",
 		"$ADP_CLI tasks claim --workspace \"demo\" <task-id> --owner <owner> --lease 4h",
 		"$ADP_CLI tasks update --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --status <status>",
-		"$ADP_CLI tasks renew --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner <owner> --lease 4h",
+		"$ADP_CLI tasks renew --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner \"$ADP_TASK_OWNER\" --lease 4h",
+		"## ADP Lease Handoff",
+		"Keep this ADP task claim alive during long-running work",
+		"Current lease expires at: 2026-06-09T12:00:00Z",
+		"Inspect interrupted claims before taking over work",
 		"## Tool Taskbox Bridge",
 		"mirror the active ADP task into this tool's native task or todo panel",
+		"owner, lease expiration",
 		"do not treat provider-native task state as authoritative",
 	} {
 		if !strings.Contains(instructions, want) {
@@ -107,6 +116,43 @@ func TestInstructionsIncludePlanModeBridge(t *testing.T) {
 	}
 }
 
+func TestMetadataIncludesTaskLeaseFields(t *testing.T) {
+	ctx := sharedTestContext()
+
+	toml := string(MetadataTOML("future-agent", ctx))
+	for _, want := range []string{
+		`task_owner = "codex-main"`,
+		`task_claimed_at = "2026-06-09T08:00:00Z"`,
+		`task_lease_expires_at = "2026-06-09T12:00:00Z"`,
+	} {
+		if !strings.Contains(toml, want) {
+			t.Fatalf("MetadataTOML missing %q:\n%s", want, toml)
+		}
+	}
+
+	data, err := MetadataJSON("future-agent", ctx)
+	if err != nil {
+		t.Fatalf("MetadataJSON() error = %v", err)
+	}
+	var metadata struct {
+		ADP struct {
+			Task map[string]string `json:"task"`
+		} `json:"adp"`
+	}
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		t.Fatalf("MetadataJSON output is invalid JSON: %v\n%s", err, data)
+	}
+	for key, want := range map[string]string{
+		"owner":          "codex-main",
+		"claimedAt":      "2026-06-09T08:00:00Z",
+		"leaseExpiresAt": "2026-06-09T12:00:00Z",
+	} {
+		if metadata.ADP.Task[key] != want {
+			t.Fatalf("metadata task[%s] = %q, want %q; metadata=%s", key, metadata.ADP.Task[key], want, data)
+		}
+	}
+}
+
 func TestInstructionsWithoutTaskDirectAgentToClaimADPWork(t *testing.T) {
 	ctx := sharedTestContext()
 	ctx.Task = api.TaskContext{}
@@ -117,6 +163,9 @@ func TestInstructionsWithoutTaskDirectAgentToClaimADPWork(t *testing.T) {
 		"$ADP_CLI tasks next --workspace \"demo\" --format json",
 		"$ADP_CLI tasks update --workspace \"demo\" <task-id> --status <status>",
 		"$ADP_CLI tasks renew --workspace \"demo\" <task-id> --owner <owner> --lease 4h",
+		"## ADP Lease Handoff",
+		"Inspect interrupted work",
+		"Reclaim only through ADP ownership commands",
 		"No ADP task is bound to this runtime session.",
 		"claim the selected task through ADP",
 		"$ADP_CLI plan preview --workspace \"demo\" --file - --format json",
@@ -144,11 +193,14 @@ func sharedTestContext() api.Context {
 			Command: "future-override",
 		},
 		Task: api.TaskContext{
-			ID:       "task-20260608-0099",
-			Title:    "Validate adapter boundary",
-			Status:   "in_progress",
-			Priority: "high",
-			Phase:    "p28",
+			ID:             "task-20260608-0099",
+			Title:          "Validate adapter boundary",
+			Status:         "in_progress",
+			Priority:       "high",
+			Phase:          "p28",
+			Owner:          "codex-main",
+			ClaimedAt:      time.Date(2026, 6, 9, 8, 0, 0, 0, time.UTC),
+			LeaseExpiresAt: time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC),
 		},
 	}
 }

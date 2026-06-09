@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/karoc/adp/internal/adapters/api"
 )
@@ -23,6 +24,7 @@ func Instructions(adapterName string, ctx api.Context) []byte {
 	writeWorkspace(&b, adapterName, ctx)
 	writeTask(&b, ctx)
 	writePlanningContract(&b, ctx)
+	writeLeaseHandoff(&b, ctx)
 	writeTaskboxBridge(&b, ctx)
 	writePlanModeBridge(&b, ctx)
 	writeSection(&b, "Base Prompt", readWorkspaceFile(ctx.WorkspaceDir, ctx.Config.Prompts.Base, "No base prompt is configured."))
@@ -50,6 +52,15 @@ func MetadataTOML(adapterName string, ctx api.Context) []byte {
 		fmt.Fprintf(&b, "task_status = %s\n", quote(ctx.Task.Status))
 		fmt.Fprintf(&b, "task_priority = %s\n", quote(ctx.Task.Priority))
 		fmt.Fprintf(&b, "task_phase = %s\n", quote(ctx.Task.Phase))
+		if strings.TrimSpace(ctx.Task.Owner) != "" {
+			fmt.Fprintf(&b, "task_owner = %s\n", quote(ctx.Task.Owner))
+		}
+		if !ctx.Task.ClaimedAt.IsZero() {
+			fmt.Fprintf(&b, "task_claimed_at = %s\n", quote(formatTaskTime(ctx.Task.ClaimedAt)))
+		}
+		if !ctx.Task.LeaseExpiresAt.IsZero() {
+			fmt.Fprintf(&b, "task_lease_expires_at = %s\n", quote(formatTaskTime(ctx.Task.LeaseExpiresAt)))
+		}
 	}
 	return []byte(b.String())
 }
@@ -64,13 +75,23 @@ func MetadataJSON(adapterName string, ctx api.Context) ([]byte, error) {
 		"mcpEnabled":    ctx.Config.MCP.Enabled,
 	}
 	if !ctx.Task.IsZero() {
-		adp["task"] = map[string]any{
+		task := map[string]any{
 			"id":       ctx.Task.ID,
 			"title":    ctx.Task.Title,
 			"status":   ctx.Task.Status,
 			"priority": ctx.Task.Priority,
 			"phase":    ctx.Task.Phase,
 		}
+		if strings.TrimSpace(ctx.Task.Owner) != "" {
+			task["owner"] = ctx.Task.Owner
+		}
+		if !ctx.Task.ClaimedAt.IsZero() {
+			task["claimedAt"] = formatTaskTime(ctx.Task.ClaimedAt)
+		}
+		if !ctx.Task.LeaseExpiresAt.IsZero() {
+			task["leaseExpiresAt"] = formatTaskTime(ctx.Task.LeaseExpiresAt)
+		}
+		adp["task"] = task
 	}
 	data := map[string]any{
 		"adp": adp,
@@ -97,6 +118,15 @@ func RenderEnv(adapterName string, ctx api.Context) map[string]string {
 		env["ADP_TASK_STATUS"] = ctx.Task.Status
 		env["ADP_TASK_PRIORITY"] = ctx.Task.Priority
 		env["ADP_TASK_PHASE"] = ctx.Task.Phase
+		if strings.TrimSpace(ctx.Task.Owner) != "" {
+			env["ADP_TASK_OWNER"] = ctx.Task.Owner
+		}
+		if !ctx.Task.ClaimedAt.IsZero() {
+			env["ADP_TASK_CLAIMED_AT"] = formatTaskTime(ctx.Task.ClaimedAt)
+		}
+		if !ctx.Task.LeaseExpiresAt.IsZero() {
+			env["ADP_TASK_LEASE_EXPIRES_AT"] = formatTaskTime(ctx.Task.LeaseExpiresAt)
+		}
 	}
 	return env
 }
@@ -162,6 +192,15 @@ func writeTask(b *strings.Builder, ctx api.Context) {
 	fmt.Fprintf(b, "- Status: %s\n", defaultText(ctx.Task.Status, "unknown"))
 	fmt.Fprintf(b, "- Priority: %s\n", defaultText(ctx.Task.Priority, "normal"))
 	fmt.Fprintf(b, "- Phase: %s\n", defaultText(ctx.Task.Phase, "unassigned"))
+	if strings.TrimSpace(ctx.Task.Owner) != "" {
+		fmt.Fprintf(b, "- Owner: %s\n", strings.TrimSpace(ctx.Task.Owner))
+	}
+	if !ctx.Task.ClaimedAt.IsZero() {
+		fmt.Fprintf(b, "- Claimed at: %s\n", formatTaskTime(ctx.Task.ClaimedAt))
+	}
+	if !ctx.Task.LeaseExpiresAt.IsZero() {
+		fmt.Fprintf(b, "- Lease expires at: %s\n", formatTaskTime(ctx.Task.LeaseExpiresAt))
+	}
 	if strings.TrimSpace(ctx.Task.Description) != "" {
 		fmt.Fprintf(b, "- Description: %s\n", strings.TrimSpace(ctx.Task.Description))
 	}
@@ -195,8 +234,34 @@ func writePlanningContract(b *strings.Builder, ctx api.Context) {
 	b.WriteString("- Update this task: `$ADP_CLI tasks update --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --status <status>`\n")
 	b.WriteString("- Block this task: `$ADP_CLI tasks block --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --reason <reason>`\n")
 	b.WriteString("- Complete this task: `$ADP_CLI tasks done --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\"`\n")
-	b.WriteString("- Renew this task: `$ADP_CLI tasks renew --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner <owner> --lease 4h`\n")
-	b.WriteString("- Release this task: `$ADP_CLI tasks release --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner <owner>`\n\n")
+	fmt.Fprintf(b, "- Renew this task: `$ADP_CLI tasks renew --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner %s --lease 4h`\n", currentTaskOwnerArg(ctx.Task))
+	fmt.Fprintf(b, "- Release this task: `$ADP_CLI tasks release --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner %s`\n\n", currentTaskOwnerArg(ctx.Task))
+}
+
+func writeLeaseHandoff(b *strings.Builder, ctx api.Context) {
+	workspace := shellQuote(defaultText(ctx.Config.Workspace.Name, "$ADP_WORKSPACE"))
+
+	b.WriteString("## ADP Lease Handoff\n\n")
+	if ctx.Task.IsZero() {
+		b.WriteString("Before starting durable execution, inspect stale ADP claims and claim work through ADP so interrupted sessions are visible to other workers.\n")
+		fmt.Fprintf(b, "- Inspect interrupted work: `$ADP_CLI tasks stale --workspace %s --format json`\n", workspace)
+		fmt.Fprintf(b, "- Reclaim only through ADP ownership commands: `%s` or `%s`\n\n",
+			fmt.Sprintf("$ADP_CLI tasks take --workspace %s --owner <owner> --lease 4h --format json", workspace),
+			fmt.Sprintf("$ADP_CLI tasks claim --workspace %s <task-id> --owner <owner> --lease 4h", workspace),
+		)
+		return
+	}
+
+	b.WriteString("Keep this ADP task claim alive during long-running work. Renew before the lease expires, using the current ADP owner, and do not create duplicate provider-native tasks to recover interrupted work.\n")
+	if !ctx.Task.LeaseExpiresAt.IsZero() {
+		fmt.Fprintf(b, "- Current lease expires at: %s\n", formatTaskTime(ctx.Task.LeaseExpiresAt))
+	}
+	fmt.Fprintf(b, "- Renew active claim: `$ADP_CLI tasks renew --workspace \"$ADP_WORKSPACE\" \"$ADP_TASK_ID\" --owner %s --lease 4h`\n", currentTaskOwnerArg(ctx.Task))
+	fmt.Fprintf(b, "- Inspect interrupted claims before taking over work: `$ADP_CLI tasks stale --workspace %s --format json`\n", workspace)
+	fmt.Fprintf(b, "- Reclaim expired work only through ADP: `%s` or `%s`\n\n",
+		fmt.Sprintf("$ADP_CLI tasks take --workspace %s --owner <owner> --lease 4h --format json", workspace),
+		fmt.Sprintf("$ADP_CLI tasks claim --workspace %s <task-id> --owner <owner> --lease 4h", workspace),
+	)
 }
 
 func writeTaskboxBridge(b *strings.Builder, ctx api.Context) {
@@ -205,6 +270,7 @@ func writeTaskboxBridge(b *strings.Builder, ctx api.Context) {
 		b.WriteString("No ADP task is bound to this runtime session. Before doing durable work, inspect or create ADP tasks and claim the selected task through ADP.\n\n")
 	} else {
 		b.WriteString("When work starts, mirror the active ADP task into this tool's native task or todo panel if the tool provides one.\n")
+		b.WriteString("Mirror at minimum the ADP task ID, title, status, phase, owner, lease expiration, and local subtasks so the tool panel shows the task that ADP assigned.\n")
 		b.WriteString("Keep that panel aligned with the active ADP task for local visibility only; do not treat provider-native task state as authoritative.\n")
 		b.WriteString("If the tool cannot expose a native task panel, continue using ADP commands as the durable task interface.\n\n")
 	}
@@ -222,6 +288,17 @@ func writePlanModeBridge(b *strings.Builder, ctx api.Context) {
 	fmt.Fprintf(b, "- Apply structured planning input only after explicit user or operator approval: `$ADP_CLI plan apply --workspace %s --file - --format json`\n", workspace)
 	fmt.Fprintf(b, "- Inspect phase gates without changing them: `$ADP_CLI phase status --workspace %s --format json`\n\n", workspace)
 	b.WriteString("Provider-native plan approval is not ADP phase acceptance. Persist accepted plans through ADP commands and report the resulting phase and task IDs.\n\n")
+}
+
+func currentTaskOwnerArg(task api.TaskContext) string {
+	if strings.TrimSpace(task.Owner) == "" {
+		return "<owner>"
+	}
+	return `"$ADP_TASK_OWNER"`
+}
+
+func formatTaskTime(value time.Time) string {
+	return value.UTC().Format(time.RFC3339)
 }
 
 func writeSection(b *strings.Builder, title, body string) {

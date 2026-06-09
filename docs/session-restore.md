@@ -114,6 +114,28 @@ Running `restore-plan` should only print inspection output. The event count, tas
 
 If the suggested command is run manually, it starts a new local agent run with a new session ID. It does not attach to the previous provider conversation.
 
+## Lease-Aware Handoff
+
+`sessions restore-plan` is one handoff clue, not the handoff ledger. It can reconstruct a safe launch shape from local invocation evidence, but it does not prove that the previous worker still owns the task, renew a lease, reclaim interrupted work, or know anything from provider-private state.
+
+For task-bound sessions, pair restore planning with ADP planning inspection:
+
+```bash
+adp tasks show --workspace <workspace> <task-id> --format json
+adp tasks stale --workspace <workspace> --format json
+adp phase status --workspace <workspace> --format json
+```
+
+When the same owner continues a long-running task, renew before the lease expires:
+
+```bash
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+```
+
+When a worker was interrupted and the lease has expired, reclaim only through `adp tasks take` or explicit `adp tasks claim`. Do not use provider conversation IDs, native task panels, plan panels, chat transcripts, process exits, or native resume state as ownership evidence.
+
+Plan-mode compatibility follows the same boundary. A provider-native plan panel can mirror a proposed restart or next-step checklist, but structured plan changes become durable only through `adp plan preview` and explicitly approved `adp plan apply`. Restore planning must not automatically edit files, complete tasks, accept phases, commit, push, run Git, apply plans, start runtimes, or write runtime/planning files into the real project root.
+
 ## Operating Rules
 
 - Treat restore-plan output as guidance, not as an automatic repair or resume action.
@@ -122,5 +144,6 @@ If the suggested command is run manually, it starts a new local agent run with a
 - Renew long-running ownership with `adp tasks renew`; use `adp tasks stale` to inspect expired in-progress claims after interruptions.
 - Reclaim expired work only through ADP ownership commands such as `adp tasks take` or explicit `adp tasks claim`.
 - Move task status explicitly with `adp tasks update`, `adp tasks done`, or `adp tasks block`.
+- Treat provider-native plan and task panels as mirror or scratch surfaces, not as recovery evidence.
 - Keep acceptance evidence local by pairing restore-plan checks with `adp events list`, `adp sessions list`, and `adp sessions show`.
 - Do not describe restore-plan as cloud sync, remote issue tracking, hosted orchestration, provider-private state scraping, automatic task completion, or provider-native resume.

@@ -237,13 +237,16 @@ func (a *App) loadRunTaskContext(ctx context.Context, workspaceDir string, opts 
 
 func taskContext(task taskstore.Task) adapters.TaskContext {
 	return adapters.TaskContext{
-		ID:            task.ID,
-		Title:         task.Title,
-		Status:        string(task.Status),
-		Priority:      task.Priority,
-		Phase:         task.Phase,
-		Description:   task.Description,
-		BlockedReason: task.BlockedReason,
+		ID:             task.ID,
+		Title:          task.Title,
+		Status:         string(task.Status),
+		Priority:       task.Priority,
+		Phase:          task.Phase,
+		Owner:          task.Owner,
+		ClaimedAt:      task.ClaimedAt,
+		LeaseExpiresAt: task.LeaseExpiresAt,
+		Description:    task.Description,
+		BlockedReason:  task.BlockedReason,
 	}
 }
 
@@ -266,13 +269,23 @@ func runInvocationFields(opts runOptions, profile string, taskCtx adapters.TaskC
 		invocation["original_cwd"] = cwd
 	}
 	if !taskCtx.IsZero() {
-		invocation["task_snapshot"] = map[string]any{
+		taskSnapshot := map[string]any{
 			"id":       taskCtx.ID,
 			"title":    taskCtx.Title,
 			"status":   taskCtx.Status,
 			"priority": taskCtx.Priority,
 			"phase":    taskCtx.Phase,
 		}
+		if strings.TrimSpace(taskCtx.Owner) != "" {
+			taskSnapshot["owner"] = taskCtx.Owner
+		}
+		if !taskCtx.ClaimedAt.IsZero() {
+			taskSnapshot["claimed_at"] = taskCtx.ClaimedAt.UTC().Format(time.RFC3339)
+		}
+		if !taskCtx.LeaseExpiresAt.IsZero() {
+			taskSnapshot["lease_expires_at"] = taskCtx.LeaseExpiresAt.UTC().Format(time.RFC3339)
+		}
+		invocation["task_snapshot"] = taskSnapshot
 	}
 	return map[string]any{"invocation": invocation}
 }

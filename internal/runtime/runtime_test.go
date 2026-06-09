@@ -92,10 +92,16 @@ func TestBuildWritesRuntimeManifestWithoutPollutingProject(t *testing.T) {
 	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
 
 	handle, err := Build(context.Background(), BuildRequest{
-		Layout:    layout,
-		Config:    testConfig(projectRoot),
-		Keep:      true,
-		Task:      adapters.TaskContext{ID: "task-20260608-0002", Title: "Write task manifest"},
+		Layout: layout,
+		Config: testConfig(projectRoot),
+		Keep:   true,
+		Task: adapters.TaskContext{
+			ID:             "task-20260608-0002",
+			Title:          "Write task manifest",
+			Owner:          "codex-main",
+			ClaimedAt:      time.Date(2026, 6, 9, 8, 0, 0, 0, time.UTC),
+			LeaseExpiresAt: time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC),
+		},
 		SessionID: "manifest-session",
 	})
 	if err != nil {
@@ -123,6 +129,21 @@ func TestBuildWritesRuntimeManifestWithoutPollutingProject(t *testing.T) {
 	}
 	if manifest.TaskID != "task-20260608-0002" || manifest.TaskTitle != "Write task manifest" {
 		t.Fatalf("manifest task mismatch: %+v", manifest)
+	}
+	if manifest.TaskOwner != "codex-main" {
+		t.Fatalf("manifest task owner mismatch: %s", manifest.TaskOwner)
+	}
+	if got, want := manifest.TaskClaimedAt, time.Date(2026, 6, 9, 8, 0, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("manifest task claimed at = %s, want %s", got, want)
+	}
+	if got, want := manifest.TaskLeaseExpiresAt, time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("manifest task lease expires at = %s, want %s", got, want)
+	}
+	if handle.Env["ADP_TASK_OWNER"] != "codex-main" {
+		t.Fatalf("handle task owner env mismatch: %#v", handle.Env)
+	}
+	if handle.Env["ADP_TASK_LEASE_EXPIRES_AT"] != "2026-06-09T12:00:00Z" {
+		t.Fatalf("handle task lease env mismatch: %#v", handle.Env)
 	}
 	if manifest.ProjectRoot != projectRoot {
 		t.Fatalf("manifest project root mismatch: %s", manifest.ProjectRoot)

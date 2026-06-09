@@ -105,6 +105,8 @@ git diff --check
 
 中断 worker 的恢复必须通过 ADP，而不是 provider-private state。Operator 可以用 `adp tasks stale --workspace <workspace> [--format text|json]` 查看 lease 已过期的 in-progress claims；lease 过期后，其他 worker 可以按 ADP ownership rules 通过 `adp tasks take` 或显式 `adp tasks claim` 接管任务。不能根据 provider task box、plan panel 或进程退出推断 completion、phase acceptance、commit evidence、push evidence 或 Git state。
 
+Runtime handoff snapshots、progress reports、session restore-plan output，以及 provider 原生 task 或 plan panels 都只是 inspection 或 mirror surfaces。它们可以帮助另一个终端 Agent 理解上下文，但持久 ownership、lease renewal、stale recovery、task completion、phase acceptance、commit evidence、push evidence 和 Git execution 都必须保留在显式 ADP commands 上。Runtime 和 planning 文件必须留在 `$ADP_RUNTIME_DIR` 和 `$ADP_HOME` 下，不能进入真实项目根目录。
+
 ## 实现原则
 
 - 优先沿用现有 package 边界和本地模式，不轻易引入新抽象。

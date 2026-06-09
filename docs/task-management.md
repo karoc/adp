@@ -202,6 +202,31 @@ adp tasks stale --workspace <workspace> [--format text|json]
 
 Workers launched with `adp run --take` should renew during long work before their lease expires. If a session is interrupted, the expired claim becomes visible through `tasks stale`; after expiration, another worker can reclaim the task with `tasks take` or explicit `tasks claim` according to ADP ownership rules. None of these commands automatically mark work done, accept phases, record commit or push evidence, execute Git, scrape provider-private task boxes, or trust provider plan panels as recovery state.
 
+## Lease-Aware Runtime Handoff
+
+Runtime handoff is ADP-led. A worker should hand off with enough local evidence for the next operator or terminal agent to answer four questions: which ADP task is active, who owns it, when its lease expires, and what explicit ADP command should happen next.
+
+Recommended handoff inspection commands are:
+
+```bash
+adp tasks show --workspace <workspace> <task-id> --format json
+adp tasks stale --workspace <workspace> --format json
+adp phase status --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
+adp sessions list --workspace <workspace> --task <task-id>
+adp sessions restore-plan <session-id>
+```
+
+If the worker is still making progress, renew before handing off or before the lease expires:
+
+```bash
+adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease <duration>
+```
+
+If work was interrupted, inspect with `tasks stale` first. Reclaim expired work only through `adp tasks take` or explicit `adp tasks claim`; do not recover ownership from provider-private task boxes, plan panels, chat transcripts, conversation IDs, process exits, or native resume state.
+
+Provider-native task panels may mirror the active ADP task, and provider-native plan mode may hold proposals, but neither surface is the handoff ledger. Handoff does not automatically complete a task, accept a phase, record commit or push evidence, run Git, apply a plan, start the next phase, or write planning/runtime files into the real project root. Runtime artifacts stay under `$ADP_RUNTIME_DIR`; planning ledgers, progress, events, and sessions stay under `$ADP_HOME`.
+
 ## Phase Gate Status Scope
 
 P24 adds a read-only phase gate snapshot for local tools and terminal agents:
