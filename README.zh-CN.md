@@ -230,10 +230,12 @@ Session resume planning 和 cross-tool `resume-plan` 命令见 [docs/session-res
 
 Agent 执行标准，包括多 Agent 协作规则与项目约束，见 [AGENTS.zh-CN.md](AGENTS.zh-CN.md)。
 
+贡献、安全和许可证策略入口见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、[SECURITY.zh-CN.md](SECURITY.zh-CN.md) 和 [docs/license-policy.zh-CN.md](docs/license-policy.zh-CN.md)。
+
 ## 许可证
 
 ADP 在 [PolyForm Noncommercial License 1.0.0](LICENSE) 下以 source-available 形式提供给非商业学习、研究、评估和开放协作使用。
 
 非商业再分发、fork、公开引用和 release package 必须保留许可证文本、必要声明，以及对 ADP 和版权持有人的署名。商业使用需要单独付费授权；公开可访问不代表已经授予商业许可。
 
-Release package 应随 binary 和公开文档保留 `README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md` 和 `COMMERCIAL.zh-CN.md`。不得包含 `.envrc`、`mvp.md`、本地 `$ADP_HOME` 状态、`$ADP_RUNTIME_DIR` 内容、runtime overlay、日志、任务状态、凭据或机器特定的 shell 配置。详见 [COMMERCIAL.zh-CN.md](COMMERCIAL.zh-CN.md)。
+Release package 应随 binary 和公开文档保留 `README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、`CONTRIBUTING.md`、`CONTRIBUTING.zh-CN.md`、`SECURITY.md`、`SECURITY.zh-CN.md` 和 `docs/license-policy.md`。不得包含 `.envrc`、`mvp.md`、本地 `$ADP_HOME` 状态、`$ADP_RUNTIME_DIR` 内容、runtime overlay、日志、任务状态、凭据或机器特定的 shell 配置。详见 [COMMERCIAL.zh-CN.md](COMMERCIAL.zh-CN.md)。

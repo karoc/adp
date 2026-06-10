@@ -76,3 +76,5 @@ ADP 使用 PolyForm Noncommercial License 1.0.0 公开提供非商业使用。
 不要引入与非商业 source-available 分发模式冲突的第三方依赖。新增依赖时，需要记录引入原因，并确认其许可证允许被包含在本项目中。
 
 所有源文件都应与仓库许可证兼容。新的 public-facing 文件应在合适位置保留 copyright 和 required notices。
+
+贡献和依赖变更必须保留 [license-policy.zh-CN.md](license-policy.zh-CN.md) 中描述的授权边界。不要把 ADP 描述为不受限制的 open source，也不要暗示公开可访问会授予商业使用权。

@@ -26,6 +26,19 @@ English: [release-evidence.md](release-evidence.md)
 - 可选 real-agent operator evidence；如果有意启用，应按 command availability、非交互 invocation、手工交互式 acceptance 分开记录。
 - License notice：ADP 以 source-available 形式提供给非商业学习、研究、评估和开源协作用途；商业使用必须取得单独的付费授权。
 
+## Evidence Tiers
+
+Required evidence 是 provider-free 的，并且每个 release candidate 都必须具备：
+
+- `scripts/check-all.sh` 已从被发布的 source form 通过。
+- release binary 报告明确的 `VERSION`、`COMMIT` 和 `BUILD_DATE` 值。
+- Artifact checksum generation 和 verification 已通过。
+- Package manifest inspection 已通过，并且没有被排除的 local state。
+- Install-from-artifact rehearsal 已使用临时 ADP directories、临时 project root、fake agent commands 通过，并且没有 project-root pollution。
+- 当 source archive 或 no-`.git` source form 会被发布或用于构建时，对应 rehearsal 已通过。
+
+Optional real-agent evidence 是补充证据。每个未被有意启用的 optional tier 都应记录为 `not run`。如果 required evidence 完整且所有 optional tiers 都记录为 `not run`，只要 release note 没有声明 deterministic fake-agent gate 之外的 real-agent 行为，该 release candidate 仍然完整。
+
 ## 构建 Evidence
 
 Release note 应包含准确的 build identity：
@@ -128,3 +141,5 @@ ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-s
 - 手工交互式 provider acceptance 是真实 `adp run ...` session 的独立 operator note。只有 release claims 涉及交互式 provider 行为时才需要它，并且 note 不能包含凭据、token、账号标识、私有 prompt 或敏感模型输出。
 
 某个 tier 未运行时，应为该 tier 记录 `not run`，而不是把 release evidence 视为不完整。完整流程和脱敏要求见 [real-agent-compatibility.zh-CN.md](real-agent-compatibility.zh-CN.md)。
+
+不要在 release evidence 中包含原始 credentials、账号标识、私有 prompts、provider-native session state 或敏感 model output。Summary 应说明 command、environment tier、result，以及 troubleshooting 所需的任何已脱敏 failure class。

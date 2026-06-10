@@ -41,9 +41,26 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
+## Release Candidate Path
+
+Use this path for every preview release candidate:
+
+1. Start from the source form that will be released: a clean Git checkout or a source archive with a recorded origin commit.
+2. Run `scripts/check-all.sh` from that source form and keep the full command result as required release evidence.
+3. Build the preview artifact with explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values as described in [release-packaging.md](release-packaging.md).
+4. Generate and verify the SHA-256 checksum before package assembly.
+5. Assemble the package from a clean staging directory and inspect a sorted manifest before publishing.
+6. Install at least one packaged binary into a temporary directory on `PATH` and run the provider-free first-run rehearsal.
+7. Record the evidence template in [release-evidence.md](release-evidence.md), including any failed required checks from earlier attempts and the final passing run.
+8. Record optional real-agent evidence only when it was intentionally enabled for the release claim.
+
+The release candidate is blocked if any required step fails. Do not tag or publish an artifact until the deterministic gate, package manifest inspection, checksum verification, install rehearsal, and applicable source archive rehearsal have passed.
+
+The default release path is provider-free. It uses fake local agent commands, temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, temporary project roots, and fake Git tripwires where applicable. Real Codex or Claude checks are separate operator evidence tiers and must not be required by `scripts/check-all.sh`, CI, or default packaging instructions.
+
 ## Release Package Contents
 
-For preview artifacts, inspect the package before publishing it. The package should include the target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `docs/release-packaging.md`, `docs/release-packaging.zh-CN.md`, `docs/release-evidence.md`, `docs/release-evidence.zh-CN.md`, and a release evidence note or release note that records the commit, version, target platform, gate result, and checksum.
+For preview artifacts, inspect the package before publishing it. The package should include the target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `CONTRIBUTING.md`, `CONTRIBUTING.zh-CN.md`, `SECURITY.md`, `SECURITY.zh-CN.md`, `docs/license-policy.md`, `docs/license-policy.zh-CN.md`, `docs/release-packaging.md`, `docs/release-packaging.zh-CN.md`, `docs/release-evidence.md`, `docs/release-evidence.zh-CN.md`, and a release evidence note or release note that records the commit, version, target platform, gate result, and checksum.
 
 The package must preserve the PolyForm Noncommercial and source-available positioning. Noncommercial redistribution must keep the license text, required notices, and attribution to ADP and the copyright holder. Any commercial use requires separate paid authorization; do not describe a preview package as granting commercial rights.
 
@@ -135,7 +152,7 @@ The release rehearsal smoke verifies:
 The release artifact smoke verifies:
 
 - Target-platform artifacts can be built with release ldflags and report the injected version, commit, and build date.
-- The package includes the required binary, license, commercial notice, README, release packaging, and release evidence files.
+- The package includes the required binary, license, commercial notice, contribution and security guidance, license policy, README, release packaging, and release evidence files.
 - The package excludes `.envrc`, `mvp.md`, local ADP state, runtime overlays, logs, task state, credentials, and machine-specific shell startup files.
 - Checksums are generated for packaged artifacts before install rehearsal.
 - The installed binary runs from the package path with temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, fake Codex, local events, local sessions, and no project-root pollution.

@@ -230,10 +230,12 @@ Real agent compatibility boundaries are documented in [docs/real-agent-compatibi
 
 Agent execution standards, including multi-agent coordination rules and project constraints, are documented in [AGENTS.md](AGENTS.md).
 
+Contribution, security, and licensing policy entry points are [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [docs/license-policy.md](docs/license-policy.md).
+
 ## License
 
 ADP is source-available for noncommercial learning, research, evaluation, and open collaboration under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
 Noncommercial redistribution, forks, public references, and release packages must preserve the license text, required notices, and attribution to ADP and the copyright holder. Commercial use requires separate paid authorization; public availability is not a commercial license grant.
 
-Release packages should keep `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, and `COMMERCIAL.zh-CN.md` with the binary and public docs. They must not include `.envrc`, `mvp.md`, local `$ADP_HOME` state, `$ADP_RUNTIME_DIR` contents, runtime overlays, logs, task state, credentials, or machine-specific shell configuration. See [COMMERCIAL.md](COMMERCIAL.md).
+Release packages should keep `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `CONTRIBUTING.md`, `CONTRIBUTING.zh-CN.md`, `SECURITY.md`, `SECURITY.zh-CN.md`, and `docs/license-policy.md` with the binary and public docs. They must not include `.envrc`, `mvp.md`, local `$ADP_HOME` state, `$ADP_RUNTIME_DIR` contents, runtime overlays, logs, task state, credentials, or machine-specific shell configuration. See [COMMERCIAL.md](COMMERCIAL.md).

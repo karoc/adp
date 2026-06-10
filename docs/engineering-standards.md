@@ -76,3 +76,5 @@ ADP uses the PolyForm Noncommercial License 1.0.0 for public noncommercial use.
 Do not introduce third-party dependencies whose licenses conflict with a noncommercial source-available distribution model. When adding a dependency, record the reason for the dependency and confirm that its license permits inclusion.
 
 All source files should remain compatible with the repository license. New public-facing files should preserve copyright and required notices where appropriate.
+
+Contribution and dependency changes must preserve the licensing boundary described in [license-policy.md](license-policy.md). Do not describe ADP as unrestricted open source, and do not imply that public availability grants commercial use rights.

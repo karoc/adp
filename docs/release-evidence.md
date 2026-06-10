@@ -26,6 +26,19 @@ Record these fields for every preview artifact:
 - Optional real-agent operator evidence, separated by command availability, non-interactive invocation, and manual interactive acceptance when any tier was intentionally enabled.
 - License notice: ADP is source-available for noncommercial learning, research, evaluation, and open collaboration; commercial use requires separate paid authorization.
 
+## Evidence Tiers
+
+Required evidence is provider-free and must be present for every release candidate:
+
+- `scripts/check-all.sh` passed from the released source form.
+- The release binary reports explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values.
+- Artifact checksum generation and verification passed.
+- Package manifest inspection passed and excluded local state was absent.
+- Install-from-artifact rehearsal passed with temporary ADP directories, a temporary project root, fake agent commands, and no project-root pollution.
+- Source archive or no-`.git` rehearsal passed when that source form is published or used for the build.
+
+Optional real-agent evidence is supplemental. Record `not run` for each optional tier that was not intentionally enabled. A release candidate with complete required evidence and all optional tiers marked `not run` is still complete unless the release note claims real-agent behavior beyond the deterministic fake-agent gate.
+
 ## Build Evidence
 
 The release note should include the exact build identity:
@@ -128,3 +141,5 @@ ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-s
 - Manual interactive provider acceptance is a separate operator note for real `adp run ...` sessions. It is required only for release claims about interactive provider behavior, and the note must avoid credentials, tokens, account identifiers, private prompts, and sensitive model output.
 
 When a tier is not run, record `not run` for that tier rather than treating the release evidence as incomplete. For the full procedure and redaction guidance, see [real-agent-compatibility.md](real-agent-compatibility.md).
+
+Do not include raw credentials, account identifiers, private prompts, provider-native session state, or sensitive model output in release evidence. Summaries should state the command, environment tier, result, and any redacted failure class needed for troubleshooting.

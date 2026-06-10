@@ -23,6 +23,21 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 They do not replace the aggregate gate and do not prove provider credentials, model access, quota, network reliability, or interactive session quality.
 
+## Release Candidate Summary
+
+The release-candidate path is deterministic by default:
+
+1. Verify the exact source form with `scripts/check-all.sh`.
+2. Build artifacts with explicit release ldflags.
+3. Generate and verify checksums before packaging.
+4. Stage the package from clean files only.
+5. Inspect the package manifest for required notices and excluded local state.
+6. Install a packaged binary on a temporary `PATH`.
+7. Run the provider-free first-run rehearsal with fake agent commands and temporary ADP directories.
+8. Record release evidence after the gate, checksum, manifest, install rehearsal, and source archive or no-`.git` rehearsal pass.
+
+This path must not depend on real Codex or Claude CLIs, provider credentials, network access, hosted services, dashboards, cloud sync, or automatic Git execution. Optional real-agent evidence can be attached to a release note, but it is not part of the package assembly requirement unless the release explicitly claims that tier.
+
 ## Operator Drill
 
 Use this sequence for preview release rehearsals:
@@ -64,6 +79,8 @@ The default `COMMIT` command assumes a Git checkout. If building from a source a
 COMMIT=source-archive-commit
 ```
 
+When a source archive is used, the explicit `COMMIT` value should be the published commit hash or another stable archive identifier recorded in the release evidence. Do not infer build identity from a local checkout that is not the source form being released.
+
 For cross-platform preview artifacts, set `GOOS` and `GOARCH` explicitly and use platform-specific names:
 
 ```bash
@@ -94,6 +111,8 @@ adp version
 
 Then run a provider-free first-run rehearsal with temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, a temporary project root, and a fake local `codex` command. The rehearsal should prove the installed binary can initialize ADP state, register a workspace, pass doctor checks, run `adp run codex --workspace <name> --task <task-id> -- <agent-args>`, inspect events and sessions, and leave the real project root free of ADP-generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex`, `.claude`, `.adp-runtime.yaml`, `planning`, `tasks.yaml`, `phases.yaml`, or `progress.jsonl`.
 
+Use fake local agent commands for this default rehearsal. If real Codex or Claude evidence is collected, run it as a separate opt-in tier after the provider-free rehearsal has already passed and record the exact tier in [release-evidence.md](release-evidence.md).
+
 ## Package Contents
 
 Each packaged archive should include:
@@ -104,15 +123,23 @@ Each packaged archive should include:
 - `LICENSE`.
 - `COMMERCIAL.md`.
 - `COMMERCIAL.zh-CN.md`.
+- `CONTRIBUTING.md`.
+- `CONTRIBUTING.zh-CN.md`.
+- `SECURITY.md`.
+- `SECURITY.zh-CN.md`.
+- `docs/license-policy.md`.
+- `docs/license-policy.zh-CN.md`.
 - `docs/release-packaging.md`.
 - `docs/release-packaging.zh-CN.md`.
 - `docs/release-evidence.md`.
 - `docs/release-evidence.zh-CN.md`.
 - A short release note with the Git commit, target platform, and gate evidence.
 
-Keep `LICENSE` and `COMMERCIAL.md` intact in every package. ADP is source-available for noncommercial learning, research, evaluation, and open collaboration under the public license; commercial use requires separate paid authorization from the copyright holder.
+Keep `LICENSE`, `COMMERCIAL.md`, `CONTRIBUTING.md`, `SECURITY.md`, and `docs/license-policy.md` intact in every package. ADP is source-available for noncommercial learning, research, evaluation, and open collaboration under the public license; commercial use requires separate paid authorization from the copyright holder.
 
 Do not include local `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, logs, task state, credentials, machine-specific shell startup files, or temporary release rehearsal directories.
+
+Do not include provider credentials, account identifiers, private prompts, model output transcripts, provider-native session state, or machine-local ADP planning ledgers. Release evidence may summarize optional real-agent results, but the package itself should remain provider-neutral and safe to inspect without access to the operator environment.
 
 Record a package manifest before publishing, for example:
 

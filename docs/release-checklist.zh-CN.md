@@ -41,9 +41,26 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
+## Release Candidate 路径
+
+每个 preview release candidate 都使用这条路径：
+
+1. 从将要发布的 source form 开始：干净的 Git checkout，或已经记录来源 commit 的 source archive。
+2. 从该 source form 运行 `scripts/check-all.sh`，并把完整命令结果保留为 required release evidence。
+3. 按 [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 使用明确的 `VERSION`、`COMMIT` 和 `BUILD_DATE` 值构建 preview artifact。
+4. 在 package assembly 前生成并验证 SHA-256 checksum。
+5. 从干净 staging directory 组装 package，并在发布前检查排序后的 manifest。
+6. 至少把一个 packaged binary 安装到临时目录并放到 `PATH` 上，然后运行 provider-free first-run rehearsal。
+7. 按 [release-evidence.zh-CN.md](release-evidence.zh-CN.md) 记录 evidence template，包括之前尝试中失败的 required checks 和最终 passing run。
+8. 只有在 release claim 有意启用时，才记录 optional real-agent evidence。
+
+任何 required step 失败都会阻塞 release candidate。在 deterministic gate、package manifest inspection、checksum verification、install rehearsal，以及适用的 source archive rehearsal 通过前，不要 tag 或 publish artifact。
+
+默认 release path 是 provider-free。它使用 fake local agent commands、临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、临时 project roots，以及适用时的 fake Git tripwire。真实 Codex 或 Claude 检查是独立的 operator evidence tier，不得被 `scripts/check-all.sh`、CI 或默认 packaging instructions 要求。
+
 ## 发布包内容
 
-发布 preview artifact 前，应先检查 package 内容。Package 应包含目标平台的 `adp` binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、`docs/release-packaging.md`、`docs/release-packaging.zh-CN.md`、`docs/release-evidence.md`、`docs/release-evidence.zh-CN.md`，以及记录 commit、version、target platform、gate result 和 checksum 的 release evidence note 或 release note。
+发布 preview artifact 前，应先检查 package 内容。Package 应包含目标平台的 `adp` binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、`CONTRIBUTING.md`、`CONTRIBUTING.zh-CN.md`、`SECURITY.md`、`SECURITY.zh-CN.md`、`docs/license-policy.md`、`docs/license-policy.zh-CN.md`、`docs/release-packaging.md`、`docs/release-packaging.zh-CN.md`、`docs/release-evidence.md`、`docs/release-evidence.zh-CN.md`，以及记录 commit、version、target platform、gate result 和 checksum 的 release evidence note 或 release note。
 
 Package 必须保留 PolyForm Noncommercial 和 source-available 定位。非商业再分发必须保留许可证文本、必要声明，以及对 ADP 和版权持有人的署名。任何商业使用都必须取得单独付费授权；不得把 preview package 描述成已经授予商业权利。
 
@@ -135,7 +152,7 @@ release rehearsal smoke 验证：
 release artifact smoke 验证：
 
 - target-platform artifacts 可以使用 release ldflags 构建，并报告注入的 version、commit 和 build date。
-- package 包含 required binary、license、commercial notice、README、release packaging 和 release evidence 文件。
+- package 包含 required binary、license、commercial notice、contribution 和 security guidance、license policy、README、release packaging 和 release evidence 文件。
 - package 排除 `.envrc`、`mvp.md`、本地 ADP state、runtime overlays、logs、task state、credentials 和 machine-specific shell startup files。
 - packaged artifacts 在 install rehearsal 前已生成 checksums。
 - installed binary 从 package path 运行，使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、fake Codex、本地 events、本地 sessions，且不污染 project root。

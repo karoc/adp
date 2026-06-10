@@ -16,6 +16,16 @@ English: [release-troubleshooting.md](release-troubleshooting.md)
 
 不要把可选真实 Codex 或 Claude evidence 当作默认门禁。只有 release note 声明了 deterministic fake-provider evidence 之外的 real-agent compatibility 时，real CLI failure 才会阻塞 release。
 
+## Release Candidate 决策
+
+继续前先对 candidate 分类：
+
+- `blocked`：任何 required gate、checksum、package manifest、install rehearsal、source archive rehearsal 或 project-root cleanliness check 失败。
+- `passing-provider-free`：所有 required deterministic checks 通过，optional real-agent tiers 均为 `not run` 或没有被声明。
+- `passing-with-real-agent-evidence`：所有 required deterministic checks 通过，并且明确声明的 optional real-agent tiers 也通过。
+
+不要把 required failure 降级为 optional evidence。不要把 optional real-agent evidence 升级成默认 release requirement。如果 release note 声明了某个 real-agent tier 但该 tier 失败，应移除该声明并把该 tier 记录为 failed 或 deferred，或者停止 candidate 直到该 tier 通过。
+
 ## Source Form 失败
 
 对于 Git checkout，从这些命令开始：
@@ -80,6 +90,8 @@ PATH="${ADP_INSTALL_BIN}:${PATH}" adp version
 
 ## 门禁失败
 
+对于 `scripts/check-all.sh`，检查第一个失败的 child command，并从同一个 source form 直接重新运行该 child。Aggregate gate 是 release decision point，但最小失败 command 通常是最快的 triage target。
+
 对于 `scripts/release-artifact-smoke.sh`，优先检查 package staging、checksums、manifest assertions、install-from-artifact、source archive `COMMIT`、fake Codex command、临时 ADP directories 和 project-root pollution output。
 
 对于 `scripts/release-operator-drill-smoke.sh`，优先检查 no-`.git` source copy、文档化 release commands、release script syntax checks、显式 commit build、checksum verification、installed `PATH` binary、fake Codex handoff sequence、本地 phase evidence records、fake Git tripwire 和 project-root pollution scan。
@@ -91,3 +103,11 @@ PATH="${ADP_INSTALL_BIN}:${PATH}" adp version
 对于 `scripts/check-docs-bilingual.sh`，补齐缺失的 English default 或 Simplified Chinese counterpart。对于 `scripts/check-file-lines.sh`，在新增行为前拆分报告的 code file。对于 `git diff --check`，移除 whitespace errors 或 conflict markers。
 
 不确定时，保持 failure narrow：重新运行失败步骤，修复本地原因，再重新运行 aggregate gate。不能通过增加新的 product scope 来解决 release failures。
+
+## 可选 Real-Agent 失败
+
+对于 command availability 失败，确认外部 CLI 已安装在 `PATH` 上，然后只重新运行已经 opt in 的 real flag。不要把 real flag 加入 `scripts/check-all.sh` 或 CI。
+
+对于非交互 invocation 失败，记录 failure 属于 command launch、authentication、quota、network、model access、prompt handling、timeout 还是 unexpected output。除非 deterministic fake-agent gate 也失败，否则这些 failure 描述的是 operator environment。
+
+对于手工交互式 acceptance 失败，保持 notes 已脱敏，并与 package evidence 分开。不要在 release artifacts 中包含 credentials、账号标识、私有 prompts、provider-native session files 或敏感 model output。

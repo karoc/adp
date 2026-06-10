@@ -23,6 +23,21 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 
 它们不能替代聚合门禁，也不能证明 provider 凭据、模型访问、额度、网络可靠性或交互式 session 质量。
 
+## Release Candidate 摘要
+
+Release-candidate 路径默认是确定性的：
+
+1. 用 `scripts/check-all.sh` 验证准确的 source form。
+2. 使用明确的 release ldflags 构建 artifacts。
+3. 在 packaging 前生成并验证 checksums。
+4. 只从干净文件 staging package。
+5. 检查 package manifest，确认 required notices 存在且 excluded local state 不存在。
+6. 把 packaged binary 安装到临时 `PATH`。
+7. 使用 fake agent commands 和临时 ADP directories 运行 provider-free first-run rehearsal。
+8. 在 gate、checksum、manifest、install rehearsal，以及 source archive 或 no-`.git` rehearsal 通过后记录 release evidence。
+
+这条路径不得依赖真实 Codex 或 Claude CLI、provider credentials、network access、hosted services、dashboards、cloud sync 或 automatic Git execution。Optional real-agent evidence 可以附加到 release note，但除非 release 明确声明该 tier，否则它不是 package assembly requirement。
+
 ## Operator 演练
 
 preview release rehearsal 使用这条顺序：
@@ -64,6 +79,8 @@ dist/adp version
 COMMIT=source-archive-commit
 ```
 
+使用 source archive 时，显式 `COMMIT` 值应是发布的 commit hash，或 release evidence 中记录的另一个稳定 archive identifier。不要从并非本次发布 source form 的本地 checkout 推断 build identity。
+
 如果需要跨平台 preview artifact，应显式设置 `GOOS` 和 `GOARCH`，并使用带平台信息的名称：
 
 ```bash
@@ -94,6 +111,8 @@ adp version
 
 随后使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、临时 project root 和 fake local `codex` command 运行一次 provider-free first-run rehearsal。该演练应证明 installed binary 可以初始化 ADP state、注册 workspace、通过 doctor 检查、运行 `adp run codex --workspace <name> --task <task-id> -- <agent-args>`、检查 events 和 sessions，并且不会在真实 project root 中留下 `AGENTS.md`、`CLAUDE.md`、`.codex`、`.claude`、`.adp-runtime.yaml`、`planning`、`tasks.yaml`、`phases.yaml` 或 `progress.jsonl` 等 ADP-generated files。
 
+默认 rehearsal 使用 fake local agent commands。如果收集真实 Codex 或 Claude evidence，应在 provider-free rehearsal 已经通过后，作为独立 opt-in tier 运行，并在 [release-evidence.zh-CN.md](release-evidence.zh-CN.md) 中记录准确 tier。
+
 ## Package 内容
 
 每个打包 archive 应包含：
@@ -104,15 +123,23 @@ adp version
 - `LICENSE`。
 - `COMMERCIAL.md`。
 - `COMMERCIAL.zh-CN.md`。
+- `CONTRIBUTING.md`。
+- `CONTRIBUTING.zh-CN.md`。
+- `SECURITY.md`。
+- `SECURITY.zh-CN.md`。
+- `docs/license-policy.md`。
+- `docs/license-policy.zh-CN.md`。
 - `docs/release-packaging.md`。
 - `docs/release-packaging.zh-CN.md`。
 - `docs/release-evidence.md`。
 - `docs/release-evidence.zh-CN.md`。
 - 一份简短 release note，记录 Git commit、目标平台和门禁证据。
 
-每个 package 都必须保留完整的 `LICENSE` 和 `COMMERCIAL.md`。ADP 在公共许可下以 source-available 形式提供给非商业学习、研究、评估和开源协作用途；任何商业使用都必须从版权持有人取得单独的付费授权。
+每个 package 都必须保留完整的 `LICENSE`、`COMMERCIAL.md`、`CONTRIBUTING.md`、`SECURITY.md` 和 `docs/license-policy.md`。ADP 在公共许可下以 source-available 形式提供给非商业学习、研究、评估和开源协作用途；任何商业使用都必须从版权持有人取得单独的付费授权。
 
 不要包含本地 `.envrc`、`mvp.md`、`$ADP_HOME`、`$ADP_RUNTIME_DIR`、runtime overlay、日志、task state、凭据、机器特定 shell startup files 或临时 release rehearsal directories。
+
+不要包含 provider credentials、账号标识、私有 prompts、model output transcripts、provider-native session state 或机器本地 ADP planning ledgers。Release evidence 可以总结 optional real-agent results，但 package 本身应保持 provider-neutral，并且无需访问 operator environment 就能安全检查。
 
 发布前记录 package manifest，例如：
 

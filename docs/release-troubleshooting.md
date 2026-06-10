@@ -16,6 +16,16 @@ When a required release check fails:
 
 Do not treat optional real Codex or Claude evidence as a default gate. A real CLI failure blocks the release only when the release note claims real-agent compatibility beyond deterministic fake-provider evidence.
 
+## Release Candidate Decision
+
+Classify the candidate before continuing:
+
+- `blocked`: any required gate, checksum, package manifest, install rehearsal, source archive rehearsal, or project-root cleanliness check failed.
+- `passing-provider-free`: every required deterministic check passed and optional real-agent tiers are either `not run` or not claimed.
+- `passing-with-real-agent-evidence`: every required deterministic check passed and the explicitly claimed optional real-agent tiers also passed.
+
+Do not downgrade a required failure to optional evidence. Do not upgrade optional real-agent evidence into a default release requirement. If a release note claimed a real-agent tier and that tier failed, either remove that claim and record the tier as failed or deferred, or stop the candidate until the tier passes.
+
 ## Source Form Failures
 
 For a Git checkout, start with:
@@ -80,6 +90,8 @@ If the project-root pollution scan finds ADP files, fix runtime or planning outp
 
 ## Gate Failures
 
+For `scripts/check-all.sh`, inspect the first failing child command and rerun that child directly from the same source form. The aggregate gate is the release decision point, but the smallest failing command is usually the fastest triage target.
+
 For `scripts/release-artifact-smoke.sh`, inspect package staging, checksums, manifest assertions, install-from-artifact, source archive `COMMIT`, fake Codex command, temporary ADP directories, and project-root pollution output first.
 
 For `scripts/release-operator-drill-smoke.sh`, inspect the no-`.git` source copy, documented release commands, release script syntax checks, explicit commit build, checksum verification, installed `PATH` binary, fake Codex handoff sequence, local phase evidence records, fake Git tripwire, and project-root pollution scan.
@@ -91,3 +103,11 @@ For `scripts/release-rehearsal-smoke.sh`, inspect the clean workspace copy, rele
 For `scripts/check-docs-bilingual.sh`, add the missing English default or Simplified Chinese counterpart. For `scripts/check-file-lines.sh`, split the reported code file before adding behavior. For `git diff --check`, remove whitespace errors or conflict markers.
 
 When in doubt, keep the failure narrow: rerun the failing step, fix the local cause, and rerun the aggregate gate. Do not solve release failures by adding new product scope.
+
+## Optional Real-Agent Failures
+
+For command availability failures, verify the external CLI is installed on `PATH`, then rerun only the opted-in real flag. Do not add the real flag to `scripts/check-all.sh` or CI.
+
+For non-interactive invocation failures, record whether the failure was command launch, authentication, quota, network, model access, prompt handling, timeout, or unexpected output. These failures describe the operator environment unless the deterministic fake-agent gate also fails.
+
+For manual interactive acceptance failures, keep notes redacted and separate from package evidence. Do not include credentials, account identifiers, private prompts, provider-native session files, or sensitive model output in release artifacts.
