@@ -27,6 +27,7 @@ Implemented Phase 1 foundations. If you are trying ADP for the first time, start
 - `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
 - `adp sessions show <session-id>`
 - `adp sessions restore-plan <session-id>`
+- `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]`
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
 - `adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>`
 - `adp tasks list/next/take/stale/show/update/claim/renew/release/done/block`
@@ -46,6 +47,8 @@ Implemented Phase 1 foundations. If you are trying ADP for the first time, start
 - workspace diagnostics for local configuration issues
 - `examples/basic-workspace` sample workspace configuration
 - process runner and workspace shell
+
+`adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` provides read-only cross-tool ADP work-context resume guidance. It complements `restore-plan`: `restore-plan` focuses on rerun guidance for one recorded session, while `resume-plan` adds owner, lease, task, phase, and target-agent context for operator review.
 
 Command discovery stays inside the CLI. Use `adp --help` for the root command list, `adp <command> --help` for a command group such as `adp tasks --help`, and `adp <command> <subcommand> --help` for a leaf command such as `adp tasks take --help`. If you are using `ADP_BIN`, `adp_local`, or a packaged binary name, substitute that command name in the same pattern. Leaf help may point back to parent help with `See also:`; if a build prints a friendly `try:` hint, treat it as a pointer to the same help surface, not as an automatic action or state change.
 
@@ -170,6 +173,15 @@ P16 hardens the command surface with a local metadata contract that keeps usage 
 
 `adp sessions restore-plan <session-id>` reads one recorded session and prints a read-only suggested `adp run ...` command when enough non-sensitive invocation data is available. It does not execute the command, launch an agent, create a runtime, append events, change task state, write to the project root, or resume provider-native conversations. See [docs/session-restore.md](docs/session-restore.md).
 
+`adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` extends that read-only guidance into ADP work-context resume planning. It can suggest a new same-tool or cross-tool `adp run ...` command, include owner and lease preflight notes, show phase context from the local ledger, and classify each suggested command with a machine-readable `side_effect` such as `inspect`, `task_mutation`, or `runtime_creation`. Same-tool plans can reuse non-sensitive `--profile`, `--keep-runtime`, and post-`--` agent arguments from the invocation snapshot. Cross-tool plans keep ADP-safe runtime options such as `--keep-runtime`, but omit provider-specific profile and agent arguments with explicit guidance. The command itself must not claim or renew tasks, complete tasks, accept phases, run Git, create runtimes, append events, write to the project root, or attach to provider-native Codex or Claude conversations.
+
+Operator examples:
+
+```bash
+adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format text
+adp sessions resume-plan <session-id> --agent claude --owner reviewer --lease 1h --format json
+```
+
 `adp workspace doctor [name]` validates workspace configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, agent command settings, and reserved project-root paths. It reports adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, and missing, ambiguous, or escaping non-default profiles as local diagnostics. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
 
 `adp doctor [workspace]` is the global diagnostics entry point for the same local workspace checks. It is intended for terminal workflows where diagnostics should be available without first entering the `workspace` command group.
@@ -210,7 +222,7 @@ Task management and P3 phase gate planning are documented in [docs/task-manageme
 
 ADP development dogfoods the same local task and phase ledger. For work on this repository, register each phase in the `adp` workspace, validate the phase, record acceptance, commit, push, record commit and push evidence, and only then start the next phase. The planning ledger stays under `$ADP_HOME`; repository documents summarize accepted behavior but are not the execution state store.
 
-Session restore planning is documented in [docs/session-restore.md](docs/session-restore.md).
+Session resume planning and the cross-tool `resume-plan` command are documented in [docs/session-restore.md](docs/session-restore.md).
 
 Real agent compatibility boundaries are documented in [docs/real-agent-compatibility.md](docs/real-agent-compatibility.md), release readiness is tracked in [docs/release-checklist.md](docs/release-checklist.md), and early preview packaging notes are in [docs/release-packaging.md](docs/release-packaging.md).
 

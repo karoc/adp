@@ -264,7 +264,7 @@ func renderZshCompletion(commandName string) string {
 	out.WriteString("\t\t\telif [[ \"$PREFIX\" == -* ]]; then\n")
 	out.WriteString("\t\t\t\t")
 	out.WriteString(zshValues("sessions option", commandmeta.Options("sessions")))
-	out.WriteString("\t\t\telif [[ \"${words[3]}\" == \"show\" || \"${words[3]}\" == \"restore-plan\" ]]; then\n")
+	out.WriteString("\t\t\telif [[ \"${words[3]}\" == \"show\" || \"${words[3]}\" == \"restore-plan\" || \"${words[3]}\" == \"resume-plan\" ]]; then\n")
 	out.WriteString("\t\t\t\t")
 	out.WriteString(dynamicValuesName)
 	out.WriteString(" sessions\n")

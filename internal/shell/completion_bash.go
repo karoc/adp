@@ -249,7 +249,7 @@ func renderBashCompletion(commandName string) string {
 	out.WriteString("\t\t\t\tCOMPREPLY=( $(compgen -W \"")
 	out.WriteString(strings.Join(commandmeta.OptionNames("sessions"), " "))
 	out.WriteString("\" -- \"$cur\") )\n")
-	out.WriteString("\t\t\telif [ \"$subcommand\" = \"show\" -o \"$subcommand\" = \"restore-plan\" ]; then\n")
+	out.WriteString("\t\t\telif [ \"$subcommand\" = \"show\" -o \"$subcommand\" = \"restore-plan\" -o \"$subcommand\" = \"resume-plan\" ]; then\n")
 	out.WriteString("\t\t\t\tselected_workspace=\"$(")
 	out.WriteString(workspaceHelperName)
 	out.WriteString(")\"\n")

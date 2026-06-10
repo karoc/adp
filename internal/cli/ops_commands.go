@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/karoc/adp/internal/events"
+	adpresume "github.com/karoc/adp/internal/resume"
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/sessions"
+	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
 func (a *App) shellHook(ctx context.Context, args []string) error {
@@ -121,7 +123,7 @@ func (a *App) eventsList(ctx context.Context, args []string) error {
 
 func (a *App) sessions(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: adp sessions <list|show|restore-plan>")
+		return errors.New("usage: adp sessions <list|show|restore-plan|resume-plan>")
 	}
 
 	switch args[0] {
@@ -131,6 +133,8 @@ func (a *App) sessions(ctx context.Context, args []string) error {
 		return a.sessionsShow(ctx, args[1:])
 	case "restore-plan":
 		return a.sessionsRestorePlan(ctx, args[1:])
+	case "resume-plan":
+		return a.sessionsResumePlan(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown sessions command %q", args[0])
 	}
@@ -240,6 +244,125 @@ func (a *App) sessionsRestorePlan(ctx context.Context, args []string) error {
 	fmt.Fprintf(a.stdout, "missing_fields: %s\n", formatStringList(plan.MissingFields))
 	fmt.Fprintf(a.stdout, "reasons: %s\n", formatStringList(plan.Reasons))
 	return nil
+}
+
+func (a *App) sessionsResumePlan(ctx context.Context, args []string) error {
+	opts, err := parseSessionsResumePlanArgs(args)
+	if err != nil {
+		return err
+	}
+	if a.deps.GetSession == nil {
+		return errors.New("session reader is not configured")
+	}
+
+	detail, err := a.deps.GetSession(ctx, a.deps.Layout, opts.sessionID)
+	if err != nil {
+		return err
+	}
+	workspaceName := opts.workspace
+	if workspaceName == "" {
+		workspaceName = detail.Summary.Workspace
+	}
+	req := adpresume.Request{
+		Detail:      detail,
+		Workspace:   workspaceName,
+		TargetAgent: opts.targetAgent,
+		Owner:       opts.owner,
+		Lease:       opts.lease,
+		Now:         time.Now().UTC(),
+	}
+	a.fillResumePlanState(ctx, &req)
+	plan := adpresume.BuildPlan(req)
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, plan)
+	}
+	a.printResumePlan(plan)
+	return nil
+}
+
+func (a *App) fillResumePlanState(ctx context.Context, req *adpresume.Request) {
+	if req == nil || req.Workspace == "" {
+		return
+	}
+	store, _, err := a.loadTaskStore(ctx, req.Workspace)
+	if err != nil {
+		req.TaskLoadError = err.Error()
+		req.PhaseLoadError = err.Error()
+		return
+	}
+	if req.Detail != nil && req.Detail.Summary.TaskID != "" {
+		task, err := store.Get(ctx, req.Detail.Summary.TaskID)
+		if err != nil {
+			req.TaskLoadError = err.Error()
+		} else {
+			req.Task = &task
+		}
+	}
+	phases, err := store.ListPhases(ctx)
+	if err != nil {
+		req.PhaseLoadError = err.Error()
+		return
+	}
+	gate := taskstore.PhaseGateStatus(phases)
+	req.PhaseGate = &gate
+}
+
+func (a *App) printResumePlan(plan adpresume.Plan) {
+	fmt.Fprintf(a.stdout, "session_id: %s\n", valueOrDash(plan.SessionID))
+	fmt.Fprintf(a.stdout, "status: %s\n", valueOrDash(plan.Status))
+	fmt.Fprintf(a.stdout, "summary: %s\n", valueOrDash(plan.Summary))
+	fmt.Fprintf(a.stdout, "source_workspace: %s\n", valueOrDash(plan.Source.Workspace))
+	fmt.Fprintf(a.stdout, "source_agent: %s\n", valueOrDash(plan.Source.Agent))
+	fmt.Fprintf(a.stdout, "source_profile: %s\n", valueOrDash(plan.Source.Profile))
+	fmt.Fprintf(a.stdout, "target_workspace: %s\n", valueOrDash(plan.Target.Workspace))
+	fmt.Fprintf(a.stdout, "target_agent: %s\n", valueOrDash(plan.Target.Agent))
+	fmt.Fprintf(a.stdout, "target_profile: %s\n", valueOrDash(plan.Target.Profile))
+	fmt.Fprintf(a.stdout, "target_owner: %s\n", valueOrDash(plan.Target.Owner))
+	fmt.Fprintf(a.stdout, "target_lease: %s\n", valueOrDash(plan.Target.Lease))
+	if plan.Invocation != nil {
+		fmt.Fprintf(a.stdout, "invocation_available: %t\n", plan.Invocation.Available)
+		fmt.Fprintf(a.stdout, "invocation_keep_runtime: %t\n", plan.Invocation.KeepRuntime)
+		fmt.Fprintf(a.stdout, "invocation_reused: %s\n", formatStringList(plan.Invocation.Reused))
+		fmt.Fprintf(a.stdout, "invocation_omitted: %s\n", formatStringList(plan.Invocation.Omitted))
+		if plan.Invocation.OmissionReason != "" {
+			fmt.Fprintf(a.stdout, "invocation_omission_reason: %s\n", plan.Invocation.OmissionReason)
+		}
+	} else {
+		fmt.Fprintln(a.stdout, "invocation_available: false")
+	}
+	if plan.Task != nil {
+		fmt.Fprintf(a.stdout, "task_id: %s\n", valueOrDash(plan.Task.ID))
+		fmt.Fprintf(a.stdout, "task_status: %s\n", valueOrDash(plan.Task.Status))
+		fmt.Fprintf(a.stdout, "task_owner: %s\n", valueOrDash(plan.Task.Owner))
+		fmt.Fprintf(a.stdout, "task_claim_state: %s\n", valueOrDash(plan.Task.ClaimState))
+		fmt.Fprintf(a.stdout, "task_resume_action: %s\n", valueOrDash(plan.Task.ResumeAction))
+		fmt.Fprintf(a.stdout, "task_reason: %s\n", valueOrDash(plan.Task.Reason))
+	} else {
+		fmt.Fprintln(a.stdout, "task_id: -")
+	}
+	if plan.Phase != nil {
+		fmt.Fprintf(a.stdout, "phase_next_action: %s\n", valueOrDash(plan.Phase.NextAction))
+		fmt.Fprintf(a.stdout, "phase_reason: %s\n", valueOrDash(plan.Phase.Reason))
+	} else {
+		fmt.Fprintln(a.stdout, "phase_next_action: -")
+	}
+	fmt.Fprintf(a.stdout, "missing_fields: %s\n", formatStringList(plan.MissingFields))
+	fmt.Fprintf(a.stdout, "read_only: %t\n", plan.Guarantees.ReadOnly)
+	fmt.Fprintln(a.stdout, "guidance:")
+	for _, item := range plan.Guidance {
+		fmt.Fprintf(a.stdout, "- %s\n", item)
+	}
+	if len(plan.SuggestedCommands) == 0 {
+		fmt.Fprintln(a.stdout, "suggested_commands: -")
+		return
+	}
+	fmt.Fprintln(a.stdout, "suggested_commands (not run by resume-plan):")
+	for _, command := range plan.SuggestedCommands {
+		fmt.Fprintf(a.stdout, "- %s [%s]: %s\n", command.Label, valueOrDash(command.SideEffect), formatSuggestedCommand(command.Args))
+		if command.Reason != "" {
+			fmt.Fprintf(a.stdout, "  reason: %s\n", command.Reason)
+		}
+	}
 }
 
 func (a *App) runtime(ctx context.Context, args []string) error {

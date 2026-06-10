@@ -39,6 +39,15 @@ type sessionsListOptions struct {
 	limit     int
 }
 
+type sessionsResumePlanOptions struct {
+	sessionID   string
+	workspace   string
+	owner       string
+	lease       time.Duration
+	targetAgent string
+	format      outputFormat
+}
+
 type runtimePruneOptions struct {
 	olderThan   time.Duration
 	includeKept bool
@@ -334,6 +343,68 @@ func parseSessionsRestorePlanArgs(args []string) (string, error) {
 		return "", errors.New("usage: adp sessions restore-plan <session-id>")
 	}
 	return args[0], nil
+}
+
+func parseSessionsResumePlanArgs(args []string) (sessionsResumePlanOptions, error) {
+	opts := sessionsResumePlanOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsResumePlanOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--owner":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsResumePlanOptions{}, err
+			}
+			opts.owner, i = value, next
+		case "--lease":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsResumePlanOptions{}, err
+			}
+			lease, err := time.ParseDuration(value)
+			if err != nil {
+				return sessionsResumePlanOptions{}, fmt.Errorf("parse lease duration: %w", err)
+			}
+			if lease < 0 {
+				return sessionsResumePlanOptions{}, errors.New("lease must not be negative")
+			}
+			opts.lease, i = lease, next
+		case "--agent":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsResumePlanOptions{}, err
+			}
+			opts.targetAgent, i = value, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsResumePlanOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return sessionsResumePlanOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return sessionsResumePlanOptions{}, fmt.Errorf("unknown sessions resume-plan option %q", arg)
+			}
+			if opts.sessionID != "" {
+				return sessionsResumePlanOptions{}, errors.New("usage: adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]")
+			}
+			opts.sessionID = arg
+		}
+	}
+	if opts.sessionID == "" {
+		return sessionsResumePlanOptions{}, errors.New("usage: adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]")
+	}
+	return opts, nil
 }
 
 func parseRuntimePruneArgs(args []string) (runtimePruneOptions, error) {

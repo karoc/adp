@@ -255,6 +255,8 @@ assert_help "events list help" "adp events list" events list --help
 assert_help "sessions help" "adp sessions restore-plan" sessions --help
 assert_help "sessions help restore note" "restore-plan - print read-only rerun guidance" sessions --help
 assert_help "sessions restore-plan help" "adp sessions restore-plan <session-id>" sessions restore-plan --help
+assert_help "sessions help resume note" "resume-plan - print read-only cross-tool resume guidance" sessions --help
+assert_help "sessions resume-plan help" "adp sessions resume-plan <session-id>" sessions resume-plan --help
 assert_help "runtime help" "adp runtime prune" runtime --help
 assert_help "runtime prune help" "adp runtime prune" runtime prune --help
 assert_help "tasks help" "adp tasks next" tasks --help
@@ -557,6 +559,42 @@ after_restore_lines=$(line_count "$EVENTS_FILE")
 if [ "$after_restore_lines" != "$before_restore_lines" ]; then
   fail "sessions restore-plan appended events"
 fi
+tasks_before_resume=$(cat "$TASKS_FILE"); phases_before_resume=$(cat "$PHASES_FILE")
+progress_before_resume=$(cat "$PROGRESS_FILE"); events_before_resume=$(event_log_count)
+runtime_before_resume=$(runtime_dirs_state); project_before_resume=$(project_root_state); git_before_resume=$(git_state)
+reset_git_tripwire
+output=$(run_adp "$REPO_ROOT" sessions resume-plan "$take_session" --agent claude --owner audit-run-take --lease 2h)
+assert_contains "$output" "session_id: $take_session" "sessions resume-plan output"
+assert_contains "$output" "status: ready" "sessions resume-plan output"
+assert_contains "$output" "source_agent: codex" "sessions resume-plan output"
+assert_contains "$output" "target_agent: claude" "sessions resume-plan output"
+assert_contains "$output" "target_owner: audit-run-take" "sessions resume-plan output"
+assert_contains "$output" "invocation_available: true" "sessions resume-plan output"
+assert_contains "$output" "invocation_omitted: agent_args" "sessions resume-plan output"
+assert_contains "$output" "provider-specific profile or agent arguments were not copied" "sessions resume-plan output"
+assert_contains "$output" "task_id: $take_task_id" "sessions resume-plan output"
+assert_contains "$output" "task_resume_action: run" "sessions resume-plan output"
+assert_contains "$output" "read_only: true" "sessions resume-plan output"
+assert_contains "$output" "ADP resumes portable work context" "sessions resume-plan output"
+assert_contains "$output" "suggested_commands (not run by resume-plan):" "sessions resume-plan output"
+assert_contains "$output" "launch-resumed-worker [runtime_creation]: adp run claude --workspace game-a --task $take_task_id" "sessions resume-plan output"
+output=$(run_adp "$REPO_ROOT" sessions resume-plan "$take_session" --owner audit-run-take --lease 2h)
+assert_contains "$output" "target_agent: codex" "sessions resume-plan same-tool output"
+assert_contains "$output" "invocation_reused: agent_args" "sessions resume-plan same-tool output"
+assert_contains "$output" "launch-resumed-worker [runtime_creation]: adp run codex --workspace game-a --task $take_task_id -- --probe codex-payload" "sessions resume-plan same-tool output"
+output=$(run_adp "$REPO_ROOT" sessions resume-plan "$take_session" --agent claude --owner audit-run-take --lease 2h --format json)
+assert_json_valid "$output" "sessions resume-plan json output"
+assert_contains "$output" "\"session_id\": \"$take_session\"" "sessions resume-plan json output"
+assert_contains "$output" '"status": "ready"' "sessions resume-plan json output"
+assert_contains "$output" '"agent": "claude"' "sessions resume-plan json output"
+assert_contains "$output" "\"id\": \"$take_task_id\"" "sessions resume-plan json output"
+assert_contains "$output" '"resume_action": "run"' "sessions resume-plan json output"
+assert_contains "$output" '"side_effect": "runtime_creation"' "sessions resume-plan json output"
+assert_contains "$output" '"omitted": [' "sessions resume-plan json output"
+assert_contains "$output" '"agent_args"' "sessions resume-plan json output"
+assert_contains "$output" '"read_only": true' "sessions resume-plan json output"
+assert_contains "$output" '"task_mutation": false' "sessions resume-plan json output"
+assert_read_only_lease_state "sessions resume-plan" "$tasks_before_resume" "$phases_before_resume" "$progress_before_resume" "$events_before_resume" "$runtime_before_resume" "$project_before_resume" "$git_before_resume"
 output=$(run_adp "$REPO_ROOT" runtime prune --older-than 0s --include-kept --dry-run)
 assert_contains "$output" "would-remove" "runtime prune dry-run output"
 

@@ -107,6 +107,8 @@ git diff --check
 
 Runtime handoff snapshots、progress reports、session restore-plan output，以及 provider 原生 task 或 plan panels 都只是 inspection 或 mirror surfaces。它们可以帮助另一个终端 Agent 理解上下文，但持久 ownership、lease renewal、stale recovery、task completion、phase acceptance、commit evidence、push evidence 和 Git execution 都必须保留在显式 ADP commands 上。Runtime 和 planning 文件必须留在 `$ADP_RUNTIME_DIR` 和 `$ADP_HOME` 下，不能进入真实项目根目录。
 
+P50 cross-tool resume planning 遵循同一规则。`adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` 可以建议一条 same-tool 或 cross-tool 的新 `adp run ...` 命令，并提供 owner、lease、task、phase、invocation 和 side-effect context 供 operator 复核。它必须保持只读：不会 claim 或 renew tasks、complete tasks、accept phases、commit、push、运行 Git、创建 runtimes、追加 events、写入 project roots，或恢复 provider-native Codex 或 Claude conversations。Same-tool plan 可以复用 ADP invocation evidence 中非敏感的 profile、keep-runtime 和 agent args；cross-tool 或 cross-workspace plan 必须省略 provider-specific profile 和 agent args，并输出明确 guidance。Suggested command 的 `side_effect` 只作为复核 metadata：`inspect`、`task_mutation` 和 `runtime_creation` 描述 operator 显式运行某条建议命令后会发生什么。Provider-native resume 只能视为 provider-private conversation state，不能作为 ADP ownership、lease、task、phase、commit 或 push evidence。
+
 ## 实现原则
 
 - 优先沿用现有 package 边界和本地模式，不轻易引入新抽象。
