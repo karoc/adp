@@ -61,7 +61,7 @@ type completionValuesOptions struct {
 
 func parseRunArgs(args []string) (runOptions, error) {
 	if len(args) == 0 {
-		return runOptions{}, errors.New("usage: adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>|--take --owner <owner> [--lease <duration>]] [--keep-runtime] [-- <agent-args>...]")
+		return runOptions{}, errors.New("agent is required; usage: adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>|--take --owner <owner> [--lease <duration>]] [--keep-runtime] [-- <agent-args>...]")
 	}
 	opts := runOptions{agent: args[0]}
 	for i := 1; i < len(args); i++ {
@@ -402,7 +402,7 @@ func parseSessionsResumePlanArgs(args []string) (sessionsResumePlanOptions, erro
 		}
 	}
 	if opts.sessionID == "" {
-		return sessionsResumePlanOptions{}, errors.New("usage: adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]")
+		return sessionsResumePlanOptions{}, errors.New("session-id is required; usage: adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]")
 	}
 	return opts, nil
 }

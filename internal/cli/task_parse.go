@@ -71,7 +71,7 @@ func parseTasksAddArgs(args []string) (tasksAddOptions, error) {
 	}
 	opts.title = joinTitle(titleParts)
 	if opts.title == "" {
-		return tasksAddOptions{}, errors.New("usage: adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>")
+		return tasksAddOptions{}, errors.New("title is required; usage: adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>")
 	}
 	return opts, nil
 }
@@ -103,8 +103,11 @@ func parseTasksUpdateArgs(args []string) (tasksUpdateOptions, error) {
 			opts.taskID = arg
 		}
 	}
-	if opts.taskID == "" || opts.status == "" {
-		return tasksUpdateOptions{}, errors.New("usage: adp tasks update [--workspace <name>] <task-id> --status <status>")
+	switch {
+	case opts.taskID == "":
+		return tasksUpdateOptions{}, errors.New("task-id is required; usage: adp tasks update [--workspace <name>] <task-id> --status <status>")
+	case opts.status == "":
+		return tasksUpdateOptions{}, errors.New("--status is required; usage: adp tasks update [--workspace <name>] <task-id> --status <status>")
 	}
 	return opts, nil
 }
@@ -136,8 +139,11 @@ func parseTasksBlockArgs(args []string) (tasksBlockOptions, error) {
 			opts.taskID = arg
 		}
 	}
-	if opts.taskID == "" || opts.reason == "" {
-		return tasksBlockOptions{}, errors.New("usage: adp tasks block [--workspace <name>] <task-id> --reason <reason>")
+	switch {
+	case opts.taskID == "":
+		return tasksBlockOptions{}, errors.New("task-id is required; usage: adp tasks block [--workspace <name>] <task-id> --reason <reason>")
+	case opts.reason == "":
+		return tasksBlockOptions{}, errors.New("--reason is required; usage: adp tasks block [--workspace <name>] <task-id> --reason <reason>")
 	}
 	return opts, nil
 }
@@ -165,7 +171,7 @@ func parseTaskIDArgs(args []string, usage string) (string, string, error) {
 		}
 	}
 	if taskID == "" {
-		return "", "", errors.New("usage: " + usage)
+		return "", "", errors.New("task-id is required; usage: " + usage)
 	}
 	return workspace, taskID, nil
 }
@@ -202,7 +208,7 @@ func parseTaskIDOutputArgs(args []string, usage string) (taskIDOutputOptions, er
 		}
 	}
 	if opts.taskID == "" {
-		return taskIDOutputOptions{}, errors.New("usage: " + usage)
+		return taskIDOutputOptions{}, errors.New("task-id is required; usage: " + usage)
 	}
 	return opts, nil
 }

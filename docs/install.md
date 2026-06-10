@@ -137,7 +137,7 @@ For durable setup, place the rendered script in the completion directory loaded 
 
 ## Isolated First-Run Rehearsal
 
-After using one of the install paths above, run a provider-free rehearsal from a shell where the chosen `adp` command is available. If you built `./bin/adp` instead of installing `adp` on `PATH`, replace `adp` with `./bin/adp` in this block.
+After using one of the install paths above, run a provider-free rehearsal from a shell where the chosen `adp` command is available. If you built `./bin/adp` instead of installing `adp` on `PATH`, replace `adp` with `./bin/adp` in this block. For the same flow with step-by-step expectations and failure triage, use [operator-onboarding.md](operator-onboarding.md).
 
 ```bash
 command -v adp
@@ -186,7 +186,7 @@ ROOT_LEAKS="$(find "${ADP_REHEARSAL_ROOT}/project" -maxdepth 2 \( -name AGENTS.m
 test -z "$ROOT_LEAKS"
 ```
 
-The final project-root leak check should pass without output. This rehearsal keeps ADP state under temporary `$ADP_HOME`, keeps runtime overlays under temporary `$ADP_RUNTIME_DIR`, uses a fake local `codex`, does not run Git, and does not write planning or report exports into the project root. The visible task flow is `tasks next` for read-only selection, `run --take --owner --lease` for atomic launch-time pickup, `tasks renew` and `tasks stale` for lease maintenance, `progress report` for handoff, `sessions restore-plan` for read-only restart guidance, and `plan doctor` for local ledger diagnostics.
+Expected result: the fake provider prints a runtime working directory, JSON commands print parseable local state, and the final project-root leak check passes without output. This rehearsal keeps ADP state under temporary `$ADP_HOME`, keeps runtime overlays under temporary `$ADP_RUNTIME_DIR`, uses a fake local `codex`, does not run Git, and does not write planning or report exports into the project root. The visible task flow is `tasks next` for read-only selection, `run --take --owner --lease` for atomic launch-time pickup, `tasks renew` and `tasks stale` for lease maintenance, `progress report` for handoff, `sessions restore-plan` for read-only restart guidance, and `plan doctor` for local ledger diagnostics.
 
 ## Bootstrap A Workspace
 

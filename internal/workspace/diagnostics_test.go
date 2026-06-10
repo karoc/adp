@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/karoc/adp/internal/schema"
@@ -116,6 +117,9 @@ func TestRegistryDiagnoseReportsAgentCommandReadinessIssues(t *testing.T) {
 	assertDiagnostic(t, report, DiagnosticCodeAgentCommandMissing, DiagnosticLevelWarning, filepath.Join(projectRoot, "bin", "missing-claude"))
 	assertDiagnostic(t, report, DiagnosticCodeAgentCommandNotExecutable, DiagnosticLevelWarning, notExecutable)
 	assertDiagnostic(t, report, DiagnosticCodeAgentUnknown, DiagnosticLevelWarning, layout.WorkspaceConfig("game-a"))
+	assertDiagnosticMessageContains(t, report, DiagnosticCodeAgentCommandArguments, "local ADP launch-wiring diagnostic")
+	assertDiagnosticMessageContains(t, report, DiagnosticCodeAgentCommandMissing, "does not validate provider credentials")
+	assertDiagnosticMessageContains(t, report, DiagnosticCodeAgentUnknown, "interactive provider behavior")
 }
 
 func TestRegistryDiagnoseReportsProjectReservedPaths(t *testing.T) {
@@ -353,6 +357,30 @@ func TestRegistryDiagnoseReportsProfileConsistencyIssues(t *testing.T) {
 	}
 }
 
+func TestRegistryDiagnoseReportsAgentProfileBoundaryGuidance(t *testing.T) {
+	registry, layout := newTestRegistry(t)
+	projectRoot := createProject(t)
+
+	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
+	if err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	codex := cfg.Agents["codex"]
+	codex.Profile = "senior"
+	cfg.Agents["codex"] = codex
+	saveWorkspaceConfig(t, layout.WorkspaceConfig("game-a"), cfg)
+
+	report, err := registry.Diagnose(context.Background(), "game-a")
+	if err != nil {
+		t.Fatalf("Diagnose() error = %v", err)
+	}
+
+	assertDiagnostic(t, report, DiagnosticCodeAgentProfileMissing, DiagnosticLevelWarning, filepath.Join(layout.WorkspaceDir("game-a"), "profiles", "senior.{md,yaml,yml,json}"))
+	assertDiagnosticMessageContains(t, report, DiagnosticCodeAgentProfileMissing, "local ADP launch-wiring diagnostic")
+	assertDiagnosticMessageContains(t, report, DiagnosticCodeAgentProfileMissing, "model access")
+	assertDiagnosticMessageContains(t, report, DiagnosticCodeAgentProfileMissing, "network access")
+}
+
 func TestRegistryDiagnoseReportsWorkspaceDirectorySymlink(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 
@@ -495,6 +523,21 @@ func assertNoDiagnosticPath(t *testing.T, report DiagnosticReport, code string, 
 			t.Fatalf("unexpected diagnostic %s with path %q in %+v", code, path, report.Diagnostics)
 		}
 	}
+}
+
+func assertDiagnosticMessageContains(t *testing.T, report DiagnosticReport, code string, needle string) {
+	t.Helper()
+
+	for _, diagnostic := range report.Diagnostics {
+		if diagnostic.Code != code {
+			continue
+		}
+		if strings.Contains(diagnostic.Message, needle) {
+			return
+		}
+		t.Fatalf("diagnostic %s message = %q, want substring %q", code, diagnostic.Message, needle)
+	}
+	t.Fatalf("diagnostic %s not found in %+v", code, report.Diagnostics)
 }
 
 func reportByWorkspace(t *testing.T, reports []DiagnosticReport, workspace string) DiagnosticReport {

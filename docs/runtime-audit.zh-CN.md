@@ -47,8 +47,9 @@ ADP 保持终端优先、本地优先：
   以及顶层 `doctor`。
 - Runtime 入口：`env`、`enter`、`run`、fake Codex/Claude adapter、shell hook、
   completion，以及动态 completion values。
-- 事件与会话：`events list`、`sessions list/show/restore-plan`，以及
-  restore-plan 只读行为。
+- 事件与会话：`events list`、`sessions list/show/restore-plan/resume-plan`，
+  以及 restore/resume-plan 只读行为，包括不会启动 Agent、不会复制
+  provider-private conversation state 的跨工具 guidance。
 - Runtime 清理：`runtime prune` dry-run 和 kept runtime 覆盖。
 - Runtime hardening：runtime parent 等于、位于或包含项目根目录时，runtime
   入口必须直接拒绝，不能只依赖 `workspace doctor` 提示。

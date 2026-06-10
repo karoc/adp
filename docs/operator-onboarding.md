@@ -6,6 +6,20 @@ This guide is the concrete first-run path for a new ADP operator. It stays termi
 
 For installation details, see [install.md](install.md). For a reusable workspace configuration example, see `examples/basic-workspace`.
 
+## What The First Trial Proves
+
+The first trial is a local rehearsal, not a production setup. By the end of it, you should have evidence that:
+
+- the selected `adp` command runs and exposes help for nested commands;
+- ADP can initialize isolated local state under a temporary `$ADP_HOME`;
+- a workspace can point at a local project without writing ADP files into that project root;
+- `workspace doctor` and `doctor` can inspect the local setup before an agent run;
+- `adp run codex --take --owner --lease` can atomically claim a task, build a runtime overlay, and launch a provider command;
+- events, sessions, progress, restore guidance, and plan diagnostics are readable from local ADP state; and
+- the same board can be inspected or claimed without launching an agent through `tasks next` and `tasks take`.
+
+The provider in this guide is a fake local `codex` shell script. A passing first trial does not prove real provider authentication, model access, quota, network behavior, or interactive session quality.
+
 ## Choose An ADP Command
 
 Pick exactly one command form for the current shell.
@@ -48,6 +62,8 @@ adp_local tasks take --help
 ```
 
 Use the same nesting pattern for other groups: `adp_local <command> --help` and `adp_local <command> <subcommand> --help`. Leaf help may include `See also:` for the parent command. If a build prints a friendly `try:` hint, read it as a suggested help command to run manually; it does not inspect projects, mutate `$ADP_HOME`, create runtimes, call providers, or run Git by itself.
+
+Expected result: each command exits successfully and prints local help or version text. If this fails, fix the selected command path before creating any ADP state.
 
 ## Isolated First Run
 
@@ -110,7 +126,23 @@ ROOT_LEAKS="$(find "${ADP_ONBOARDING_ROOT}/project" -maxdepth 2 \( -name AGENTS.
 test -z "$ROOT_LEAKS"
 ```
 
-The last command should succeed without printing project-root leaks. ADP state is under temporary `$ADP_HOME`, runtime overlays are under temporary `$ADP_RUNTIME_DIR`, and the provider command is the fake local `codex` script. Read-only inspection commands in the rehearsal include `tasks next`, `tasks stale`, `progress report`, `sessions list`, `sessions restore-plan`, `plan doctor`, `events list`, and `progress`; mutating commands include `tasks add`, `run --take`, `tasks renew`, `tasks take`, `tasks release`, and `tasks done`. The `tasks take` step proves board pickup without launching a runtime; the `run --take` step proves pickup and runtime launch in one command boundary. `tasks renew` refreshes the current owner's lease, while `tasks stale` is only the recovery inspection view for expired `in_progress` claims.
+Expected result: the block exits successfully, the fake provider prints the runtime working directory, JSON commands print parseable local state, and the last command succeeds without printing project-root leaks. ADP state is under temporary `$ADP_HOME`, runtime overlays are under temporary `$ADP_RUNTIME_DIR`, and the provider command is the fake local `codex` script.
+
+The visible workflow is:
+
+- create local ADP state with `init`;
+- register and inspect a workspace with `workspace add`, `workspace list`, `workspace show`, `workspace doctor`, and `doctor`;
+- create a task with `tasks add`;
+- preview eligible board work with read-only `tasks next`;
+- claim work and launch a runtime in one boundary with `run --take --owner --lease`;
+- inspect and maintain ownership with `tasks show`, `tasks renew`, and read-only `tasks stale`;
+- inspect handoff evidence with `progress report`, `sessions list`, `sessions restore-plan`, `plan doctor`, `events list`, and `progress`;
+- prove non-runtime board pickup with `tasks take`, then release that claim with `tasks release`; and
+- close the completed trial task with `tasks done`.
+
+Read-only inspection commands in the rehearsal include `tasks next`, `tasks stale`, `progress report`, `sessions list`, `sessions restore-plan`, `plan doctor`, `events list`, and `progress`; mutating commands include `tasks add`, `run --take`, `tasks renew`, `tasks take`, `tasks release`, and `tasks done`. The `tasks take` step proves board pickup without launching a runtime; the `run --take` step proves pickup and runtime launch in one command boundary. `tasks renew` refreshes the current owner's lease, while `tasks stale` is only the recovery inspection view for expired `in_progress` claims.
+
+If the trial fails, keep the temporary root in place and inspect the last failed command first. Common causes are an `adp_local` function that points at the wrong binary, a shell that did not export the fake `codex` directory onto `PATH`, or an unsafe `ADP_RUNTIME_DIR`. Re-run `adp_local workspace doctor game-a` and `adp_local doctor game-a` before repeating the full block.
 
 ## Move To Durable Local Use
 
@@ -124,7 +156,7 @@ adp_local workspace add game-a /absolute/path/to/project
 adp_local workspace doctor game-a
 ```
 
-Keep `$ADP_RUNTIME_DIR` outside project roots and outside directories that contain project roots. `adp doctor` and `adp workspace doctor` report unsafe runtime parents before real runs.
+Expected result: the durable workspace is registered under `${HOME}/.adp`, the project root remains free of ADP-generated files, and doctor output has no error-level diagnostics. Keep `$ADP_RUNTIME_DIR` outside project roots and outside directories that contain project roots. `adp doctor` and `adp workspace doctor` report unsafe runtime parents before real runs.
 
 Use `examples/basic-workspace` when you need a copyable configuration reference with Codex and Claude profiles, base prompts, shared memory, and MCP settings. Copy it into the ADP home workspace configuration area, then update `project.root` before use. It is not required for the minimal smoke path above.
 

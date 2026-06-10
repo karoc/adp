@@ -54,8 +54,10 @@ The audit gate must cover these existing surfaces:
   and top-level `doctor`.
 - Runtime entry points: `env`, `enter`, `run`, fake Codex/Claude adapters,
   shell hooks, completions, and dynamic completion values.
-- Events and sessions: `events list`, `sessions list/show/restore-plan`,
-  and restore-plan read-only behavior.
+- Events and sessions: `events list`,
+  `sessions list/show/restore-plan/resume-plan`, and restore/resume-plan
+  read-only behavior, including cross-tool guidance that does not launch
+  agents or copy provider-private conversation state.
 - Runtime cleanup: `runtime prune` dry-run and kept-runtime coverage.
 - Runtime hardening: unsafe runtime parents equal to, inside, or containing
   the project root must be rejected by runtime entry points, not only

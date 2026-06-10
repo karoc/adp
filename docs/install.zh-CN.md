@@ -137,7 +137,7 @@ source <(adp-dev completion --shell bash --command adp-dev)
 
 ## 隔离首次运行演练
 
-使用上面任一安装路径后，在选定的 `adp` 命令可用的 shell 中运行一次不依赖 provider 的演练。如果你构建的是 `./bin/adp`，而不是把 `adp` 安装到 `PATH`，则把下面命令块中的 `adp` 替换为 `./bin/adp`。
+使用上面任一安装路径后，在选定的 `adp` 命令可用的 shell 中运行一次不依赖 provider 的演练。如果你构建的是 `./bin/adp`，而不是把 `adp` 安装到 `PATH`，则把下面命令块中的 `adp` 替换为 `./bin/adp`。如需同一流程的逐步预期结果和失败排查，请使用 [operator-onboarding.zh-CN.md](operator-onboarding.zh-CN.md)。
 
 ```bash
 command -v adp
@@ -186,7 +186,7 @@ ROOT_LEAKS="$(find "${ADP_REHEARSAL_ROOT}/project" -maxdepth 2 \( -name AGENTS.m
 test -z "$ROOT_LEAKS"
 ```
 
-最后的 project-root 泄漏检查应该通过且没有输出。这次演练会把 ADP 状态放在临时 `$ADP_HOME` 下，把 runtime overlay 放在临时 `$ADP_RUNTIME_DIR` 下，使用 fake local `codex`，不会运行 Git，也不会把 planning 或 report export 写入 project root。可见的任务流是：用 `tasks next` 做只读选择，用 `run --take --owner --lease` 在启动时原子领取任务，用 `tasks renew` 和 `tasks stale` 维护 lease，用 `progress report` 交接上下文，用 `sessions restore-plan` 获取只读重启建议，并用 `plan doctor` 做本地 ledger diagnostics。
+预期结果：fake provider 会打印 runtime 工作目录，JSON 命令会打印可解析的本地状态，最后的 project-root 泄漏检查通过且没有输出。这次演练会把 ADP 状态放在临时 `$ADP_HOME` 下，把 runtime overlay 放在临时 `$ADP_RUNTIME_DIR` 下，使用 fake local `codex`，不会运行 Git，也不会把 planning 或 report export 写入 project root。可见的任务流是：用 `tasks next` 做只读选择，用 `run --take --owner --lease` 在启动时原子领取任务，用 `tasks renew` 和 `tasks stale` 维护 lease，用 `progress report` 交接上下文，用 `sessions restore-plan` 获取只读重启建议，并用 `plan doctor` 做本地 ledger diagnostics。
 
 ## Bootstrap Workspace
 

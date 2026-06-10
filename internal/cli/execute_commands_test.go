@@ -150,13 +150,25 @@ func TestExecuteReportsSubcommandUsageHelpHints(t *testing.T) {
 		{
 			name: "tasks take missing owner",
 			args: []string{"tasks", "take"},
-			want: "usage: adp tasks take",
+			want: "--owner is required; usage: adp tasks take",
 			hint: "try: adp tasks take --help",
+		},
+		{
+			name: "tasks claim missing owner",
+			args: []string{"tasks", "claim", "task-1"},
+			want: "--owner is required; usage: adp tasks claim",
+			hint: "try: adp tasks claim --help",
+		},
+		{
+			name: "tasks renew missing lease",
+			args: []string{"tasks", "renew", "task-1", "--owner", "agent-a"},
+			want: "--lease is required; usage: adp tasks renew",
+			hint: "try: adp tasks renew --help",
 		},
 		{
 			name: "run missing agent",
 			args: []string{"run"},
-			want: "usage: adp run <agent>",
+			want: "agent is required; usage: adp run <agent>",
 			hint: "try: adp run --help",
 		},
 		{
@@ -164,6 +176,30 @@ func TestExecuteReportsSubcommandUsageHelpHints(t *testing.T) {
 			args: []string{"run", "codex", "--take"},
 			want: "--owner is required with --take",
 			hint: "try: adp run --help",
+		},
+		{
+			name: "phase add missing title",
+			args: []string{"phase", "add", "p51"},
+			want: "title is required; usage: adp phase add",
+			hint: "try: adp phase add --help",
+		},
+		{
+			name: "phase commit missing hash",
+			args: []string{"phase", "commit", "p51"},
+			want: "--hash is required; usage: adp phase commit",
+			hint: "try: adp phase commit --help",
+		},
+		{
+			name: "phase push missing branch",
+			args: []string{"phase", "push", "p51", "--remote", "origin"},
+			want: "--branch is required; usage: adp phase push",
+			hint: "try: adp phase push --help",
+		},
+		{
+			name: "sessions resume-plan missing session",
+			args: []string{"sessions", "resume-plan"},
+			want: "session-id is required; usage: adp sessions resume-plan",
+			hint: "try: adp sessions resume-plan --help",
 		},
 		{
 			name: "progress report invalid language",

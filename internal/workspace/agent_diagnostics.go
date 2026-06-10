@@ -12,6 +12,8 @@ import (
 	"github.com/karoc/adp/internal/schema"
 )
 
+const agentDiagnosticBoundary = " This is a local ADP launch-wiring diagnostic; it does not validate provider credentials, model access, quota, network access, or interactive provider behavior."
+
 func checkAgents(ctx context.Context, report *DiagnosticReport, projectRoot string, agents map[string]schema.AgentConfig) error {
 	names := make([]string, 0, len(agents))
 	for name := range agents {
@@ -29,7 +31,7 @@ func checkAgents(ctx context.Context, report *DiagnosticReport, projectRoot stri
 			continue
 		}
 		if !agentHasDefaultCommand(name) {
-			report.add(DiagnosticLevelWarning, DiagnosticCodeAgentUnknown, fmt.Sprintf("enabled agent %q has no registered adapter", name), report.ConfigPath)
+			report.add(DiagnosticLevelWarning, DiagnosticCodeAgentUnknown, fmt.Sprintf("enabled agent %q has no registered adapter.%s", name, agentDiagnosticBoundary), report.ConfigPath)
 		}
 		command := strings.TrimSpace(agent.Command)
 		if command == "" {
@@ -56,17 +58,17 @@ func agentHasDefaultCommand(name string) bool {
 
 func checkDefaultAgentCommand(report *DiagnosticReport, name string) {
 	level := DiagnosticLevelWarning
-	message := fmt.Sprintf("enabled agent %q has no command override; configure a command unless an adapter default is available", name)
+	message := fmt.Sprintf("enabled agent %q has no command override; configure a command unless an adapter default is available.%s", name, agentDiagnosticBoundary)
 	if agentHasDefaultCommand(name) {
 		level = DiagnosticLevelInfo
-		message = fmt.Sprintf("enabled agent %q has no command override; adapter default command will be used", name)
+		message = fmt.Sprintf("enabled agent %q has no command override; adapter default command will be used.%s", name, agentDiagnosticBoundary)
 	}
 	report.add(level, DiagnosticCodeAgentCommandDefault, message, report.ConfigPath)
 }
 
 func checkConfiguredAgentCommand(report *DiagnosticReport, projectRoot string, agentName string, command string) {
 	if commandLikelyContainsArguments(command) && !configuredCommandPathExists(projectRoot, command) {
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandArguments, fmt.Sprintf("agent %q command looks like it contains arguments or shell syntax; configure only the executable path and pass runtime arguments after --", agentName), report.ConfigPath)
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandArguments, fmt.Sprintf("agent %q command looks like it contains arguments or shell syntax; configure only the executable path and pass runtime arguments after --.%s", agentName, agentDiagnosticBoundary), report.ConfigPath)
 		return
 	}
 
@@ -95,14 +97,14 @@ func checkAgentCommandPath(report *DiagnosticReport, projectRoot string, agentNa
 	info, err := os.Stat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandMissing, fmt.Sprintf("configured command for agent %q does not exist", agentName), path)
+			report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandMissing, fmt.Sprintf("configured command for agent %q does not exist.%s", agentName, agentDiagnosticBoundary), path)
 			return
 		}
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandStatFailed, fmt.Sprintf("configured command for agent %q could not be inspected: %v", agentName, err), path)
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandStatFailed, fmt.Sprintf("configured command for agent %q could not be inspected: %v.%s", agentName, err, agentDiagnosticBoundary), path)
 		return
 	}
 	if info.IsDir() || info.Mode().Perm()&0o111 == 0 {
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandNotExecutable, fmt.Sprintf("configured command for agent %q is not an executable file", agentName), path)
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandNotExecutable, fmt.Sprintf("configured command for agent %q is not an executable file.%s", agentName, agentDiagnosticBoundary), path)
 	}
 }
 
@@ -118,7 +120,7 @@ func commandPathForInspection(projectRoot string, command string) (string, bool)
 
 func checkProfileFile(report *DiagnosticReport, agentName string, profile string) {
 	if !validProfileName(profile) {
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileInvalid, fmt.Sprintf("profile %q for agent %q must be a file basename under profiles/", profile, agentName), report.ConfigPath)
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileInvalid, fmt.Sprintf("profile %q for agent %q must be a file basename under profiles/.%s", profile, agentName, agentDiagnosticBoundary), report.ConfigPath)
 		return
 	}
 
@@ -152,17 +154,17 @@ func checkProfileFile(report *DiagnosticReport, agentName string, profile string
 
 	switch {
 	case len(existingFiles) > 1:
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileAmbiguous, fmt.Sprintf("profile %q for agent %q matches multiple profile files; remove duplicates to make precedence explicit", profile, agentName), profilePatternPath(report.WorkspaceDir, profile))
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileAmbiguous, fmt.Sprintf("profile %q for agent %q matches multiple profile files; remove duplicates to make precedence explicit.%s", profile, agentName, agentDiagnosticBoundary), profilePatternPath(report.WorkspaceDir, profile))
 	case len(existingFiles) == 1:
 		return
 	case outsidePath != "":
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileOutside, fmt.Sprintf("profile %q for agent %q resolves outside the ADP workspace directory", profile, agentName), outsidePath)
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileOutside, fmt.Sprintf("profile %q for agent %q resolves outside the ADP workspace directory.%s", profile, agentName, agentDiagnosticBoundary), outsidePath)
 	case len(notFilePaths) > 0:
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileNotFile, fmt.Sprintf("profile %q for agent %q resolves to a directory, not a file", profile, agentName), notFilePaths[0])
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileNotFile, fmt.Sprintf("profile %q for agent %q resolves to a directory, not a file.%s", profile, agentName, agentDiagnosticBoundary), notFilePaths[0])
 	case statFailedPath != "":
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileStatFailed, fmt.Sprintf("profile %q for agent %q could not be inspected: %v", profile, agentName, statFailedErr), statFailedPath)
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileStatFailed, fmt.Sprintf("profile %q for agent %q could not be inspected: %v.%s", profile, agentName, statFailedErr, agentDiagnosticBoundary), statFailedPath)
 	default:
-		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileMissing, fmt.Sprintf("non-default profile %q for agent %q has no profile file", profile, agentName), profilePatternPath(report.WorkspaceDir, profile))
+		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentProfileMissing, fmt.Sprintf("non-default profile %q for agent %q has no profile file.%s", profile, agentName, agentDiagnosticBoundary), profilePatternPath(report.WorkspaceDir, profile))
 	}
 }
 

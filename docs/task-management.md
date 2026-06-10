@@ -97,7 +97,7 @@ Use `tasks take` when a worker should atomically claim a task without launching 
 ```bash
 adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease 4h
 adp tasks stale --workspace <workspace> --format json
-adp sessions restore-plan <session-id>
+adp sessions resume-plan <session-id> --owner <owner> --lease 4h
 ```
 
 5. Finish through explicit local commands:
@@ -109,7 +109,20 @@ adp phase commit --workspace <workspace> <phase-id> --hash <commit-hash>
 adp phase push --workspace <workspace> <phase-id> --remote origin --branch main --result pushed
 ```
 
-`tasks next`, `tasks stale`, `phase status`, `progress report`, `plan preview`, and `sessions restore-plan` are inspection or proposal commands. `tasks add`, `plan apply`, `tasks take`, `tasks claim`, `tasks renew`, `tasks release`, `tasks done`, `tasks block`, `phase start`, `phase accept`, `phase commit`, and `phase push` mutate the local ADP ledger. None of these commands run Git automatically, close a phase automatically, sync a hosted tracker, scrape provider-private task panels, or write planning/runtime files into the real project root.
+`tasks next`, `tasks stale`, `phase status`, `progress report`, `plan preview`, `sessions restore-plan`, and `sessions resume-plan` are inspection or proposal commands. `tasks add`, `plan apply`, `tasks take`, `tasks claim`, `tasks renew`, `tasks release`, `tasks done`, `tasks block`, `phase start`, `phase accept`, `phase commit`, and `phase push` mutate the local ADP ledger. None of these commands run Git automatically, close a phase automatically, sync a hosted tracker, scrape provider-private task panels, or write planning/runtime files into the real project root.
+
+## Operator Loop
+
+For daily local work, keep the loop short and explicit:
+
+1. Read the board with `adp tasks next`, `adp tasks stale`, `adp phase status`, and `adp progress report`.
+2. Take exactly one work item with `adp tasks take`, an explicit `adp tasks claim`, or `adp run <agent> --take`.
+3. Run the worker with `adp run <agent> --task <task-id>` when a task was already assigned, or keep the selected task visible in the provider's native task box when one exists.
+4. Renew long-running work before the lease expires; after an interruption, inspect stale claims and use only ADP ownership commands to reclaim work.
+5. Use `adp sessions resume-plan` to build a read-only same-tool or cross-tool restart plan, then review each suggested command and its `side_effect` before running anything.
+6. Finish with explicit task status, phase acceptance, commit evidence, push evidence, and a clean Git tree.
+
+This loop is intentionally local. Provider-native todo lists, plan panels, chat resumes, and process exits can help an operator understand context, but they do not complete tasks, renew leases, accept phases, prove Git state, or replace ADP evidence.
 
 ## Reading The Task Board
 

@@ -8,7 +8,9 @@ Usage:
 
 Runs explicit real-agent invocation evidence through ADP. This script may
 contact external providers and consume account quota. It is intentionally not
-part of scripts/check-all.sh.
+part of scripts/check-all.sh. With no provider target selected, it performs a
+provider-free opt-in guidance check and exits successfully without building ADP,
+resolving Codex or Claude, creating runtimes, or invoking external CLIs.
 
 Each provider requires both a command-line flag and an environment gate:
 
@@ -28,6 +30,24 @@ Optional timeout/budget controls:
   ADP_REAL_AGENT_TIMEOUT=180s
   ADP_REAL_CLAUDE_MAX_BUDGET_USD=0.20
 USAGE
+}
+
+provider_free_guidance() {
+  cat <<'GUIDANCE'
+[real-agent-invocation-smoke] no real provider target selected
+[real-agent-invocation-smoke] provider-free guidance check passed
+
+This script only invokes Codex or Claude when both a provider flag and its
+matching environment gate are present, for example:
+
+  ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+  ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+
+ADP can validate local launch wiring, runtime overlays, task binding, events,
+sessions, and project-root cleanliness. Real provider credentials, model
+access, quota, network access, external CLI release behavior, and interactive
+provider behavior remain operator-environment concerns.
+GUIDANCE
 }
 
 fail() {
@@ -103,11 +123,11 @@ run_adp() {
   if command -v timeout >/dev/null 2>&1; then
     if ! output=$(cd "$dir" && timeout "$ADP_REAL_AGENT_TIMEOUT" "$ADP_BIN" "$@" 2>&1); then
       printf '%s\n' "$output" >&2
-      fail "adp $* failed"
+      fail "adp $* failed. If the external CLI was reached, triage provider credentials, model access, quota, network access, and installed CLI behavior before changing ADP launch wiring."
     fi
   elif ! output=$(cd "$dir" && "$ADP_BIN" "$@" 2>&1); then
     printf '%s\n' "$output" >&2
-    fail "adp $* failed"
+    fail "adp $* failed. If the external CLI was reached, triage provider credentials, model access, quota, network access, and installed CLI behavior before changing ADP launch wiring."
   fi
   printf '%s\n' "$output"
 }
@@ -225,8 +245,8 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ "$run_codex" -eq 0 ] && [ "$run_claude" -eq 0 ]; then
-  usage >&2
-  fail "select at least one real invocation target"
+  provider_free_guidance
+  exit 0
 fi
 if [ "$run_codex" -eq 1 ]; then
   require_gate ADP_REAL_INVOKE_CODEX codex

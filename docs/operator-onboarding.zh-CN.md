@@ -6,6 +6,20 @@ English: [operator-onboarding.md](operator-onboarding.md)
 
 安装细节见 [install.zh-CN.md](install.zh-CN.md)。可复用的 workspace 配置示例见 `examples/basic-workspace`。
 
+## 首次试运行验证什么
+
+首次试运行是本地演练，不是生产配置。完成后，你应该得到以下 evidence：
+
+- 选定的 `adp` 命令可以运行，并能输出嵌套命令的 help；
+- ADP 可以在临时 `$ADP_HOME` 下初始化隔离的本地状态；
+- workspace 可以指向本地项目，同时不把 ADP 文件写入该 project root；
+- `workspace doctor` 和 `doctor` 可以在 Agent 运行前检查本地配置；
+- `adp run codex --take --owner --lease` 可以原子领取 task、构建 runtime overlay，并启动 provider 命令；
+- events、sessions、progress、restore guidance 和 plan diagnostics 都可以从本地 ADP 状态读取；并且
+- 同一个看板可以通过 `tasks next` 只读检查，也可以通过 `tasks take` 在不启动 Agent 的情况下领取。
+
+本指南里的 provider 是一个本地 fake `codex` shell 脚本。首次试运行通过，并不证明真实 provider 的认证、模型访问、quota、网络行为或交互式 session 质量。
+
 ## 选择 ADP 命令
 
 在当前 shell 中只选择一种命令形式。
@@ -48,6 +62,8 @@ adp_local tasks take --help
 ```
 
 其他命令组也使用同样的嵌套模式：`adp_local <command> --help` 和 `adp_local <command> <subcommand> --help`。叶子 help 可能包含指向父命令的 `See also:`。如果某个构建打印友好的 `try:` hint，把它理解为建议手动运行的 help 命令；它本身不会 inspect project、修改 `$ADP_HOME`、创建 runtime、调用 provider 或运行 Git。
+
+预期结果：每条命令成功退出，并打印本地 help 或 version 文本。如果这里失败，先修复选定的命令路径，再创建任何 ADP 状态。
 
 ## 隔离首次运行
 
@@ -110,7 +126,23 @@ ROOT_LEAKS="$(find "${ADP_ONBOARDING_ROOT}/project" -maxdepth 2 \( -name AGENTS.
 test -z "$ROOT_LEAKS"
 ```
 
-最后一条命令应该成功，并且不会打印 project-root 泄漏项。ADP 状态位于临时 `$ADP_HOME`，runtime overlay 位于临时 `$ADP_RUNTIME_DIR`，provider 命令是本地 fake `codex` 脚本。演练中的只读 inspection 命令包括 `tasks next`、`tasks stale`、`progress report`、`sessions list`、`sessions restore-plan`、`plan doctor`、`events list` 和 `progress`；会修改本地 ledger 的命令包括 `tasks add`、`run --take`、`tasks renew`、`tasks take`、`tasks release` 和 `tasks done`。`tasks take` 步骤证明不启动 runtime 时也能从看板领取任务；`run --take` 步骤证明任务领取和 runtime 启动处在同一个命令边界。`tasks renew` 刷新当前 owner 的 lease，而 `tasks stale` 只是检查已过期 `in_progress` claim 的 recovery inspection 视图。
+预期结果：整个命令块成功退出，fake provider 打印 runtime 工作目录，JSON 命令打印可解析的本地状态，最后一条命令成功且不会打印 project-root 泄漏项。ADP 状态位于临时 `$ADP_HOME`，runtime overlay 位于临时 `$ADP_RUNTIME_DIR`，provider 命令是本地 fake `codex` 脚本。
+
+可见工作流是：
+
+- 用 `init` 创建本地 ADP 状态；
+- 用 `workspace add`、`workspace list`、`workspace show`、`workspace doctor` 和 `doctor` 注册并检查 workspace；
+- 用 `tasks add` 创建 task；
+- 用只读 `tasks next` 预览可领取的看板工作；
+- 用 `run --take --owner --lease` 在同一个边界里领取工作并启动 runtime；
+- 用 `tasks show`、`tasks renew` 和只读 `tasks stale` 检查并维护 ownership；
+- 用 `progress report`、`sessions list`、`sessions restore-plan`、`plan doctor`、`events list` 和 `progress` 检查 handoff evidence；
+- 用 `tasks take` 证明不启动 runtime 的看板领取，再用 `tasks release` 释放该 claim；并且
+- 用 `tasks done` 关闭已完成的试运行 task。
+
+演练中的只读 inspection 命令包括 `tasks next`、`tasks stale`、`progress report`、`sessions list`、`sessions restore-plan`、`plan doctor`、`events list` 和 `progress`；会修改本地 ledger 的命令包括 `tasks add`、`run --take`、`tasks renew`、`tasks take`、`tasks release` 和 `tasks done`。`tasks take` 步骤证明不启动 runtime 时也能从看板领取任务；`run --take` 步骤证明任务领取和 runtime 启动处在同一个命令边界。`tasks renew` 刷新当前 owner 的 lease，而 `tasks stale` 只是检查已过期 `in_progress` claim 的 recovery inspection 视图。
+
+如果试运行失败，先保留临时 root，并检查最后一个失败命令。常见原因包括 `adp_local` function 指向了错误 binary、当前 shell 没有把 fake `codex` 目录 export 到 `PATH`，或 `ADP_RUNTIME_DIR` 不安全。重复完整命令块前，先重新运行 `adp_local workspace doctor game-a` 和 `adp_local doctor game-a`。
 
 ## 切换到持久本地使用
 
@@ -124,7 +156,7 @@ adp_local workspace add game-a /absolute/path/to/project
 adp_local workspace doctor game-a
 ```
 
-保持 `$ADP_RUNTIME_DIR` 位于 project root 之外，也不要放在包含 project root 的目录下。`adp doctor` 和 `adp workspace doctor` 会在真实运行前报告不安全的 runtime parent。
+预期结果：持久 workspace 注册到 `${HOME}/.adp` 下，project root 仍然没有 ADP 生成文件，doctor 输出没有 error-level diagnostics。保持 `$ADP_RUNTIME_DIR` 位于 project root 之外，也不要放在包含 project root 的目录下。`adp doctor` 和 `adp workspace doctor` 会在真实运行前报告不安全的 runtime parent。
 
 当你需要一份可复制的配置参考时，再使用 `examples/basic-workspace`。它包含 Codex 和 Claude profile、base prompt、shared memory 与 MCP 设置。复制到 ADP home 的 workspace 配置区域后，先更新 `project.root` 再使用。上面的最小 smoke 路径不依赖这个示例。
 

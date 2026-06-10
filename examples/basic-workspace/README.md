@@ -29,7 +29,9 @@ replace `project.root: /srv/game-a` with an absolute path on your machine.
 
 Run these commands from the ADP repository root after installing or building
 `adp`. The rehearsal uses temporary directories so it does not depend on existing
-operator state.
+operator state. This example is the copyable configuration path; for the minimal
+first-trial path that creates a workspace through CLI commands, see
+[../../docs/operator-onboarding.md](../../docs/operator-onboarding.md).
 
 Prepare isolated ADP state and a tiny local project:
 
@@ -81,6 +83,9 @@ adp env my-workspace --cd
 `$ADP_RUNTIME_DIR` and prints shell exports plus a `cd` command for that overlay.
 The real project root should stay limited to the files you created or already
 own.
+Expected result: `workspace doctor` exits successfully, `workspace show` prints
+the copied manifest details, and `env --cd` prints shell exports for a runtime
+overlay outside the real project root.
 
 ## Provider-Free Run
 
@@ -98,6 +103,9 @@ chmod +x "${fake_bin}/codex"
 export PATH="${fake_bin}:${PATH}"
 adp run codex --workspace my-workspace -- --example-smoke
 ```
+
+Expected result: the fake provider prints the forwarded arguments and ADP records
+local event/session evidence without requiring a real provider account.
 
 Inspect local runtime evidence:
 

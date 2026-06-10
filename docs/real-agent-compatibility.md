@@ -168,11 +168,15 @@ ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
 ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
 ```
 
+Running the script without `--codex`, `--claude`, or `--all` is provider-free. It prints the opt-in guidance and exits successfully without building ADP, resolving external commands, creating runtime overlays, contacting providers, or consuming quota. Use that default run to verify the guidance path in local validation; it is not real-agent evidence.
+
 The smoke should build or select the ADP binary under test, create temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, and project root paths, register a temporary workspace, invoke Codex and Claude through `adp run ...`, inspect local events and sessions, and then remove temporary state. It should not write planning files, reports, generated instruction files, provider output, or runtime metadata into the real repository project root.
 
 Evidence from this script must stay non-sensitive. Record only operational facts such as the ADP version or commit, external command paths, external command versions or first help lines, adapter names, workspace name, session IDs, exit statuses, sanitized timestamps, and whether each invocation path passed or failed. Do not record secrets, tokens, API keys, private prompts, account identifiers, full model responses, proprietary code excerpts, or provider-specific conversation IDs.
 
-A passing invocation smoke is environment-specific evidence. It does not guarantee that other operators have credentials, model access, available quota, stable network access, matching external CLI versions, equivalent tool permissions, or acceptable interactive session quality. A failure should be triaged as operator evidence first: verify local authentication, command paths, provider availability, quota, network access, and external CLI changes before changing ADP adapter assumptions.
+A passing invocation smoke is environment-specific evidence. It proves that ADP handed a constrained non-interactive request to the selected external CLI in that operator environment and that local ADP evidence was recorded. It does not guarantee that other operators have credentials, model access, available quota, stable network access, matching external CLI versions, equivalent tool permissions, or acceptable interactive session quality.
+
+When a real invocation fails, first identify whether ADP reached the external CLI. ADP-side failures usually involve workspace resolution, runtime parent safety, command path configuration, runtime overlay creation, task binding, local event/session writes, or project-root cleanliness. External-environment failures usually involve authentication, account state, model names, quota, provider availability, network access, permissions, or external CLI argument changes. Triage those operator-environment causes before changing shared ADP adapter assumptions.
 
 ## Manual Acceptance Steps
 

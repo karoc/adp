@@ -168,11 +168,15 @@ ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
 ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
 ```
 
+不带 `--codex`、`--claude` 或 `--all` 运行该脚本时，它是 provider-free 的。它只打印 opt-in guidance 并成功退出，不会构建 ADP、解析外部命令、创建 runtime overlay、访问 provider 或消耗 quota。这个默认运行方式可用于本地验证 guidance path；它不是真实 agent evidence。
+
 该 smoke 应构建或选择正在被验收的 ADP binary，创建临时 `ADP_HOME`、`ADP_RUNTIME_DIR` 和 project root，注册临时 workspace，通过 `adp run ...` 调用 Codex 和 Claude，检查本地 events 和 sessions，然后删除临时状态。它不应把 planning files、reports、generated instruction files、provider output 或 runtime metadata 写入真实仓库项目根目录。
 
 该脚本产生的 evidence 必须保持非敏感。只记录 ADP version 或 commit、外部命令路径、外部命令版本或首行 help 输出、adapter names、workspace name、session IDs、exit statuses、已脱敏 timestamps，以及每条 invocation path 的 passed 或 failed 结果。不要记录 secrets、tokens、API keys、私有 prompts、账号标识、完整模型回复、专有代码片段，或 provider-specific conversation IDs。
 
-通过 invocation smoke 只是一份环境相关 evidence。它不保证其他 operator 拥有凭据、模型访问权限、可用 quota、稳定网络、相同外部 CLI 版本、等价工具权限或可接受的交互 session 质量。失败时应先按 operator evidence 排查：先验证本地认证、命令路径、provider 可用性、quota、网络访问和外部 CLI 变化，再修改 ADP adapter 假设。
+通过 invocation smoke 只是一份环境相关 evidence。它证明 ADP 在该 operator 环境中把受限的非交互请求交给了所选外部 CLI，并记录了本地 ADP evidence。它不保证其他 operator 拥有凭据、模型访问权限、可用 quota、稳定网络、相同外部 CLI 版本、等价工具权限或可接受的交互 session 质量。
+
+真实 invocation 失败时，先判断 ADP 是否已经到达外部 CLI。ADP 侧失败通常涉及 workspace resolution、runtime parent safety、command path configuration、runtime overlay creation、task binding、本地 event/session 写入，或 project-root cleanliness。外部环境失败通常涉及 authentication、account state、model names、quota、provider availability、network access、permissions，或外部 CLI 参数变化。先排查这些 operator-environment 原因，再修改共享 ADP adapter 假设。
 
 ## 手工验收步骤
 

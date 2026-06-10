@@ -330,3 +330,15 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
 默认门禁证据和可选真实 CLI 证据必须分开记录。除非该 release 明确声明 real-agent evidence，否则可选真实 CLI 检查失败不应导致默认 release gate 失败。
+
+当明确需要非交互 real-agent invocation evidence 时，使用专用 invocation smoke，并同时提供 provider flag 和匹配的 environment gate：
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
+
+不带 provider target 运行 `scripts/real-agent-invocation-smoke.sh` 时，它是 provider-free 的：它会打印 opt-in guidance 并成功退出，不会构建 ADP、解析外部命令、创建 runtime、访问 provider 或消耗 quota。这个默认运行方式只应视为本地 guidance 验证，不是真实 agent evidence。
+
+如果真实 invocation 在 ADP 已经到达外部 CLI 后失败，应先排查 credentials、account state、model access、quota、network access、provider availability、外部 CLI 参数变化和 tool permissions，再修改 ADP launch wiring。ADP 拥有的失败范围应限于本地 runtime boundary：workspace resolution、command path configuration、runtime overlay creation、task binding、本地 event/session evidence，以及 project-root cleanliness。

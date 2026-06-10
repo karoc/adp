@@ -231,6 +231,8 @@ func shouldShowHelpHint(err error) bool {
 		return strings.HasPrefix(message, "unknown ")
 	case strings.Contains(message, " requires a value"):
 		return true
+	case strings.Contains(message, " is required"):
+		return true
 	case strings.HasPrefix(message, "unknown output format "):
 		return true
 	case strings.HasPrefix(message, "unknown completion values kind "):

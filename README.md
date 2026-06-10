@@ -56,7 +56,9 @@ Command discovery stays inside the CLI. Use `adp --help` for the root command li
 
 For installation and bootstrap details, see [docs/install.md](docs/install.md). For a concrete new-operator walkthrough, see [docs/operator-onboarding.md](docs/operator-onboarding.md).
 
-Choose a source, built-binary, or temporary-install path first. The smoke-first path below builds a local binary and uses `ADP_BIN`; for a release artifact, set `ADP_BIN` to the installed artifact path. To run from source during development, replace `"$ADP_BIN" <command>` with `go run ./cmd/adp <command>`.
+If this is your first trial, use [docs/operator-onboarding.md](docs/operator-onboarding.md) as the guided path. It explains what the rehearsal proves, what output to expect, which commands are read-only, and when to move from temporary state to durable local use. The command block below is the compact smoke-first reference version.
+
+Choose a source, built-binary, or temporary-install path first. The reference path below builds a local binary and uses `ADP_BIN`; for a release artifact, set `ADP_BIN` to the installed artifact path. To run from source during development, replace `"$ADP_BIN" <command>` with `go run ./cmd/adp <command>`.
 
 The rehearsal uses temporary ADP state, a temporary project root, and a fake `codex` command. It does not require real Codex or Claude CLIs, does not run Git, and should leave the real project root free of ADP-generated files. The flow is intentionally close to mature CLI quickstarts: install one command, initialize local state, add a workspace, inspect before mutating, atomically take work when launching an agent, then verify local evidence.
 
@@ -129,7 +131,7 @@ ROOT_LEAKS="$(find "${ADP_SMOKE_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o
 test -z "$ROOT_LEAKS"
 ```
 
-The final project-root leak check should pass without output. For durable local use, set `ADP_HOME` to a persistent directory such as `~/.adp`; for real agent runs, install and authenticate the external provider CLI first, then use `adp run codex ...` or `adp run claude ...`. Use `examples/basic-workspace` when you want a copyable workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings.
+Expected result: the fake provider prints a runtime working directory, local inspection commands return task/session/progress evidence, and the final project-root leak check passes without output. For durable local use, set `ADP_HOME` to a persistent directory such as `~/.adp`; for real agent runs, install and authenticate the external provider CLI first, then use `adp run codex ...` or `adp run claude ...`. Use `examples/basic-workspace` when you want a copyable workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings.
 
 Useful environment variables:
 

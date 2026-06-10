@@ -254,6 +254,7 @@ ADP 自身开发从 P24 开始使用 ADP 自己的本地 planning ledger。把 `
 - 权威 phase/task/progress records 保存在 `$ADP_HOME` 下；正常流程中不要把 planning state 导出到仓库根目录。
 - 需要在 Agent 启动时原子领取任务时，使用 `adp run <agent> --workspace adp --take --owner <owner> --lease <duration> -- <agent-args>`；长时间执行时用 `adp tasks renew --workspace adp <task-id> --owner <owner> --lease <duration>` 续租；主线程和子 Agent 协作交接时，使用 `adp tasks next --workspace adp --limit 0 --format json` 和 `adp phase status --workspace adp --format json` 作为本地 snapshot。
 - 重新分配工作前，使用 `adp tasks stale --workspace adp` 找出 in-progress lease 已过期的中断 worker。
+- 当 worker 需要基于之前的 ADP session evidence 继续工作时，使用 `adp sessions resume-plan <session-id> --workspace adp --agent <agent> --owner <owner> --lease <duration>` 作为只读重启辅助。运行建议命令前先复核 side effects；`resume-plan` 本身不能 claim tasks、启动 Agent，或替代 phase evidence。
 - 当 Codex、Claude 或其他工具提供原生 task/todo panel 时，可以把当前 ADP task 镜像进去提升可见性，但持久 status、ownership、progress 和恢复证据仍必须维护在 ADP 中。
 - 当工具提供 plan mode 时，只用它起草或展示候选 plans；proposal 通过 `adp plan preview` 并获得明确批准执行 `adp plan apply` 前，不写入持久 ledger。
 - 当前 phase 未通过验证、未记录验收、未提交、未推送、未记录 commit 和 push evidence 前，不启动后续 phase。

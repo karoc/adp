@@ -28,7 +28,9 @@ project:
 ## 本地快速演练
 
 安装或构建 `adp` 后，在 ADP 仓库根目录运行以下命令。演练使用临时目录，
-因此不依赖已有的操作者状态。
+因此不依赖已有的操作者状态。此示例是可复制配置路径；如果需要通过 CLI 命令
+创建 workspace 的最小首次试运行路径，见
+[../../docs/operator-onboarding.zh-CN.md](../../docs/operator-onboarding.zh-CN.md)。
 
 准备隔离的 ADP 状态和一个很小的本地项目：
 
@@ -78,6 +80,9 @@ adp env my-workspace --cd
 `adp env my-workspace --cd` 会在 `$ADP_RUNTIME_DIR` 下创建或定位 runtime
 overlay，并输出 shell exports 和进入该 overlay 的 `cd` 命令。真实项目根目录应
 只保留你创建或本来拥有的文件。
+预期结果：`workspace doctor` 成功退出，`workspace show` 打印复制后的清单
+细节，`env --cd` 打印指向真实 project root 之外 runtime overlay 的 shell
+exports。
 
 ## 不依赖 Provider 的运行
 
@@ -94,6 +99,9 @@ chmod +x "${fake_bin}/codex"
 export PATH="${fake_bin}:${PATH}"
 adp run codex --workspace my-workspace -- --example-smoke
 ```
+
+预期结果：fake provider 打印透传参数，ADP 记录本地 event/session evidence，
+且不需要真实 provider 账号。
 
 查看本地 runtime evidence：
 

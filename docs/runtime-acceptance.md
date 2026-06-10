@@ -330,3 +330,15 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
 Record the default gate evidence separately from optional real CLI evidence. Optional real CLI failures do not fail the default release gate unless that release explicitly claims real-agent evidence.
+
+When non-interactive real-agent invocation evidence is explicitly required, use the dedicated invocation smoke with both the provider flag and matching environment gate:
+
+```bash
+ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex
+ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --claude
+ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE=1 scripts/real-agent-invocation-smoke.sh --all
+```
+
+Running `scripts/real-agent-invocation-smoke.sh` without a provider target is provider-free: it prints opt-in guidance and exits successfully without building ADP, resolving external commands, creating runtimes, contacting providers, or consuming quota. Treat that default run as local guidance validation only, not as real-agent evidence.
+
+If a real invocation fails after ADP reaches the external CLI, triage credentials, account state, model access, quota, network access, provider availability, external CLI argument changes, and tool permissions before changing ADP launch wiring. ADP-owned failures should be limited to the local runtime boundary: workspace resolution, command path configuration, runtime overlay creation, task binding, local event/session evidence, and project-root cleanliness.

@@ -115,8 +115,11 @@ func parseTasksClaimArgs(args []string) (tasksClaimOptions, error) {
 			opts.taskID = arg
 		}
 	}
-	if opts.taskID == "" || opts.owner == "" {
-		return tasksClaimOptions{}, errors.New("usage: adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]")
+	switch {
+	case opts.taskID == "":
+		return tasksClaimOptions{}, errors.New("task-id is required; usage: adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]")
+	case opts.owner == "":
+		return tasksClaimOptions{}, errors.New("--owner is required; usage: adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]")
 	}
 	return opts, nil
 }
@@ -169,7 +172,7 @@ func parseTasksTakeArgs(args []string) (tasksTakeOptions, error) {
 		}
 	}
 	if opts.owner == "" {
-		return tasksTakeOptions{}, errors.New("usage: adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--format <text|json>]")
+		return tasksTakeOptions{}, errors.New("--owner is required; usage: adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--format <text|json>]")
 	}
 	return opts, nil
 }
@@ -214,8 +217,13 @@ func parseTasksRenewArgs(args []string) (tasksRenewOptions, error) {
 			opts.taskID = arg
 		}
 	}
-	if opts.taskID == "" || opts.owner == "" || opts.lease == 0 {
-		return tasksRenewOptions{}, errors.New("usage: adp tasks renew [--workspace <name>] <task-id> --owner <owner> --lease <duration>")
+	switch {
+	case opts.taskID == "":
+		return tasksRenewOptions{}, errors.New("task-id is required; usage: adp tasks renew [--workspace <name>] <task-id> --owner <owner> --lease <duration>")
+	case opts.owner == "":
+		return tasksRenewOptions{}, errors.New("--owner is required; usage: adp tasks renew [--workspace <name>] <task-id> --owner <owner> --lease <duration>")
+	case opts.lease == 0:
+		return tasksRenewOptions{}, errors.New("--lease is required; usage: adp tasks renew [--workspace <name>] <task-id> --owner <owner> --lease <duration>")
 	}
 	return opts, nil
 }
@@ -281,8 +289,11 @@ func parsePhaseAddArgs(args []string) (phaseAddOptions, error) {
 		}
 	}
 	opts.title = joinTitle(titleParts)
-	if opts.id == "" || opts.title == "" {
-		return phaseAddOptions{}, errors.New("usage: adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>")
+	switch {
+	case opts.id == "":
+		return phaseAddOptions{}, errors.New("phase-id is required; usage: adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>")
+	case opts.title == "":
+		return phaseAddOptions{}, errors.New("title is required; usage: adp phase add [--workspace <name>] [--goal <text>] <phase-id> <title>")
 	}
 	return opts, nil
 }
@@ -315,7 +326,7 @@ func parseTasksReleaseArgs(args []string) (tasksReleaseOptions, error) {
 		}
 	}
 	if opts.taskID == "" {
-		return tasksReleaseOptions{}, errors.New("usage: adp tasks release [--workspace <name>] <task-id> [--owner <owner>]")
+		return tasksReleaseOptions{}, errors.New("task-id is required; usage: adp tasks release [--workspace <name>] <task-id> [--owner <owner>]")
 	}
 	return opts, nil
 }
@@ -360,7 +371,7 @@ func parsePhaseAcceptArgs(args []string) (phaseAcceptOptions, error) {
 		}
 	}
 	if opts.id == "" {
-		return phaseAcceptOptions{}, errors.New("usage: adp phase accept [--workspace <name>] <phase-id> [--command <cmd>] [--result <result>] [--notes <text>]")
+		return phaseAcceptOptions{}, errors.New("phase-id is required; usage: adp phase accept [--workspace <name>] <phase-id> [--command <cmd>] [--result <result>] [--notes <text>]")
 	}
 	return opts, nil
 }
@@ -398,8 +409,11 @@ func parsePhaseCommitArgs(args []string) (phaseCommitOptions, error) {
 			opts.id = arg
 		}
 	}
-	if opts.id == "" || opts.hash == "" {
-		return phaseCommitOptions{}, errors.New("usage: adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]")
+	switch {
+	case opts.id == "":
+		return phaseCommitOptions{}, errors.New("phase-id is required; usage: adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]")
+	case opts.hash == "":
+		return phaseCommitOptions{}, errors.New("--hash is required; usage: adp phase commit [--workspace <name>] <phase-id> --hash <commit-hash> [--message <text>]")
 	}
 	return opts, nil
 }
@@ -443,8 +457,13 @@ func parsePhasePushArgs(args []string) (phasePushOptions, error) {
 			opts.id = arg
 		}
 	}
-	if opts.id == "" || opts.remote == "" || opts.branch == "" {
-		return phasePushOptions{}, errors.New("usage: adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]")
+	switch {
+	case opts.id == "":
+		return phasePushOptions{}, errors.New("phase-id is required; usage: adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]")
+	case opts.remote == "":
+		return phasePushOptions{}, errors.New("--remote is required; usage: adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]")
+	case opts.branch == "":
+		return phasePushOptions{}, errors.New("--branch is required; usage: adp phase push [--workspace <name>] <phase-id> --remote <remote> --branch <branch> [--result <result>]")
 	}
 	return opts, nil
 }
@@ -472,7 +491,7 @@ func parsePhaseIDArgs(args []string, usage string) (string, string, error) {
 		}
 	}
 	if phaseID == "" {
-		return "", "", errors.New("usage: " + usage)
+		return "", "", errors.New("phase-id is required; usage: " + usage)
 	}
 	return workspace, phaseID, nil
 }
@@ -509,7 +528,7 @@ func parsePhaseIDOutputArgs(args []string, usage string) (phaseIDOutputOptions, 
 		}
 	}
 	if opts.phaseID == "" {
-		return phaseIDOutputOptions{}, errors.New("usage: " + usage)
+		return phaseIDOutputOptions{}, errors.New("phase-id is required; usage: " + usage)
 	}
 	return opts, nil
 }
