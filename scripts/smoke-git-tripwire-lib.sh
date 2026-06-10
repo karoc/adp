@@ -22,9 +22,9 @@ set -eu
 
 for arg do
   case "$arg" in
-    commit|push|pull|fetch|clone|ls-remote)
+    add|am|apply|checkout|cherry-pick|clean|clone|commit|fetch|filter-branch|gc|init|maintenance|merge|mv|pull|push|rebase|reset|restore|revert|rm|stash|switch|update-index|update-ref|ls-remote)
       printf '%s\n' "$*" >> "$ADP_SMOKE_GIT_TRIPWIRE_LOG"
-      printf 'fake git blocked release-gate side-effect command: %s\n' "$*" >&2
+      printf 'fake git blocked smoke side-effect command: %s\n' "$*" >&2
       exit 97
       ;;
   esac

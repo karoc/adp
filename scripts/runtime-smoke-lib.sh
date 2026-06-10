@@ -118,6 +118,42 @@ assert_absent_project_artifacts() {
   done
 }
 
+assert_runtime_git_boundary() {
+  local runtime_root="$1"
+  local project_root="$2"
+  local label="$3"
+  local manifest
+  local git_output
+
+  assert_file "$runtime_root/.adp-runtime.yaml"
+  manifest=$(cat "$runtime_root/.adp-runtime.yaml")
+  assert_contains "$manifest" "git_root: $project_root" "$label runtime manifest"
+  assert_contains "$manifest" "git_metadata_skipped: true" "$label runtime manifest"
+  assert_absent_path "$runtime_root/.git"
+
+  if git -C "$runtime_root" rev-parse --show-toplevel >/dev/null 2>&1; then
+    fail "$label Git root unexpectedly resolved from runtime root"
+  fi
+  if git -C "$runtime_root" status --short --branch >/dev/null 2>&1; then
+    fail "$label git status unexpectedly succeeded inside runtime root"
+  fi
+
+  git_output=$(git -C "$project_root" rev-parse --show-toplevel)
+  if [ "$git_output" != "$project_root" ]; then
+    printf '%s\n' "$git_output" >&2
+    fail "$label project-root Git root mismatch"
+  fi
+
+  if [ -d "$project_root/pkg" ]; then
+    assert_symlink "$runtime_root/pkg"
+    git_output=$(git -C "$runtime_root/pkg" rev-parse --show-toplevel)
+    if [ "$git_output" != "$project_root" ]; then
+      printf '%s\n' "$git_output" >&2
+      fail "$label symlinked runtime subpath Git root mismatch"
+    fi
+  fi
+}
+
 assert_runtime_entries() {
   local runtime_dir="$1"
   local want="$2"

@@ -61,6 +61,14 @@ copy_current_tree() {
   done < <(cd "$REPO_ROOT" && git ls-files --cached --others --exclude-standard -z)
 }
 
+init_project_git() {
+  git -C "$PROJECT_ROOT" init -q
+  git -C "$PROJECT_ROOT" config user.name adp-smoke
+  git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
+  git -C "$PROJECT_ROOT" add go.mod main.go
+  git -C "$PROJECT_ROOT" commit -q -m "init operator drill project"
+}
+
 assert_clean_source_boundary() {
   local source_root="$1"
   local rel
@@ -227,6 +235,7 @@ trap cleanup EXIT INT TERM
 mkdir -p "$SOURCE_ROOT" "$DIST_DIR" "$INSTALL_BIN" "$FAKE_BIN" "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR"
 printf 'module example.com/adp-release-operator-drill\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+init_project_git
 write_fake_codex "$FAKE_BIN/codex"
 write_fake_claude_guard "$FAKE_BIN/claude"
 
@@ -275,7 +284,7 @@ output=$(run_adp "$TMP_ROOT" workspace add operator-a "$PROJECT_ROOT")
 assert_contains "$output" 'workspace "operator-a" added' "workspace add output"
 output=$(run_adp "$TMP_ROOT" workspace doctor operator-a)
 assert_contains "$output" "operator-a" "workspace doctor output"
-assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
 output=$(run_adp "$TMP_ROOT" phase add --workspace operator-a --goal "operator release drill" p-operator "Operator Release Drill")
 assert_contains "$output" "phase p-operator added" "phase add output"
 output=$(run_adp "$TMP_ROOT" phase start --workspace operator-a p-operator)

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+. "$SCRIPT_DIR/smoke-git-tripwire-lib.sh"
+
 run_fake_smoke() (
   local smoke_root="$TMP_ROOT/fake"
   local project_root="$smoke_root/project"
@@ -7,19 +9,22 @@ run_fake_smoke() (
   local fake_bin="$smoke_root/bin"
   local adp_home="$smoke_root/adp-home"
   local runtime_dir="$smoke_root/runtime"
+  local git_tripwire_log="$smoke_root/git-side-effects.log"
   local events_file="$adp_home/logs/events.jsonl"
   local output env_output runtime_root task_output task_id codex_output claude_output
   local completion_output zsh_completion_output completion_script completion_probe workspace_values profile_values agent_values task_values owner_values status_values version_output events_output
   local invalid_output task_event_count
 
   mkdir -p "$project_root" "$diag_project_root" "$fake_bin" "$adp_home" "$runtime_dir"
+  mkdir -p "$project_root/pkg"
   printf 'module example.com/adp-smoke\n' > "$project_root/go.mod"
   printf 'package main\n' > "$project_root/main.go"
+  printf 'package pkg\n' > "$project_root/pkg/pkg.go"
   printf 'dist\n' > "$project_root/.gitignore"
   git -C "$project_root" init -q
   git -C "$project_root" config user.name adp-smoke
   git -C "$project_root" config user.email adp-smoke@example.invalid
-  git -C "$project_root" add go.mod main.go .gitignore
+  git -C "$project_root" add go.mod main.go pkg .gitignore
   git -C "$project_root" commit -q -m "init smoke project"
   printf 'module example.com/adp-diagnostics-smoke\n' > "$diag_project_root/go.mod"
   printf 'package main\n' > "$diag_project_root/main.go"
@@ -27,6 +32,7 @@ run_fake_smoke() (
   write_fake_agent "$fake_bin/codex" codex AGENTS.md .codex/config.toml go.mod
   write_fake_agent "$fake_bin/claude" claude CLAUDE.md .claude/settings.json main.go
   ln -s "$ADP_BIN" "$fake_bin/adp"
+  setup_git_tripwire "$fake_bin" "$git_tripwire_log"
 
   export ADP_HOME="$adp_home"
   export ADP_RUNTIME_DIR="$runtime_dir"
@@ -138,10 +144,7 @@ run_fake_smoke() (
   assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "runtime_root: $runtime_root" "runtime manifest"
   assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "generated_by: adp" "runtime manifest"
   assert_symlink "$runtime_root/go.mod"
-  assert_absent_path "$runtime_root/.git"
-  if git -C "$runtime_root" status --short --branch >/dev/null 2>&1; then
-    fail "git status unexpectedly succeeded inside kept runtime root"
-  fi
+  assert_runtime_git_boundary "$runtime_root" "$project_root" "env --cd"
   git -C "$project_root" status --short --branch >/dev/null
   printf 'package main\n// edited through ADP runtime\n' > "$runtime_root/main.go"
   assert_contains "$(git -C "$project_root" diff -- main.go)" "edited through ADP runtime" "project-root git diff after runtime edit"
@@ -214,5 +217,6 @@ run_fake_smoke() (
   run_fake_prune_checks
 
   assert_absent_project_artifacts "$project_root"
+  assert_no_git_side_effects "runtime fake smoke ADP command path"
   info "fake smoke passed"
 )

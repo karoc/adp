@@ -11,37 +11,6 @@ import (
 	"github.com/karoc/adp/internal/schema"
 )
 
-func TestRegistryDiagnoseHealthyWorkspace(t *testing.T) {
-	clearGitDirectiveEnv(t)
-
-	registry, layout := newTestRegistry(t)
-	projectRoot := createProject(t)
-
-	if _, err := registry.Add(context.Background(), "game-a", projectRoot); err != nil {
-		t.Fatalf("Add() error = %v", err)
-	}
-
-	report, err := registry.Diagnose(context.Background(), "game-a")
-	if err != nil {
-		t.Fatalf("Diagnose() error = %v", err)
-	}
-	if report.Workspace != "game-a" {
-		t.Fatalf("Workspace = %q, want game-a", report.Workspace)
-	}
-	if report.WorkspaceDir != layout.WorkspaceDir("game-a") {
-		t.Fatalf("WorkspaceDir = %q, want %q", report.WorkspaceDir, layout.WorkspaceDir("game-a"))
-	}
-	if report.ConfigPath != layout.WorkspaceConfig("game-a") {
-		t.Fatalf("ConfigPath = %q, want %q", report.ConfigPath, layout.WorkspaceConfig("game-a"))
-	}
-	if len(report.Diagnostics) != 0 {
-		t.Fatalf("Diagnostics = %+v, want none", report.Diagnostics)
-	}
-	if report.HasErrors() {
-		t.Fatal("HasErrors() = true, want false")
-	}
-}
-
 func TestRegistryDiagnoseReportsConfiguredResourceIssues(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
@@ -84,6 +53,7 @@ func TestRegistryDiagnoseReportsConfiguredResourceIssues(t *testing.T) {
 func TestRegistryDiagnoseReportsAgentCommandReadinessIssues(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
+	initGitProject(t, projectRoot)
 
 	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
 	if err != nil {
@@ -186,6 +156,7 @@ func TestRegistryDiagnoseAllowsProviderLocalProjectFiles(t *testing.T) {
 func TestRegistryDiagnoseReportsSymlinkResourceEscapes(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
+	initGitProject(t, projectRoot)
 
 	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
 	if err != nil {
@@ -236,6 +207,7 @@ func TestRegistryDiagnoseAllowsSymlinkResourcesInsideWorkspace(t *testing.T) {
 
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
+	initGitProject(t, projectRoot)
 
 	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
 	if err != nil {
@@ -273,14 +245,13 @@ func TestRegistryDiagnoseAllowsSymlinkResourcesInsideWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Diagnose() error = %v", err)
 	}
-	if len(report.Diagnostics) != 0 {
-		t.Fatalf("Diagnostics = %+v, want none", report.Diagnostics)
-	}
+	assertOnlyGitRootDetected(t, report, projectRoot)
 }
 
 func TestRegistryDiagnoseReportsProfileDirectoryAsNotFile(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
+	initGitProject(t, projectRoot)
 
 	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
 	if err != nil {
@@ -364,6 +335,7 @@ func TestRegistryDiagnoseReportsProfileConsistencyIssues(t *testing.T) {
 func TestRegistryDiagnoseReportsAgentProfileBoundaryGuidance(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
+	initGitProject(t, projectRoot)
 
 	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
 	if err != nil {
@@ -414,6 +386,7 @@ func TestRegistryDiagnoseAllContinuesAcrossInvalidWorkspaceConfig(t *testing.T) 
 
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
+	initGitProject(t, projectRoot)
 
 	if _, err := registry.Add(context.Background(), "good", projectRoot); err != nil {
 		t.Fatalf("Add() good error = %v", err)
@@ -437,9 +410,7 @@ func TestRegistryDiagnoseAllContinuesAcrossInvalidWorkspaceConfig(t *testing.T) 
 	bad := reportByWorkspace(t, reports, "bad")
 	assertDiagnostic(t, bad, DiagnosticCodeConfigInvalid, DiagnosticLevelError, filepath.Join(badDir, "workspace.yaml"))
 	good := reportByWorkspace(t, reports, "good")
-	if len(good.Diagnostics) != 0 {
-		t.Fatalf("good diagnostics = %+v, want none", good.Diagnostics)
-	}
+	assertOnlyGitRootDetected(t, good, projectRoot)
 }
 
 func TestRegistryDiagnoseAllReportsInvalidWorkspaceDirectoryNames(t *testing.T) {

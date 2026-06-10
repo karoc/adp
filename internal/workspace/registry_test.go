@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/karoc/adp/internal/paths"
@@ -408,6 +410,27 @@ func createProject(t *testing.T) string {
 		t.Fatalf("create project root: %v", err)
 	}
 	return projectRoot
+}
+
+func initGitProject(t *testing.T, projectRoot string) {
+	t.Helper()
+
+	mustGit(t, projectRoot, "init", "-q")
+	mustGit(t, projectRoot, "config", "user.name", "adp-test")
+	mustGit(t, projectRoot, "config", "user.email", "adp-test@example.invalid")
+	writeFile(t, filepath.Join(projectRoot, "README.md"), "# test\n")
+	mustGit(t, projectRoot, "add", "README.md")
+	mustGit(t, projectRoot, "commit", "-q", "-m", "init")
+}
+
+func mustGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git -C %s %s: %v\n%s", dir, strings.Join(args, " "), err, out)
+	}
 }
 
 func requireDir(t *testing.T, path string) {

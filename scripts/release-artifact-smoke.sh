@@ -63,6 +63,14 @@ copy_current_tree() {
   done < <(cd "$REPO_ROOT" && git ls-files --cached --others --exclude-standard -z)
 }
 
+init_project_git() {
+  git -C "$PROJECT_ROOT" init -q
+  git -C "$PROJECT_ROOT" config user.name adp-smoke
+  git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
+  git -C "$PROJECT_ROOT" add go.mod main.go
+  git -C "$PROJECT_ROOT" commit -q -m "init artifact smoke project"
+}
+
 release_ldflags() {
   local commit="$1"
 
@@ -337,6 +345,7 @@ trap cleanup EXIT INT TERM
 mkdir -p "$SOURCE_ROOT" "$SOURCE_ARCHIVE_ROOT" "$DIST_DIR" "$INSTALL_BIN" "$FAKE_BIN" "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR"
 printf 'module example.com/adp-artifact-smoke\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+init_project_git
 write_fake_codex "$FAKE_BIN/codex"
 write_fake_claude "$FAKE_BIN/claude"
 
@@ -391,7 +400,7 @@ output=$(run_adp "$TMP_ROOT" workspace add game-a "$PROJECT_ROOT")
 assert_contains "$output" 'workspace "game-a" added' "workspace add output"
 output=$(run_adp "$TMP_ROOT" workspace doctor game-a)
 assert_contains "$output" "game-a" "workspace doctor output"
-assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
 output=$(run_adp "$TMP_ROOT" tasks add --workspace game-a --priority high --phase artifact-smoke "Validate artifact install")
 assert_contains "$output" "task task-" "tasks add output"
 TASK_ID=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')

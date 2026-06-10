@@ -25,6 +25,7 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	buildADP(t, adpBin)
 	writeFile(t, filepath.Join(projectRoot, "go.mod"), "module example.com/game\n")
 	writeFile(t, filepath.Join(projectRoot, "main.go"), "package main\n")
+	initGitProject(t, projectRoot)
 	writeExecutable(t, filepath.Join(binDir, "codex"), fakeAgentScript("codex", "AGENTS.md", ".codex/config.toml", "go.mod"))
 	writeExecutable(t, filepath.Join(binDir, "claude"), fakeAgentScript("claude", "CLAUDE.md", ".claude/settings.json", "main.go"))
 
@@ -46,7 +47,7 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 		t.Fatalf("workspace show missing details: %q", showOut)
 	}
 	doctorOut := runADP(t, adpBin, repoRoot, env, "workspace", "doctor", "game-a")
-	if !strings.Contains(doctorOut, "game-a") || !strings.Contains(doctorOut, "ok") {
+	if !strings.Contains(doctorOut, "game-a") || !strings.Contains(doctorOut, "workspace.git.root.detected") {
 		t.Fatalf("workspace doctor missing healthy report: %q", doctorOut)
 	}
 	envOut := runADP(t, adpBin, repoRoot, env, "env", "game-a", "--cd")
@@ -139,6 +140,26 @@ func runADP(t *testing.T, adpBin string, dir string, env []string, args ...strin
 		t.Fatalf("adp %v failed: %v\n%s", args, err, output)
 	}
 	return string(output)
+}
+
+func initGitProject(t *testing.T, projectRoot string) {
+	t.Helper()
+
+	mustGit(t, projectRoot, "init", "-q")
+	mustGit(t, projectRoot, "config", "user.name", "adp-test")
+	mustGit(t, projectRoot, "config", "user.email", "adp-test@example.invalid")
+	mustGit(t, projectRoot, "add", "go.mod", "main.go")
+	mustGit(t, projectRoot, "commit", "-q", "-m", "init")
+}
+
+func mustGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git -C %s %s: %v\n%s", dir, strings.Join(args, " "), err, output)
+	}
 }
 
 func repositoryRoot(t *testing.T) string {

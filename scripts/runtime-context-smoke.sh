@@ -193,11 +193,20 @@ grep -F -q "runtime_root: \$ADP_RUNTIME_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.y
 grep -F -q "keep: false" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "generated_by: adp" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 test ! -e "\$ADP_RUNTIME_ROOT/.git"
+if git -C "\$ADP_RUNTIME_ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
+  printf 'Git root unexpectedly resolved from ADP runtime root\n' >&2
+  exit 96
+fi
 if git -C "\$ADP_RUNTIME_ROOT" status --short --branch >/dev/null 2>&1; then
   printf 'git status unexpectedly succeeded inside ADP runtime root\n' >&2
   exit 96
 fi
+project_git_root=\$(git -C "\$ADP_PROJECT_ROOT" rev-parse --show-toplevel)
+test "\$project_git_root" = "\$ADP_EXPECT_PROJECT_ROOT"
 git -C "\$ADP_PROJECT_ROOT" status --short --branch >/dev/null
+test -L "\$ADP_RUNTIME_ROOT/pkg"
+runtime_subpath_git_root=\$(git -C "\$ADP_RUNTIME_ROOT/pkg" rev-parse --show-toplevel)
+test "\$runtime_subpath_git_root" = "\$ADP_EXPECT_PROJECT_ROOT"
 
 test -f "$instructions"
 grep -F -q "# ADP Runtime Instructions for" "$instructions"
@@ -236,6 +245,8 @@ require_runtime_text "$instructions" "Provider-native plan approval is not ADP p
 require_runtime_text "$instructions" "## Git Boundary" "git boundary heading"
 require_runtime_text "$instructions" "not the authoritative Git working tree" "git worktree boundary"
 require_runtime_text "$instructions" 'git -C "\$ADP_PROJECT_ROOT" status --short --branch' "project-root git status guidance"
+require_runtime_text "$instructions" 'git -C "\$ADP_PROJECT_ROOT" diff' "project-root git diff guidance"
+require_runtime_text "$instructions" 'git -C "\$ADP_PROJECT_ROOT" diff --cached' "project-root git staged diff guidance"
 if [ -n "\${ADP_CLI:-}" ]; then
   require_runtime_text "$instructions" "ADP_CLI" "ADP CLI hint"
 fi
@@ -289,6 +300,8 @@ test -L go.mod
 test -f go.mod
 test -L main.go
 test -f main.go
+test -L pkg
+test -f pkg/pkg.go
 test "\$#" -eq 1
 test "\$1" = "$payload"
 EOF
@@ -316,14 +329,15 @@ FAKE_BIN="$TMP_ROOT/bin"
 WORKSPACE_DIR="$ADP_HOME/workspaces/context-a"
 EVENTS_FILE="$ADP_HOME/logs/events.jsonl"
 
-mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
+mkdir -p "$PROJECT_ROOT/pkg" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-runtime-context-smoke\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+printf 'package pkg\n' > "$PROJECT_ROOT/pkg/pkg.go"
 printf 'dist\n' > "$PROJECT_ROOT/.gitignore"
 git -C "$PROJECT_ROOT" init -q
 git -C "$PROJECT_ROOT" config user.name adp-smoke
 git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
-git -C "$PROJECT_ROOT" add go.mod main.go .gitignore
+git -C "$PROJECT_ROOT" add go.mod main.go pkg .gitignore
 git -C "$PROJECT_ROOT" commit -q -m "init context smoke project"
 write_fake_agent "$FAKE_BIN/codex" codex senior-engineer AGENTS.md .codex/config.toml toml --context-codex
 write_fake_agent "$FAKE_BIN/claude" claude architect CLAUDE.md .claude/settings.json json --context-claude

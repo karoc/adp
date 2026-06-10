@@ -94,6 +94,17 @@ run_adp() {
   printf '%s\n' "$output"
 }
 
+init_project_git() {
+  if ! command -v git >/dev/null 2>&1; then
+    fail "Git is required for example workspace smoke"
+  fi
+  git -C "$PROJECT_ROOT" init -q
+  git -C "$PROJECT_ROOT" config user.name adp-smoke
+  git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
+  git -C "$PROJECT_ROOT" add go.mod main.go
+  git -C "$PROJECT_ROOT" commit -q -m "init example workspace project"
+}
+
 session_id_by_agent() {
   local events_file="$1"
   local agent="$2"
@@ -197,6 +208,7 @@ after_restore_lines=""
 mkdir -p "$PROJECT_ROOT" "$ADP_HOME/workspaces" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-example-smoke\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+init_project_git
 write_fake_codex "$FAKE_BIN/codex"
 write_fake_claude "$FAKE_BIN/claude"
 
@@ -218,7 +230,7 @@ assert_contains "$output" "initialized ADP home" "init output"
 info "validating copied workspace"
 output=$(run_adp "$REPO_ROOT" workspace doctor game-a)
 assert_contains "$output" "game-a" "workspace doctor output"
-assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
 
 output=$(run_adp "$REPO_ROOT" workspace show game-a)
 assert_contains "$output" "name: game-a" "workspace show output"

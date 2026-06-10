@@ -159,7 +159,7 @@ test -z "$ROOT_LEAKS"
 
 Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 symlink 进入 runtime root。ADP 生成路径在 runtime 视图中优先，原始项目目录不会被修改。当项目已经存在 `.codex/` 或 `.claude/` 等 provider-local configuration directories 时，非冲突子文件仍会在 runtime overlay 中可见；ADP 只在 `.codex/config.toml` 和 `.claude/settings.json` 等精确生成路径上优先。
 
-Runtime overlay 不会暴露仓库 Git metadata。`.gitignore`、`.gitattributes`、`.gitmodules` 等普通项目 Git 文件仍然是 project files，可以像其他非生成文件一样通过 overlay 可见，但 `.git` metadata 会被排除。Runtime 还会在启动 Agent 前 neutralize 指向仓库的 Git environment variables，包括 `GIT_DIR`、`GIT_WORK_TREE`、`GIT_INDEX_FILE`、`GIT_OBJECT_DIRECTORY`、`GIT_ALTERNATE_OBJECT_DIRECTORIES`、`GIT_COMMON_DIR` 和 `GIT_NAMESPACE`。ADP 只移除这类 Git routing state，同时保留普通 shell environment 和 auth-related variables。`$ADP_RUNTIME_ROOT` 不是权威 Git worktree。Git inspection 或 mutation 应从真实 project root 执行，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。ADP 不是 Git workflow wrapper：不会 wrap、intercept 或自动运行 Git。
+Runtime overlay 不会暴露仓库 Git metadata。`.gitignore`、`.gitattributes`、`.gitmodules` 等普通项目 Git 文件仍然是 project files，可以像其他非生成文件一样通过 overlay 可见，但 `.git` metadata 会被排除。Runtime 还会在启动 Agent 前 neutralize 指向仓库的 Git environment variables，包括 `GIT_DIR`、`GIT_WORK_TREE`、`GIT_INDEX_FILE`、`GIT_OBJECT_DIRECTORY`、`GIT_ALTERNATE_OBJECT_DIRECTORIES`、`GIT_COMMON_DIR` 和 `GIT_NAMESPACE`。ADP 只移除这类 Git routing state，同时保留普通 shell environment 和 auth-related variables。`$ADP_RUNTIME_ROOT` 不是权威 Git worktree，但 symlinked subpaths 仍可能映射到真实 project files。Git inspection 或 mutation 应从真实 project root 执行，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。`adp workspace doctor` 可能为 diagnostics 运行只读 Git topology 和 status 检查，但 ADP 不是 Git workflow wrapper：不会 wrap、intercept 或自动运行 Git mutation。
 
 `adp env <workspace> --cd` 会输出 POSIX shell commands，并保留 runtime overlay。用于 shell-hook 工作流时，输出内容可能会先 unset 危险的仓库指向 Git variables，再 export ADP runtime variables 并进入 runtime 目录。
 
@@ -186,7 +186,7 @@ adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format 
 adp sessions resume-plan <session-id> --agent claude --owner reviewer --lease 1h --format json
 ```
 
-`adp workspace doctor [name]` 会检查 workspace 配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、agent command 设置，以及 project root 中的保留路径。它会把 adapter default command fallback、写在 command 字段里的 inline arguments、缺失或不可执行的路径型 command wrapper，以及缺失、重复或逃逸到 workspace 外部的非 default profile 报告为本地 diagnostics。不传 name 时检查所有已注册 workspace；发现 error 级 diagnostics 时返回非零退出码。
+`adp workspace doctor [name]` 会检查 workspace 配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、agent command 设置、project root 中的保留路径，以及只读 Git topology/status。它会把 adapter default command fallback、写在 command 字段里的 inline arguments、缺失或不可执行的路径型 command wrapper、缺失、重复或逃逸到 workspace 外部的非 default profile，以及 Git boundary caveats 报告为本地 diagnostics。不传 name 时检查所有已注册 workspace；发现 error 级 diagnostics 时返回非零退出码。
 
 `adp doctor [workspace]` 是同一组本地 workspace 检查的全局 diagnostics 入口。它适合需要在终端中直接运行 diagnostics、但不想先进入 `workspace` 命令组的工作流。
 

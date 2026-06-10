@@ -326,6 +326,7 @@ func TestRegistryDiagnoseDoesNotExecuteConfiguredCommandWrapper(t *testing.T) {
 
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
+	initGitProject(t, projectRoot)
 	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)
 	if err != nil {
 		t.Fatalf("Add() error = %v", err)
@@ -341,6 +342,8 @@ func TestRegistryDiagnoseDoesNotExecuteConfiguredCommandWrapper(t *testing.T) {
 	if err := os.WriteFile(wrapperPath, []byte(wrapper), 0o755); err != nil {
 		t.Fatalf("write command wrapper: %v", err)
 	}
+	mustGit(t, projectRoot, "add", filepath.Join("bin", "provider wrapper"))
+	mustGit(t, projectRoot, "commit", "-q", "-m", "add provider wrapper")
 
 	codex := cfg.Agents["codex"]
 	codex.Command = filepath.Join("bin", "provider wrapper")
@@ -356,9 +359,7 @@ func TestRegistryDiagnoseDoesNotExecuteConfiguredCommandWrapper(t *testing.T) {
 	}
 
 	assertPathMissing(t, sentinel)
-	if len(report.Diagnostics) != 0 {
-		t.Fatalf("Diagnostics = %+v, want none", report.Diagnostics)
-	}
+	assertOnlyGitRootDetected(t, report, projectRoot)
 }
 
 func assertPathMissing(t *testing.T, path string) {

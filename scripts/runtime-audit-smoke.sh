@@ -31,14 +31,15 @@ PHASES_FILE="$ADP_HOME/workspaces/game-a/planning/phases.yaml"
 PROGRESS_FILE="$ADP_HOME/workspaces/game-a/planning/progress.jsonl"
 PLAN_FILE="$TMP_ROOT/plan.yaml"
 
-mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
+mkdir -p "$PROJECT_ROOT/pkg" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-runtime-audit-smoke\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+printf 'package pkg\n' > "$PROJECT_ROOT/pkg/pkg.go"
 printf 'dist\n' > "$PROJECT_ROOT/.gitignore"
 git -C "$PROJECT_ROOT" init -q
 git -C "$PROJECT_ROOT" config user.name adp-smoke
 git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
-git -C "$PROJECT_ROOT" add go.mod main.go .gitignore
+git -C "$PROJECT_ROOT" add go.mod main.go pkg .gitignore
 git -C "$PROJECT_ROOT" commit -q -m "init runtime audit project"
 
 write_fake_agent "$FAKE_BIN/codex" codex AGENTS.md .codex/config.toml go.mod
@@ -320,6 +321,7 @@ assert_contains "$env_output" "unset GIT_WORK_TREE" "env output"
 assert_contains "$env_output" "unset GIT_INDEX_FILE" "env output"
 assert_contains "$env_output" "cd '$runtime_root'" "env output"
 assert_file "$runtime_root/.adp-runtime.yaml"
+assert_runtime_git_boundary "$runtime_root" "$PROJECT_ROOT" "runtime audit env"
 output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority critical --phase p-audit --description "runtime take audit task" "Bind runtime session to task")
 assert_contains "$output" "task task-" "run take task add output"
 take_task_id=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')

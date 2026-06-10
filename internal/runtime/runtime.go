@@ -15,6 +15,7 @@ import (
 
 	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/gitenv"
+	"github.com/karoc/adp/internal/gitstate"
 	"github.com/karoc/adp/internal/overlay"
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/schema"
@@ -100,7 +101,7 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		return nil, err
 	}
 	runtimeRoot := filepath.Join(runtimeParent, req.Config.Workspace.Name+"-"+sessionID)
-	gitRoot := discoverGitRoot(req.Config.Project.Root)
+	gitRoot := gitstate.DiscoverRoot(ctx, req.Config.Project.Root)
 	files, err := appendRuntimeManifest(req.Files, Manifest{
 		Version:            ManifestVersion,
 		SessionID:          sessionID,
@@ -195,20 +196,6 @@ func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Confi
 		}
 	}
 	return env
-}
-
-func discoverGitRoot(projectRoot string) string {
-	current := filepath.Clean(projectRoot)
-	for {
-		if _, err := os.Lstat(filepath.Join(current, ".git")); err == nil {
-			return current
-		}
-		parent := filepath.Dir(current)
-		if parent == current {
-			return ""
-		}
-		current = parent
-	}
 }
 
 func mergePathList(existing string, addition string) string {

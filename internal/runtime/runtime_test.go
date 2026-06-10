@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,9 +18,7 @@ import (
 
 func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 	projectRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(projectRoot, ".git"), 0755); err != nil {
-		t.Fatal(err)
-	}
+	initGitRepo(t, projectRoot)
 	writeFile(t, filepath.Join(projectRoot, ".gitignore"), []byte("dist\n"))
 	writeFile(t, filepath.Join(projectRoot, "go.mod"), []byte("module example\n"))
 	writeFile(t, filepath.Join(projectRoot, "AGENTS.md"), []byte("real agents\n"))
@@ -364,6 +363,27 @@ func testConfig(projectRoot string) schema.Config {
 		Project: schema.Project{
 			Root: projectRoot,
 		},
+	}
+}
+
+func initGitRepo(t *testing.T, projectRoot string) {
+	t.Helper()
+
+	mustGit(t, projectRoot, "init", "-q")
+	mustGit(t, projectRoot, "config", "user.name", "adp-test")
+	mustGit(t, projectRoot, "config", "user.email", "adp-test@example.invalid")
+	writeFile(t, filepath.Join(projectRoot, "README.md"), []byte("# test\n"))
+	mustGit(t, projectRoot, "add", "README.md")
+	mustGit(t, projectRoot, "commit", "-q", "-m", "init")
+}
+
+func mustGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git -C %s %s: %v\n%s", dir, strings.Join(args, " "), err, out)
 	}
 }
 

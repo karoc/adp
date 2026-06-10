@@ -109,6 +109,14 @@ EOF
   chmod 755 "$path"
 }
 
+init_project_git() {
+  git -C "$PROJECT_ROOT" init -q
+  git -C "$PROJECT_ROOT" config user.name adp-smoke
+  git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
+  git -C "$PROJECT_ROOT" add go.mod main.go
+  git -C "$PROJECT_ROOT" commit -q -m "init release rehearsal project"
+}
+
 run_adp() {
   local dir="$1"
   shift
@@ -149,6 +157,7 @@ trap cleanup EXIT INT TERM
 mkdir -p "$PROJECT_ROOT" "$ADP_HOME/workspaces" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-release-rehearsal\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+init_project_git
 write_fake_codex "$FAKE_BIN/codex"
 write_fake_claude "$FAKE_BIN/claude"
 
@@ -183,7 +192,8 @@ rewrite_project_root "$WORKSPACE_DIR/workspace.yaml" "$PROJECT_ROOT"
 output=$(run_adp "$CHECKOUT_ROOT" init)
 assert_contains "$output" "initialized ADP home" "init output"
 output=$(run_adp "$CHECKOUT_ROOT" workspace doctor game-a)
-assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "game-a" "workspace doctor output"
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
 output=$(run_adp "$CHECKOUT_ROOT" env game-a --cd)
 assert_contains "$output" "ADP_RUNTIME_ROOT" "env output"
 output=$(run_adp "$CHECKOUT_ROOT" run codex --workspace game-a -- --rehearsal)

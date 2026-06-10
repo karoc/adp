@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/karoc/adp/internal/gitenv"
+	"github.com/karoc/adp/internal/gitstate"
 	"github.com/karoc/adp/internal/schema"
 )
 
@@ -62,6 +63,13 @@ const (
 	DiagnosticCodeAgentProfileNotFile       = "workspace.agent.profile.not_file"
 	DiagnosticCodeAgentProfileAmbiguous     = "workspace.agent.profile.ambiguous"
 	DiagnosticCodeGitEnvRepositoryDirective = "workspace.git.env.repository_directive"
+	DiagnosticCodeGitRootDetected           = "workspace.git.root.detected"
+	DiagnosticCodeGitRootAbsent             = "workspace.git.root.absent"
+	DiagnosticCodeGitRootNested             = "workspace.git.root.nested_project"
+	DiagnosticCodeGitMetadataFile           = "workspace.git.metadata.file"
+	DiagnosticCodeGitMetadataOther          = "workspace.git.metadata.other"
+	DiagnosticCodeGitStatusDirty            = "workspace.git.status.dirty"
+	DiagnosticCodeGitStatusUnavailable      = "workspace.git.status.unavailable"
 )
 
 type Diagnostic struct {
@@ -187,6 +195,7 @@ func diagnoseWorkspaceDir(ctx context.Context, name string, workspaceDir string,
 	}
 
 	checkProjectRoot(&report, cfg.Project.Root)
+	checkProjectGit(ctx, &report, cfg.Project.Root)
 	checkProjectReservedPaths(&report, cfg.Project.Root, cfg.Agents)
 	checkRuntimeParent(&report, runtimeParent, cfg.Project.Root)
 	checkWorkspaceFile(&report, fileCheck{
@@ -270,6 +279,60 @@ func checkProjectRoot(report *DiagnosticReport, root string) {
 	if !info.IsDir() {
 		report.add(DiagnosticLevelError, DiagnosticCodeProjectRootNotDirectory, "project root is not a directory", root)
 	}
+}
+
+func checkProjectGit(ctx context.Context, report *DiagnosticReport, root string) {
+	if hasProjectRootError(*report, root) {
+		return
+	}
+	state := gitstate.Inspect(ctx, root)
+	if !state.GitAvailable || state.InspectionError != "" {
+		message := "project root is not inside a usable Git worktree; ADP can still run, but phase evidence and agent handoff are easier to audit when the real project root has Git status available"
+		if state.InspectionError != "" {
+			message += ": " + state.InspectionError
+		}
+		report.add(DiagnosticLevelWarning, DiagnosticCodeGitRootAbsent, message, root)
+		return
+	}
+
+	report.add(DiagnosticLevelInfo, DiagnosticCodeGitRootDetected, fmt.Sprintf("Git worktree detected at %s; use git -C \"$ADP_PROJECT_ROOT\" status --short --branch for authoritative status, and treat ADP runtime roots as non-authoritative overlays", state.GitRoot), state.GitRoot)
+	if state.ProjectBelowRoot {
+		report.add(DiagnosticLevelInfo, DiagnosticCodeGitRootNested, fmt.Sprintf("project root is inside Git worktree %s at %s; ADP_GIT_ROOT will point at the repository root while ADP_PROJECT_ROOT remains the configured project root", state.GitRoot, state.RelativeProjectDir), root)
+	}
+	switch state.MetadataKind {
+	case gitstate.MetadataFile:
+		report.add(DiagnosticLevelInfo, DiagnosticCodeGitMetadataFile, "Git metadata is represented by a .git file, as in a worktree or submodule; ADP excludes this metadata from runtime overlays and Git commands should target ADP_PROJECT_ROOT explicitly", state.MetadataPath)
+	case gitstate.MetadataOther:
+		report.add(DiagnosticLevelWarning, DiagnosticCodeGitMetadataOther, "Git metadata path exists but is not a normal .git directory or gitfile; inspect the project root before relying on Git status", state.MetadataPath)
+	}
+	if state.StatusError != "" {
+		report.add(DiagnosticLevelWarning, DiagnosticCodeGitStatusUnavailable, "Git worktree was detected, but read-only status inspection failed: "+state.StatusError, root)
+		return
+	}
+	if state.ChangeState == gitstate.ChangeDirty {
+		message := fmt.Sprintf("project has %d changed Git status entries", state.ChangedEntries)
+		if state.UntrackedEntries > 0 {
+			message += fmt.Sprintf(" including %d untracked", state.UntrackedEntries)
+		}
+		if state.Ahead > 0 || state.Behind > 0 {
+			message += fmt.Sprintf("; upstream delta is +%d/-%d", state.Ahead, state.Behind)
+		}
+		message += "; inspect from the real project root, not the ADP runtime root"
+		report.add(DiagnosticLevelWarning, DiagnosticCodeGitStatusDirty, message, root)
+	}
+}
+
+func hasProjectRootError(report DiagnosticReport, root string) bool {
+	for _, diagnostic := range report.Diagnostics {
+		if diagnostic.Path != root || diagnostic.Level != DiagnosticLevelError {
+			continue
+		}
+		switch diagnostic.Code {
+		case DiagnosticCodeProjectRootMissing, DiagnosticCodeProjectRootStatFailed, DiagnosticCodeProjectRootNotDirectory:
+			return true
+		}
+	}
+	return false
 }
 
 type fileCheck struct {

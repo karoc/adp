@@ -222,6 +222,17 @@ assert_no_git_side_effects() {
   fi
 }
 
+init_project_git() {
+  if ! command -v git >/dev/null 2>&1; then
+    fail "Git is required for install onboarding smoke"
+  fi
+  git -C "$PROJECT_ROOT" init -q
+  git -C "$PROJECT_ROOT" config user.name adp-smoke
+  git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
+  git -C "$PROJECT_ROOT" add go.mod main.go
+  git -C "$PROJECT_ROOT" commit -q -m "init install onboarding project"
+}
+
 run_adp() {
   local dir="$1"
   shift
@@ -265,6 +276,7 @@ trap cleanup EXIT INT TERM
 mkdir -p "$INSTALL_BIN" "$FAKE_BIN" "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$(dirname -- "$BUILD_BIN")"
 printf 'module example.com/adp-install-onboarding\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+init_project_git
 write_fake_codex "$FAKE_BIN/codex"
 write_fake_claude_guard "$FAKE_BIN/claude"
 
@@ -302,7 +314,7 @@ output=$(run_adp "$TMP_ROOT" workspace add onboarding-a "$PROJECT_ROOT")
 assert_contains "$output" 'workspace "onboarding-a" added' "workspace add output"
 output=$(run_adp "$TMP_ROOT" workspace doctor onboarding-a)
 assert_contains "$output" "onboarding-a" "workspace doctor output"
-assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
 output=$(run_adp "$TMP_ROOT" workspace show onboarding-a)
 assert_contains "$output" "name: onboarding-a" "workspace show output"
 assert_contains "$output" "project_root: $PROJECT_ROOT" "workspace show output"

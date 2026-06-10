@@ -205,6 +205,7 @@ func TestRegistryDiagnoseAllowsMissingRuntimeParentOutsideProjectRoot(t *testing
 
 	registry, _ := newTestRegistry(t)
 	projectRoot := createProject(t)
+	initGitProject(t, projectRoot)
 	registry.Layout.RuntimeParent = filepath.Join(t.TempDir(), "missing-runtime-parent")
 
 	if _, err := registry.Add(context.Background(), "game-a", projectRoot); err != nil {
@@ -215,7 +216,5 @@ func TestRegistryDiagnoseAllowsMissingRuntimeParentOutsideProjectRoot(t *testing
 	if err != nil {
 		t.Fatalf("Diagnose() error = %v", err)
 	}
-	if len(report.Diagnostics) != 0 {
-		t.Fatalf("Diagnostics = %+v, want none", report.Diagnostics)
-	}
+	assertOnlyGitRootDetected(t, report, projectRoot)
 }

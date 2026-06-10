@@ -46,11 +46,13 @@ The generated `.adp-runtime.yaml` manifest records ADP ownership and cleanup met
 
 ## Git Boundary
 
-Runtime overlays expose project content for agent workflows, but they do not expose repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files and can be linked into the overlay like any other non-generated file; `.git` metadata is excluded from runtime overlays.
+Runtime overlays expose project content for agent workflows, but they do not expose repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files and can be linked into the overlay like any other non-generated file; `.git` metadata is excluded from runtime overlays. A linked runtime subpath may still be the real project file or directory behind the symlink, so file edits in that subpath can affect the real project even though the runtime root is not a Git worktree.
 
 ADP also neutralizes repository-directing Git environment variables before launching agents. This includes `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, and `GIT_NAMESPACE`. These values can redirect Git to a different worktree, index, object store, common directory, or namespace, so they are removed at the runtime boundary. Normal shell environment and auth-related variables are preserved.
 
-`$ADP_RUNTIME_ROOT` is not the authoritative Git worktree. Agents and operators that need Git inspection or mutation should run Git from the real project root, either with `git -C "$ADP_PROJECT_ROOT" ...` or after `cd "$ADP_PROJECT_ROOT"`. `adp env <workspace> --cd` and shell-hook output may emit `unset` commands for dangerous Git variables before exporting ADP runtime environment. ADP may record explicit phase commit and push evidence in its local planning ledger, but it does not wrap or auto-run Git.
+Runtime handles and `.adp-runtime.yaml` record `ADP_GIT_ROOT`/`git_root` when ADP can discover the repository root from the configured project root, plus `git_metadata_skipped: true` to make the omission explicit. The runtime environment also adds the runtime root to `GIT_CEILING_DIRECTORIES` so Git discovery does not walk from `$ADP_RUNTIME_ROOT` into a parent repository and accidentally treat the overlay as authoritative. `ADP_GIT_ROOT` can differ from `ADP_PROJECT_ROOT` when the configured project root is a subdirectory of a larger worktree.
+
+`$ADP_RUNTIME_ROOT` is not the authoritative Git worktree. Agents and operators that need Git inspection or mutation should run Git from the real project root, either with `git -C "$ADP_PROJECT_ROOT" ...` or after `cd "$ADP_PROJECT_ROOT"`. `adp env <workspace> --cd` and shell-hook output may emit `unset` commands for dangerous Git variables before exporting ADP runtime environment. Workspace diagnostics may run read-only Git inspection against the real project root, including topology discovery, `.git` metadata shape, and status checks such as `git status --porcelain=v2 --branch`. Those diagnostics can report nested project roots, gitfile metadata for linked worktrees or submodules, unavailable status, or dirty status, but they do not perform commits, pushes, staging, checkout, cleanup, or any other Git mutation. ADP may record explicit phase commit and push evidence in its local planning ledger, but it does not wrap or auto-run Git.
 
 ## Instruction Files
 
@@ -171,6 +173,7 @@ The launched agent process inherits the parent shell environment and receives AD
 - `ADP_HOME`: local ADP home.
 - `ADP_WORKSPACE`: selected workspace.
 - `ADP_PROJECT_ROOT`: real project root.
+- `ADP_GIT_ROOT`: discovered Git worktree root when one is available; it may differ from `ADP_PROJECT_ROOT` for nested workspace roots.
 - `ADP_RUNTIME_ROOT`: temporary runtime root and process working directory.
 - `ADP_SESSION_ID`: ADP runtime session ID.
 - `ADP_AGENT`: adapter name.
