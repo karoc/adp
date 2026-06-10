@@ -79,6 +79,23 @@ write_fake_enter_shell() {
 #!/usr/bin/env sh
 set -eu
 
+assert_git_env_unset() {
+  name=\$1
+  if env | grep -q "^\$name="; then
+    value=\$(env | sed -n "s/^\$name=//p" | head -n 1)
+    printf '%s leaked into fake enter shell environment: %s\n' "\$name" "\$value" >&2
+    exit 96
+  fi
+}
+
+assert_git_env_unset GIT_ALTERNATE_OBJECT_DIRECTORIES
+assert_git_env_unset GIT_COMMON_DIR
+assert_git_env_unset GIT_DIR
+assert_git_env_unset GIT_INDEX_FILE
+assert_git_env_unset GIT_NAMESPACE
+assert_git_env_unset GIT_OBJECT_DIRECTORY
+assert_git_env_unset GIT_WORK_TREE
+
 test -n "\${ADP_ENTER_PROBE_OUT:-}"
 {
   printf 'workspace=%s\n' "\${ADP_WORKSPACE:-}"
@@ -154,7 +171,7 @@ run_fake_enter_checks() {
   snapshot_tree_entries "$project_root" "$project_snapshot"
 
   rm -f "$enter_probe"
-  output=$(run_adp "$REPO_ROOT" enter game-a)
+  output=$(with_dangerous_git_env "$smoke_root/git-boundary-env" run_adp "$REPO_ROOT" enter game-a)
   assert_contains "$output" "enter-shell ok" "enter output"
   assert_file "$enter_probe"
   enter_runtime=$(probe_value "$enter_probe" runtime)
@@ -178,7 +195,7 @@ run_fake_enter_checks() {
   assert_tree_entries_unchanged "$project_root" "$project_snapshot" "project root after enter"
 
   rm -f "$enter_probe"
-  output=$(run_adp "$REPO_ROOT" enter game-a --keep-runtime)
+  output=$(with_dangerous_git_env "$smoke_root/git-boundary-env" run_adp "$REPO_ROOT" enter game-a --keep-runtime)
   assert_contains "$output" "enter-shell ok" "enter --keep-runtime output"
   assert_file "$enter_probe"
   enter_runtime=$(probe_value "$enter_probe" runtime)

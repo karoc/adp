@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/karoc/adp/internal/gitenv"
 	"github.com/karoc/adp/internal/schema"
 )
 
@@ -60,6 +61,7 @@ const (
 	DiagnosticCodeAgentProfileStatFailed    = "workspace.agent.profile.stat_failed"
 	DiagnosticCodeAgentProfileNotFile       = "workspace.agent.profile.not_file"
 	DiagnosticCodeAgentProfileAmbiguous     = "workspace.agent.profile.ambiguous"
+	DiagnosticCodeGitEnvRepositoryDirective = "workspace.git.env.repository_directive"
 )
 
 type Diagnostic struct {
@@ -151,6 +153,7 @@ func diagnoseWorkspaceDir(ctx context.Context, name string, workspaceDir string,
 	if err := ctx.Err(); err != nil {
 		return report, err
 	}
+	checkInheritedGitEnvironment(&report)
 
 	info, err := os.Lstat(workspaceDir)
 	if err != nil {
@@ -233,6 +236,25 @@ func (r *DiagnosticReport) add(level DiagnosticLevel, code string, message strin
 		Message: message,
 		Path:    path,
 	})
+}
+
+func checkInheritedGitEnvironment(report *DiagnosticReport) {
+	names := make([]string, 0)
+	for _, name := range gitenv.RepositoryDirectiveNames() {
+		if _, ok := os.LookupEnv(name); ok {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return
+	}
+
+	report.add(
+		DiagnosticLevelWarning,
+		DiagnosticCodeGitEnvRepositoryDirective,
+		fmt.Sprintf("operator environment contains repository-directing Git variables (%s); ADP runtime neutralizes these for launched and shell-hook sessions, and Git commands should target ADP_PROJECT_ROOT explicitly", strings.Join(names, ", ")),
+		"",
+	)
 }
 
 func checkProjectRoot(report *DiagnosticReport, root string) {

@@ -12,6 +12,8 @@ import (
 )
 
 func TestRegistryDiagnoseHealthyWorkspace(t *testing.T) {
+	clearGitDirectiveEnv(t)
+
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
 
@@ -230,6 +232,8 @@ func TestRegistryDiagnoseReportsSymlinkResourceEscapes(t *testing.T) {
 }
 
 func TestRegistryDiagnoseAllowsSymlinkResourcesInsideWorkspace(t *testing.T) {
+	clearGitDirectiveEnv(t)
+
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
 
@@ -406,6 +410,8 @@ func TestRegistryDiagnoseReportsWorkspaceDirectorySymlink(t *testing.T) {
 }
 
 func TestRegistryDiagnoseAllContinuesAcrossInvalidWorkspaceConfig(t *testing.T) {
+	clearGitDirectiveEnv(t)
+
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
 

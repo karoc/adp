@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/karoc/adp/internal/adapters"
+	"github.com/karoc/adp/internal/gitenv"
 )
 
 var ErrInvalidExportName = errors.New("invalid shell export name")
@@ -33,6 +34,11 @@ func RenderExports(handle adapters.RuntimeHandle, opts ExportOptions) (string, e
 	sort.Strings(keys)
 
 	var out strings.Builder
+	for _, key := range gitenv.RepositoryDirectiveNames() {
+		out.WriteString("unset ")
+		out.WriteString(key)
+		out.WriteByte('\n')
+	}
 	for _, key := range keys {
 		out.WriteString("export ")
 		out.WriteString(key)

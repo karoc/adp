@@ -315,6 +315,9 @@ assert_contains "$output" '"claim_state"' "progress report json output"
 info "auditing runtime, events, sessions, restore plan, and prune"
 env_output=$(run_adp "$REPO_ROOT" env game-a --cd)
 runtime_root=$(parse_export "$env_output" ADP_RUNTIME_ROOT)
+assert_contains "$env_output" "unset GIT_DIR" "env output"
+assert_contains "$env_output" "unset GIT_WORK_TREE" "env output"
+assert_contains "$env_output" "unset GIT_INDEX_FILE" "env output"
 assert_contains "$env_output" "cd '$runtime_root'" "env output"
 assert_file "$runtime_root/.adp-runtime.yaml"
 output=$(run_adp "$REPO_ROOT" tasks add --workspace game-a --priority critical --phase p-audit --description "runtime take audit task" "Bind runtime session to task")
@@ -332,7 +335,7 @@ if [ -f "$EVENTS_FILE" ]; then
 fi
 runtime_entries_before_take=$(runtime_entry_count "$ADP_RUNTIME_DIR")
 reset_git_tripwire
-output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --take --owner audit-run-take --lease 15m -- --probe codex-payload)
+output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$REPO_ROOT" run codex --workspace game-a --take --owner audit-run-take --lease 15m -- --probe codex-payload)
 assert_contains "$output" "fake-codex" "codex run take output"
 if [ "$(line_count "$EVENTS_FILE")" != $((events_before_take + 2)) ]; then
   fail "run --take should append two runtime events"
@@ -366,9 +369,9 @@ fi
 assert_no_git_side_effects "runtime audit run --take"
 assert_absent_project_artifacts "$PROJECT_ROOT"
 export ADP_EXPECT_TASK_ID="$task_id"
-output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)
+output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)
 assert_contains "$output" "fake-codex" "codex run output"
-output=$(run_adp "$REPO_ROOT" run claude --workspace game-a --task "$task_id" -- --probe claude-payload)
+output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$REPO_ROOT" run claude --workspace game-a --task "$task_id" -- --probe claude-payload)
 assert_contains "$output" "fake-claude" "claude run output"
 output=$(SHELL="$FAKE_BIN/enter-shell" run_adp "$REPO_ROOT" enter game-a)
 assert_contains "$output" "enter workspace=game-a" "enter output"

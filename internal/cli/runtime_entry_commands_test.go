@@ -91,6 +91,59 @@ func TestRunCommandWiresAdapterRuntimeAndRunner(t *testing.T) {
 	}
 }
 
+func TestRunCommandSanitizesRepositoryDirectiveGitEnvBeforeRunner(t *testing.T) {
+	store := &fakeStore{cfg: testConfig()}
+	registry := adapters.NewRegistry()
+	adapter := &gitEnvAdapter{name: "codex"}
+	if err := registry.Register(adapter); err != nil {
+		t.Fatal(err)
+	}
+	var launchSpec adapters.LaunchSpec
+
+	deps := Dependencies{
+		Layout:         paths.New("/tmp/adp-home", "/tmp/adp-runtime"),
+		WorkspaceStore: store,
+		Adapters:       registry,
+		BuildRuntime: func(_ context.Context, req runtime.BuildRequest) (*runtime.Handle, error) {
+			env := map[string]string{
+				"ADP_RUNTIME_ROOT": "/tmp/runtime",
+				"GIT_WORK_TREE":    "/tmp/runtime-work-tree",
+				"GIT_SSH_COMMAND":  "ssh -i /tmp/runtime-key",
+				"RUNTIME_SENTINEL": "visible",
+			}
+			for key, value := range req.Env {
+				env[key] = value
+			}
+			return &runtime.Handle{SessionID: "session-1", Root: "/tmp/runtime", Env: env}, nil
+		},
+		CleanupRuntime: func(context.Context, runtime.Handle) error { return nil },
+		RunProcess: func(_ context.Context, spec adapters.LaunchSpec, _ runner.Streams) (*runner.Result, error) {
+			launchSpec = spec
+			return &runner.Result{ExitCode: 0}, nil
+		},
+	}
+
+	code := NewApp(deps, &bytes.Buffer{}, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"run", "codex", "--workspace", "game-a"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	for _, key := range []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"} {
+		if _, ok := launchSpec.Env[key]; ok {
+			t.Fatalf("launch env leaked %s: %#v", key, launchSpec.Env)
+		}
+	}
+	if launchSpec.Env["GIT_SSH_COMMAND"] != "ssh -i /tmp/runtime-key" {
+		t.Fatalf("safe Git transport env was not preserved: %#v", launchSpec.Env)
+	}
+	if launchSpec.Env["RUNTIME_SENTINEL"] != "visible" || launchSpec.Env["LAUNCH_SENTINEL"] != "visible" {
+		t.Fatalf("non-Git launch/runtime env was not preserved: %#v", launchSpec.Env)
+	}
+}
+
 func TestRunCommandCanResolveWorkspaceFromCurrentDirectory(t *testing.T) {
 	store := &fakeStore{cfg: testConfig(), findByProjectPath: true}
 	registry := adapters.NewRegistry()
@@ -298,5 +351,43 @@ func (a *extensionAdapter) Launch(_ context.Context, ctx adapters.Context, runti
 		Args:    append([]string(nil), args...),
 		Dir:     runtime.Root,
 		Env:     map[string]string{"EXTENSION_LAUNCH_ENV": "1"},
+	}, nil
+}
+
+type gitEnvAdapter struct {
+	name string
+}
+
+func (a *gitEnvAdapter) Name() string {
+	return a.name
+}
+
+func (a *gitEnvAdapter) Validate(context.Context, adapters.Context) error {
+	return nil
+}
+
+func (a *gitEnvAdapter) Render(context.Context, adapters.Context) (*adapters.RenderResult, error) {
+	return &adapters.RenderResult{
+		Env: map[string]string{
+			"GIT_DIR":         "/tmp/render-git-dir",
+			"GIT_INDEX_FILE":  "/tmp/render-index",
+			"RENDER_SENTINEL": "visible",
+		},
+	}, nil
+}
+
+func (a *gitEnvAdapter) Launch(_ context.Context, _ adapters.Context, runtime adapters.RuntimeHandle, _ []string) (*adapters.LaunchSpec, error) {
+	env := map[string]string{
+		"GIT_DIR":         "/tmp/launch-git-dir",
+		"GIT_INDEX_FILE":  "/tmp/launch-index",
+		"LAUNCH_SENTINEL": "visible",
+	}
+	for key, value := range runtime.Env {
+		env[key] = value
+	}
+	return &adapters.LaunchSpec{
+		Command: "fake-codex",
+		Dir:     runtime.Root,
+		Env:     env,
 	}, nil
 }

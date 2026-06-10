@@ -81,6 +81,21 @@ run_adp() {
   printf '%s\n' "$output"
 }
 
+with_dangerous_git_env() (
+  local boundary_root="$1"
+  shift
+
+  mkdir -p "$boundary_root"
+  export GIT_DIR="$boundary_root/git-dir"
+  export GIT_WORK_TREE="$boundary_root/work-tree"
+  export GIT_INDEX_FILE="$boundary_root/index"
+  export GIT_OBJECT_DIRECTORY="$boundary_root/objects"
+  export GIT_ALTERNATE_OBJECT_DIRECTORIES="$boundary_root/alt-objects-a:$boundary_root/alt-objects-b"
+  export GIT_COMMON_DIR="$boundary_root/common"
+  export GIT_NAMESPACE="adp-context-smoke"
+  "$@"
+)
+
 session_id_by_agent() {
   local events_file="$1"
   local agent="$2"
@@ -121,6 +136,23 @@ require_runtime_text() {
     exit 97
   fi
 }
+
+assert_git_env_unset() {
+  name=\$1
+  if env | grep -q "^\$name="; then
+    value=\$(env | sed -n "s/^\$name=//p" | head -n 1)
+    printf '%s leaked into fake-$agent environment: %s\n' "\$name" "\$value" >&2
+    exit 96
+  fi
+}
+
+assert_git_env_unset GIT_ALTERNATE_OBJECT_DIRECTORIES
+assert_git_env_unset GIT_COMMON_DIR
+assert_git_env_unset GIT_DIR
+assert_git_env_unset GIT_INDEX_FILE
+assert_git_env_unset GIT_NAMESPACE
+assert_git_env_unset GIT_OBJECT_DIRECTORY
+assert_git_env_unset GIT_WORK_TREE
 
 test "\${ADP_AGENT:-}" = "$agent"
 test "\${ADP_WORKSPACE:-}" = "context-a"
@@ -411,13 +443,13 @@ assert_file "$WORKSPACE_DIR/planning/progress.jsonl"
 assert_absent_project_artifacts "$PROJECT_ROOT"
 
 info "running fake Codex and verifying generated context"
-output=$(run_adp "$REPO_ROOT" run codex --workspace context-a --task "$TASK_ID" -- --context-codex)
+output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$REPO_ROOT" run codex --workspace context-a --task "$TASK_ID" -- --context-codex)
 assert_contains "$output" "fake-codex" "codex output"
 assert_contains "$output" "--context-codex" "codex output"
 assert_absent_project_artifacts "$PROJECT_ROOT"
 
 info "running fake Claude and verifying generated context"
-output=$(run_adp "$PROJECT_ROOT" run claude --task "$TASK_ID" -- --context-claude)
+output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$PROJECT_ROOT" run claude --task "$TASK_ID" -- --context-claude)
 assert_contains "$output" "fake-claude" "claude output"
 assert_contains "$output" "--context-claude" "claude output"
 assert_absent_project_artifacts "$PROJECT_ROOT"
@@ -502,7 +534,7 @@ export ADP_EXPECT_TASK_DESCRIPTION="Verify generated take context surface"
 phases_before_take=$(cat "$WORKSPACE_DIR/planning/phases.yaml")
 progress_events_before_take=$(line_count "$WORKSPACE_DIR/planning/progress.jsonl")
 events_before_take=$(line_count "$EVENTS_FILE")
-output=$(run_adp "$REPO_ROOT" run codex --workspace context-a --take --owner context-run-take --lease 25m -- --context-codex)
+output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$REPO_ROOT" run codex --workspace context-a --take --owner context-run-take --lease 25m -- --context-codex)
 assert_contains "$output" "fake-codex" "codex take output"
 assert_contains "$output" "--context-codex" "codex take output"
 take_session=$(session_id_by_agent "$EVENTS_FILE" codex)

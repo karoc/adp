@@ -159,9 +159,9 @@ test -z "$ROOT_LEAKS"
 
 Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 symlink 进入 runtime root。ADP 生成路径在 runtime 视图中优先，原始项目目录不会被修改。当项目已经存在 `.codex/` 或 `.claude/` 等 provider-local configuration directories 时，非冲突子文件仍会在 runtime overlay 中可见；ADP 只在 `.codex/config.toml` 和 `.claude/settings.json` 等精确生成路径上优先。
 
-Runtime overlay 不会暴露仓库 Git metadata。`.gitignore`、`.gitattributes`、`.gitmodules` 等普通项目 Git 文件仍然是 project files，可以像其他非生成文件一样通过 overlay 可见，但 `.git` metadata 会被排除。`$ADP_RUNTIME_ROOT` 不是权威 Git worktree。Git inspection 或 mutation 应从真实 project root 执行，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。ADP 不会自动运行 Git。
+Runtime overlay 不会暴露仓库 Git metadata。`.gitignore`、`.gitattributes`、`.gitmodules` 等普通项目 Git 文件仍然是 project files，可以像其他非生成文件一样通过 overlay 可见，但 `.git` metadata 会被排除。Runtime 还会在启动 Agent 前 neutralize 指向仓库的 Git environment variables，包括 `GIT_DIR`、`GIT_WORK_TREE`、`GIT_INDEX_FILE`、`GIT_OBJECT_DIRECTORY`、`GIT_ALTERNATE_OBJECT_DIRECTORIES`、`GIT_COMMON_DIR` 和 `GIT_NAMESPACE`。ADP 只移除这类 Git routing state，同时保留普通 shell environment 和 auth-related variables。`$ADP_RUNTIME_ROOT` 不是权威 Git worktree。Git inspection 或 mutation 应从真实 project root 执行，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。ADP 不是 Git workflow wrapper：不会 wrap、intercept 或自动运行 Git。
 
-`adp env <workspace> --cd` 会输出 POSIX shell exports，并保留 runtime overlay，适合 shell-hook 工作流让调用方 shell 进入 runtime。
+`adp env <workspace> --cd` 会输出 POSIX shell commands，并保留 runtime overlay。用于 shell-hook 工作流时，输出内容可能会先 unset 危险的仓库指向 Git variables，再 export ADP runtime variables 并进入 runtime 目录。
 
 `adp shell-hook --shell bash` 会输出一个 shell 函数，用 `adp env <workspace> --cd` 构建 runtime，并在父 shell 中执行返回的 exports 和 `cd`。当前支持 `sh`、`bash`、`zsh`。
 

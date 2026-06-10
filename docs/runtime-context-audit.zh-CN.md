@@ -48,7 +48,9 @@ Claude 启动使用相同 runtime 模型，但看到的是 `CLAUDE.md` 和 `.cla
 
 Runtime overlay 会为 Agent workflow 暴露项目内容，但不会暴露仓库 Git metadata。`.gitignore`、`.gitattributes`、`.gitmodules` 等普通项目 Git 文件仍然是 project files，可以像其他非生成文件一样链接进 overlay；`.git` metadata 会从 runtime overlay 中排除。
 
-`$ADP_RUNTIME_ROOT` 不是权威 Git worktree。需要 Git inspection 或 mutation 的 Agent 和 operator 应从真实 project root 执行 Git，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。ADP 可以在本地 planning ledger 中记录显式的 phase commit 和 push evidence，但不会自动运行 Git。
+ADP 还会在启动 Agent 前 neutralize 指向仓库的 Git environment variables，包括 `GIT_DIR`、`GIT_WORK_TREE`、`GIT_INDEX_FILE`、`GIT_OBJECT_DIRECTORY`、`GIT_ALTERNATE_OBJECT_DIRECTORIES`、`GIT_COMMON_DIR` 和 `GIT_NAMESPACE`。这些值可能把 Git 重定向到其他 worktree、index、object store、common directory 或 namespace，因此会在 runtime 边界被移除。普通 shell environment 和 auth-related variables 会被保留。
+
+`$ADP_RUNTIME_ROOT` 不是权威 Git worktree。需要 Git inspection 或 mutation 的 Agent 和 operator 应从真实 project root 执行 Git，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。`adp env <workspace> --cd` 和 shell-hook 输出可能会在 export ADP runtime environment 前，为危险 Git variables 生成 `unset` 命令。ADP 可以在本地 planning ledger 中记录显式的 phase commit 和 push evidence，但不会 wrap 或自动运行 Git。
 
 ## 指令文件
 

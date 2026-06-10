@@ -322,6 +322,8 @@ func TestRegistryDiagnoseDoesNotCreateMissingResourcesOrRuntimeParent(t *testing
 }
 
 func TestRegistryDiagnoseDoesNotExecuteConfiguredCommandWrapper(t *testing.T) {
+	clearGitDirectiveEnv(t)
+
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
 	cfg, err := registry.Add(context.Background(), "game-a", projectRoot)

@@ -20,8 +20,11 @@ func TestLaunchBuildsProviderNeutralSpec(t *testing.T) {
 		TaskID:    "task-20260608-0099",
 		Root:      "/tmp/adp-runtime/session-1",
 		Env: map[string]string{
-			"EXISTING":  "1",
-			"ADP_AGENT": "runtime-value",
+			"EXISTING":        "1",
+			"ADP_AGENT":       "runtime-value",
+			"GIT_DIR":         "/tmp/runtime-git-dir",
+			"GIT_WORK_TREE":   "/tmp/runtime-work-tree",
+			"GIT_SSH_COMMAND": "ssh -i /tmp/runtime-key",
 		},
 	}, "future-cli", extraArgs)
 
@@ -47,9 +50,15 @@ func TestLaunchBuildsProviderNeutralSpec(t *testing.T) {
 		"ADP_TASK_TITLE":            "Validate adapter boundary",
 		"ADP_TASK_OWNER":            "codex-main",
 		"ADP_TASK_LEASE_EXPIRES_AT": "2026-06-09T12:00:00Z",
+		"GIT_SSH_COMMAND":           "ssh -i /tmp/runtime-key",
 	} {
 		if spec.Env[key] != want {
 			t.Fatalf("Env[%s] = %q, want %q; env=%#v", key, spec.Env[key], want, spec.Env)
+		}
+	}
+	for _, key := range []string{"GIT_DIR", "GIT_WORK_TREE"} {
+		if _, ok := spec.Env[key]; ok {
+			t.Fatalf("Launch env leaked %s: %#v", key, spec.Env)
 		}
 	}
 }
@@ -87,6 +96,10 @@ func TestInstructionsIncludePlanningContractAndTaskboxBridge(t *testing.T) {
 		"## Git Boundary",
 		"not the authoritative Git working tree",
 		"Repository Git metadata is intentionally not exposed",
+		"ADP neutralizes repository-directing Git environment variables before launch",
+		"GIT_DIR",
+		"GIT_WORK_TREE",
+		"GIT_INDEX_FILE",
 		"git -C \"$ADP_PROJECT_ROOT\" status --short --branch",
 		"git -C \"$ADP_PROJECT_ROOT\" diff --cached",
 		"Real project root: /srv/demo",

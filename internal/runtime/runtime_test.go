@@ -34,6 +34,9 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 		},
 		Env: map[string]string{
 			"CUSTOM":                  "1",
+			"GIT_DIR":                 filepath.Join(t.TempDir(), ".git"),
+			"GIT_INDEX_FILE":          filepath.Join(t.TempDir(), "index"),
+			"GIT_SSH_COMMAND":         "ssh -i /tmp/runtime-key",
 			"GIT_CEILING_DIRECTORIES": existingCeiling,
 			paths.EnvHome:             "adapter-should-not-win",
 		},
@@ -92,6 +95,14 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 	}
 	if handle.Env["CUSTOM"] != "1" {
 		t.Fatalf("adapter env was not preserved: %#v", handle.Env)
+	}
+	for _, key := range []string{"GIT_DIR", "GIT_INDEX_FILE"} {
+		if _, ok := handle.Env[key]; ok {
+			t.Fatalf("repository-directing Git env leaked into runtime handle: %#v", handle.Env)
+		}
+	}
+	if handle.Env["GIT_SSH_COMMAND"] != "ssh -i /tmp/runtime-key" {
+		t.Fatalf("safe Git transport env was not preserved: %#v", handle.Env)
 	}
 
 	assertContent(t, filepath.Join(handle.Root, "AGENTS.md"), "adp agents\n")

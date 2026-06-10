@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/karoc/adp/internal/adapters"
+	"github.com/karoc/adp/internal/gitenv"
 )
 
 var ErrCommandRequired = errors.New("launch command is required")
@@ -65,9 +66,15 @@ func mergedEnv(overrides map[string]string) []string {
 		if !ok {
 			continue
 		}
+		if gitenv.IsRepositoryDirective(key) {
+			continue
+		}
 		env[key] = value
 	}
 	for key, value := range overrides {
+		if gitenv.IsRepositoryDirective(key) {
+			continue
+		}
 		env[key] = value
 	}
 

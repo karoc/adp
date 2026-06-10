@@ -10,6 +10,7 @@ import (
 
 	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/events"
+	"github.com/karoc/adp/internal/gitenv"
 	"github.com/karoc/adp/internal/runner"
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/schema"
@@ -372,9 +373,15 @@ func (a *App) cleanupRuntimeAfterError(ctx context.Context, handle runtime.Handl
 func mergedEnv(base map[string]string, overrides map[string]string) map[string]string {
 	env := map[string]string{}
 	for key, value := range base {
+		if gitenv.IsRepositoryDirective(key) {
+			continue
+		}
 		env[key] = value
 	}
 	for key, value := range overrides {
+		if gitenv.IsRepositoryDirective(key) {
+			continue
+		}
 		env[key] = value
 	}
 	return env

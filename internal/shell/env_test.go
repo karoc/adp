@@ -12,12 +12,12 @@ func TestRenderExportsOutputsADPEnvInStableOrder(t *testing.T) {
 
 	got, err := RenderExports(adapters.RuntimeHandle{
 		Env: map[string]string{
-			"PATH":             "/usr/bin",
-			"ADP_WORKSPACE":    "game-a",
-			"ADP_SESSION_ID":   "session-1",
-			"ADP_HOME":         "/tmp/adp",
-			"ADP_PROJECT_ROOT": "/repo",
-			"ADP_RUNTIME_ROOT": "/tmp/adp/runtime",
+			"PATH":                    "/usr/bin",
+			"ADP_WORKSPACE":           "game-a",
+			"ADP_SESSION_ID":          "session-1",
+			"ADP_HOME":                "/tmp/adp",
+			"ADP_PROJECT_ROOT":        "/repo",
+			"ADP_RUNTIME_ROOT":        "/tmp/adp/runtime",
 			"GIT_CEILING_DIRECTORIES": "/tmp/adp/runtime",
 		},
 	}, ExportOptions{})
@@ -26,6 +26,13 @@ func TestRenderExportsOutputsADPEnvInStableOrder(t *testing.T) {
 	}
 
 	want := "" +
+		"unset GIT_ALTERNATE_OBJECT_DIRECTORIES\n" +
+		"unset GIT_COMMON_DIR\n" +
+		"unset GIT_DIR\n" +
+		"unset GIT_INDEX_FILE\n" +
+		"unset GIT_NAMESPACE\n" +
+		"unset GIT_OBJECT_DIRECTORY\n" +
+		"unset GIT_WORK_TREE\n" +
 		"export ADP_HOME='/tmp/adp'\n" +
 		"export ADP_PROJECT_ROOT='/repo'\n" +
 		"export ADP_RUNTIME_ROOT='/tmp/adp/runtime'\n" +
@@ -53,6 +60,13 @@ func TestRenderExportsQuotesShellValues(t *testing.T) {
 	}
 
 	want := "" +
+		"unset GIT_ALTERNATE_OBJECT_DIRECTORIES\n" +
+		"unset GIT_COMMON_DIR\n" +
+		"unset GIT_DIR\n" +
+		"unset GIT_INDEX_FILE\n" +
+		"unset GIT_NAMESPACE\n" +
+		"unset GIT_OBJECT_DIRECTORY\n" +
+		"unset GIT_WORK_TREE\n" +
 		"export ADP_HOME='/tmp/adp dir'\n" +
 		"export ADP_PROJECT_ROOT='/repo/it'\\''s here; rm -rf /'\n" +
 		"export ADP_RUNTIME_ROOT=''\n" +
@@ -76,6 +90,13 @@ func TestRenderExportsCanChangeDirectory(t *testing.T) {
 	}
 
 	want := "" +
+		"unset GIT_ALTERNATE_OBJECT_DIRECTORIES\n" +
+		"unset GIT_COMMON_DIR\n" +
+		"unset GIT_DIR\n" +
+		"unset GIT_INDEX_FILE\n" +
+		"unset GIT_NAMESPACE\n" +
+		"unset GIT_OBJECT_DIRECTORY\n" +
+		"unset GIT_WORK_TREE\n" +
 		"export ADP_WORKSPACE='game-a'\n" +
 		"cd '/tmp/runtime dir/it'\\''s safe'\n"
 	if got != want {

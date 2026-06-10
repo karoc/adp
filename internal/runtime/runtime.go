@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/karoc/adp/internal/adapters"
+	"github.com/karoc/adp/internal/gitenv"
 	"github.com/karoc/adp/internal/overlay"
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/schema"
@@ -160,6 +161,9 @@ func Cleanup(ctx context.Context, handle Handle) error {
 func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Config, runtimeRoot, sessionID, gitRoot string, task adapters.TaskContext) map[string]string {
 	env := make(map[string]string, len(base)+10)
 	for key, value := range base {
+		if gitenv.IsRepositoryDirective(key) {
+			continue
+		}
 		env[key] = value
 	}
 	env[paths.EnvHome] = layout.Home

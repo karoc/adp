@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/karoc/adp/internal/adapters/api"
+	"github.com/karoc/adp/internal/gitenv"
 )
 
 func Instructions(adapterName string, ctx api.Context) []byte {
@@ -149,6 +150,7 @@ func Launch(adapterName string, ctx api.Context, runtime api.RuntimeHandle, defa
 	if runtime.TaskID != "" {
 		env["ADP_TASK_ID"] = runtime.TaskID
 	}
+	gitenv.RemoveRepositoryDirectives(env)
 
 	command := strings.TrimSpace(ctx.Agent.Command)
 	if command == "" {
@@ -270,6 +272,7 @@ func writeGitBoundary(b *strings.Builder, ctx api.Context) {
 
 	b.WriteString("## Git Boundary\n\n")
 	b.WriteString("The ADP runtime root is not the authoritative Git working tree. Repository Git metadata is intentionally not exposed in the runtime overlay, so Git inspection or mutation must target the real project root explicitly.\n\n")
+	fmt.Fprintf(b, "ADP neutralizes repository-directing Git environment variables before launch: `%s`. Normal shell environment and auth-related variables remain available.\n\n", strings.Join(gitenv.RepositoryDirectiveNames(), "`, `"))
 	b.WriteString("Use project-root Git commands:\n")
 	b.WriteString("- Inspect status: `git -C \"$ADP_PROJECT_ROOT\" status --short --branch`\n")
 	b.WriteString("- Inspect unstaged changes: `git -C \"$ADP_PROJECT_ROOT\" diff`\n")

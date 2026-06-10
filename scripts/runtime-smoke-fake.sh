@@ -64,6 +64,19 @@ run_fake_smoke() (
   assert_contains "$output" "game-a" "doctor all output"
   assert_contains "$output" "ok" "doctor all output"
 
+  info "fake smoke: diagnose inherited Git environment boundaries"
+  output=$(with_dangerous_git_env "$smoke_root/git-boundary-env" run_adp "$REPO_ROOT" workspace doctor game-a)
+  assert_contains "$output" "game-a" "workspace doctor Git env output"
+  assert_contains "$output" "warning" "workspace doctor Git env output"
+  assert_contains "$output" "workspace.git.env.repository_directive" "workspace doctor Git env output"
+  assert_contains "$output" "GIT_DIR" "workspace doctor Git env output"
+  assert_contains "$output" "GIT_WORK_TREE" "workspace doctor Git env output"
+  assert_contains "$output" "ADP runtime neutralizes these" "workspace doctor Git env output"
+  assert_contains "$output" "ADP_PROJECT_ROOT" "workspace doctor Git env output"
+  output=$(with_dangerous_git_env "$smoke_root/git-boundary-env" run_adp "$REPO_ROOT" doctor game-a)
+  assert_contains "$output" "workspace.git.env.repository_directive" "doctor Git env output"
+  assert_contains "$output" "Git commands should target ADP_PROJECT_ROOT" "doctor Git env output"
+
   run_fake_workspace_lifecycle_checks
   run_fake_diagnostics_checks
 
@@ -112,6 +125,9 @@ run_fake_smoke() (
   info "fake smoke: build kept runtime with env --cd"
   env_output=$(run_adp "$REPO_ROOT" env game-a --cd)
   runtime_root=$(parse_export "$env_output" ADP_RUNTIME_ROOT)
+  assert_contains "$env_output" "unset GIT_DIR" "env --cd output"
+  assert_contains "$env_output" "unset GIT_WORK_TREE" "env --cd output"
+  assert_contains "$env_output" "unset GIT_INDEX_FILE" "env --cd output"
   assert_contains "$env_output" "cd '$runtime_root'" "env --cd output"
   assert_contains "$env_output" "export ADP_GIT_ROOT='$project_root'" "env --cd output"
   assert_contains ":$(parse_export "$env_output" GIT_CEILING_DIRECTORIES):" ":$runtime_root:" "env --cd output"
@@ -174,11 +190,11 @@ run_fake_smoke() (
   assert_contains "$zsh_completion_output" "completion values statuses" "zsh completion output"
 
   info "fake smoke: run codex and claude through runtime overlays"
-  codex_output=$(run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)
+  codex_output=$(with_dangerous_git_env "$smoke_root/git-boundary-env" run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)
   assert_contains "$codex_output" "fake-codex" "codex run output"
   assert_contains "$codex_output" "--probe codex-payload" "codex run output"
 
-  claude_output=$(run_adp "$project_root" run claude --task "$task_id" -- --probe claude-payload)
+  claude_output=$(with_dangerous_git_env "$smoke_root/git-boundary-env" run_adp "$project_root" run claude --task "$task_id" -- --probe claude-payload)
   assert_contains "$claude_output" "fake-claude" "claude run output"
   assert_contains "$claude_output" "--probe claude-payload" "claude run output"
 

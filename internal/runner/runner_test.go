@@ -58,6 +58,52 @@ printf '\nstderr=%s\n' "$ADP_RUNNER_TEST" >&2
 	}
 }
 
+func TestRunRemovesRepositoryDirectiveGitEnv(t *testing.T) {
+	for _, name := range []string{
+		"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+		"GIT_COMMON_DIR",
+		"GIT_DIR",
+		"GIT_NAMESPACE",
+		"GIT_OBJECT_DIRECTORY",
+		"GIT_WORK_TREE",
+	} {
+		t.Setenv(name, "/tmp/parent-"+name)
+	}
+	t.Setenv("GIT_SSH_COMMAND", "ssh -i /tmp/key")
+
+	spec := adapters.LaunchSpec{
+		Command: "/bin/sh",
+		Args: []string{"-c", `
+for name in GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_DIR GIT_INDEX_FILE GIT_NAMESPACE GIT_OBJECT_DIRECTORY GIT_WORK_TREE; do
+  eval "value=\${$name+x}"
+  if [ -n "$value" ]; then
+    printf 'leaked=%s\n' "$name"
+  fi
+done
+printf 'ssh=%s\n' "${GIT_SSH_COMMAND:-}"
+`},
+		Env: map[string]string{
+			"GIT_INDEX_FILE":  "/tmp/adapter-index",
+			"GIT_SSH_COMMAND": "ssh -i /tmp/runtime-key",
+		},
+	}
+
+	var stdout bytes.Buffer
+	result, err := Run(context.Background(), spec, Streams{Stdout: &stdout})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Fatalf("ExitCode = %d, want 0; stdout=%s", result.ExitCode, stdout.String())
+	}
+	if strings.Contains(stdout.String(), "leaked=") {
+		t.Fatalf("repository-directing Git env leaked:\n%s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "ssh=ssh -i /tmp/runtime-key\n") {
+		t.Fatalf("safe Git transport env was not preserved:\n%s", stdout.String())
+	}
+}
+
 func TestRunReturnsFailedExitCodeWithoutError(t *testing.T) {
 	t.Parallel()
 

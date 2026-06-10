@@ -13,7 +13,7 @@ ADP owns the local runtime boundary:
 - Generate adapter-specific files inside the runtime overlay.
 - Symlink real project files into the runtime overlay.
 - Launch the external agent process with the runtime root as the working directory.
-- Inject ADP environment variables while preserving the parent process environment.
+- Inject ADP environment variables while preserving the parent process environment, except for repository-directing Git variables that would point the runtime at an unintended worktree, index, object directory, common directory, or namespace.
 - Forward arguments after `--` to the external command.
 - Record local events and session history.
 - Avoid writing ADP-generated files into the real project root.
@@ -22,7 +22,7 @@ The external agent CLI owns its own behavior after launch, including authenticat
 
 Task ownership and lease recovery remain ADP-owned. A provider-native task panel, plan mode, or successful external process exit can mirror or inform local work, but it must not be treated as task completion, phase acceptance, commit evidence, push evidence, Git execution, or authoritative recovery state.
 
-The runtime overlay is not the authoritative Git worktree and does not expose repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files, while `.git` metadata is excluded. Real agents and operators should run Git inspection or mutation from the real project root with `git -C "$ADP_PROJECT_ROOT" ...` or by `cd "$ADP_PROJECT_ROOT"` first. ADP does not run Git automatically.
+The runtime overlay is not the authoritative Git worktree and does not expose repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files, while `.git` metadata is excluded. Before launching a real agent, ADP neutralizes repository-directing Git environment variables such as `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, and `GIT_NAMESPACE`. Normal shell environment and auth-related variables remain available to the external CLI. Real agents and operators should run Git inspection or mutation from the real project root with `git -C "$ADP_PROJECT_ROOT" ...` or by `cd "$ADP_PROJECT_ROOT"` first. ADP does not wrap or auto-run Git.
 
 ## Shared Runtime Contract
 
@@ -54,7 +54,7 @@ When an external CLI has a native plan mode, treat it as proposal-only. Structur
 The launched process receives:
 
 - Working directory: the runtime root.
-- Parent environment: inherited from the shell that launched `adp`.
+- Parent environment: inherited from the shell that launched `adp`, except repository-directing Git variables are removed before launch.
 - ADP runtime variables:
   - `ADP_HOME`.
   - `ADP_WORKSPACE`.

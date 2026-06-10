@@ -201,6 +201,8 @@ func TestRegistryDiagnoseReportsRuntimeParentNotDirectory(t *testing.T) {
 }
 
 func TestRegistryDiagnoseAllowsMissingRuntimeParentOutsideProjectRoot(t *testing.T) {
+	clearGitDirectiveEnv(t)
+
 	registry, _ := newTestRegistry(t)
 	projectRoot := createProject(t)
 	registry.Layout.RuntimeParent = filepath.Join(t.TempDir(), "missing-runtime-parent")

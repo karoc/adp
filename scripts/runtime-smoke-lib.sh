@@ -36,6 +36,21 @@ assert_not_contains() {
   esac
 }
 
+with_dangerous_git_env() (
+  local boundary_root="$1"
+  shift
+
+  mkdir -p "$boundary_root"
+  export GIT_DIR="$boundary_root/git-dir"
+  export GIT_WORK_TREE="$boundary_root/work-tree"
+  export GIT_INDEX_FILE="$boundary_root/index"
+  export GIT_OBJECT_DIRECTORY="$boundary_root/objects"
+  export GIT_ALTERNATE_OBJECT_DIRECTORIES="$boundary_root/alt-objects-a:$boundary_root/alt-objects-b"
+  export GIT_COMMON_DIR="$boundary_root/common"
+  export GIT_NAMESPACE="adp-smoke-namespace"
+  "$@"
+)
+
 assert_file() {
   local path="$1"
   if [ ! -f "$path" ]; then
@@ -206,6 +221,23 @@ write_fake_agent() {
 set -eu
 
 printf 'fake-$agent cwd=%s args=%s\n' "\$(pwd)" "\$*"
+
+assert_git_env_unset() {
+  name=\$1
+  if env | grep -q "^\$name="; then
+    value=\$(env | sed -n "s/^\$name=//p" | head -n 1)
+    printf '%s leaked into fake-$agent environment: %s\n' "\$name" "\$value" >&2
+    exit 96
+  fi
+}
+
+assert_git_env_unset GIT_ALTERNATE_OBJECT_DIRECTORIES
+assert_git_env_unset GIT_COMMON_DIR
+assert_git_env_unset GIT_DIR
+assert_git_env_unset GIT_INDEX_FILE
+assert_git_env_unset GIT_NAMESPACE
+assert_git_env_unset GIT_OBJECT_DIRECTORY
+assert_git_env_unset GIT_WORK_TREE
 
 test "\${ADP_WORKSPACE:-}" = "game-a"
 test "\${ADP_PROJECT_ROOT:-}" = "\$ADP_EXPECT_PROJECT_ROOT"
