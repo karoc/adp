@@ -26,6 +26,7 @@ type Handle struct {
 	ProjectRoot    string
 	GeneratedPaths []string
 	LinkedPaths    []string
+	SkippedPaths   []string
 	Conflicts      []Conflict
 	Keep           bool
 }

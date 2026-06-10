@@ -102,6 +102,8 @@ ADP can run with defaults, but these variables are useful for local bootstrap an
 - `ADP_RUNTIME_DIR`: parent directory for temporary runtime overlays. Defaults to the system temp directory under `adp-runtime`. Do not point it at the filesystem root, a project root, a directory inside a project root, or a directory that contains the project root. Prefer a direct local directory; symlink runtime parents are reported as warnings by `adp doctor` and `adp workspace doctor`.
 - `ADP_WORKSPACE`: default workspace for commands that accept a workspace. `adp run` resolves the workspace from `--workspace`, then `ADP_WORKSPACE`, then the current directory if it is inside a registered project root.
 
+Runtime overlays exclude repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files, but `$ADP_RUNTIME_ROOT` is not the authoritative Git worktree. Run Git commands from the real project root with `git -C "$ADP_PROJECT_ROOT" ...` or by `cd "$ADP_PROJECT_ROOT"` first. ADP does not run Git automatically.
+
 For isolated validation, use temporary directories:
 
 ```bash

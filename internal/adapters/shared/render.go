@@ -25,6 +25,7 @@ func Instructions(adapterName string, ctx api.Context) []byte {
 	writeTask(&b, ctx)
 	writePlanningContract(&b, ctx)
 	writeLeaseHandoff(&b, ctx)
+	writeGitBoundary(&b, ctx)
 	writeTaskboxBridge(&b, ctx)
 	writePlanModeBridge(&b, ctx)
 	writeSection(&b, "Base Prompt", readWorkspaceFile(ctx.WorkspaceDir, ctx.Config.Prompts.Base, "No base prompt is configured."))
@@ -262,6 +263,19 @@ func writeLeaseHandoff(b *strings.Builder, ctx api.Context) {
 		fmt.Sprintf("$ADP_CLI tasks take --workspace %s --owner <owner> --lease 4h --format json", workspace),
 		fmt.Sprintf("$ADP_CLI tasks claim --workspace %s <task-id> --owner <owner> --lease 4h", workspace),
 	)
+}
+
+func writeGitBoundary(b *strings.Builder, ctx api.Context) {
+	projectRoot := defaultText(ctx.Config.Project.Root, "$ADP_PROJECT_ROOT")
+
+	b.WriteString("## Git Boundary\n\n")
+	b.WriteString("The ADP runtime root is not the authoritative Git working tree. Repository Git metadata is intentionally not exposed in the runtime overlay, so Git inspection or mutation must target the real project root explicitly.\n\n")
+	b.WriteString("Use project-root Git commands:\n")
+	b.WriteString("- Inspect status: `git -C \"$ADP_PROJECT_ROOT\" status --short --branch`\n")
+	b.WriteString("- Inspect unstaged changes: `git -C \"$ADP_PROJECT_ROOT\" diff`\n")
+	b.WriteString("- Inspect staged changes: `git -C \"$ADP_PROJECT_ROOT\" diff --cached`\n")
+	b.WriteString("- For Git mutations, first `cd \"$ADP_PROJECT_ROOT\"` or use `git -C \"$ADP_PROJECT_ROOT\" ...` deliberately.\n\n")
+	fmt.Fprintf(b, "Real project root: %s\n\n", projectRoot)
 }
 
 func writeTaskboxBridge(b *strings.Builder, ctx api.Context) {

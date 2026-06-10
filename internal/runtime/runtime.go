@@ -45,6 +45,8 @@ type Manifest struct {
 	TaskClaimedAt      time.Time `yaml:"task_claimed_at,omitempty"`
 	TaskLeaseExpiresAt time.Time `yaml:"task_lease_expires_at,omitempty"`
 	ProjectRoot        string    `yaml:"project_root"`
+	GitRoot            string    `yaml:"git_root,omitempty"`
+	GitMetadataSkipped bool      `yaml:"git_metadata_skipped,omitempty"`
 	RuntimeRoot        string    `yaml:"runtime_root"`
 	CreatedAt          time.Time `yaml:"created_at"`
 	Keep               bool      `yaml:"keep"`
@@ -97,6 +99,7 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		return nil, err
 	}
 	runtimeRoot := filepath.Join(runtimeParent, req.Config.Workspace.Name+"-"+sessionID)
+	gitRoot := discoverGitRoot(req.Config.Project.Root)
 	files, err := appendRuntimeManifest(req.Files, Manifest{
 		Version:            ManifestVersion,
 		SessionID:          sessionID,
@@ -107,6 +110,8 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		TaskClaimedAt:      req.Task.ClaimedAt,
 		TaskLeaseExpiresAt: req.Task.LeaseExpiresAt,
 		ProjectRoot:        req.Config.Project.Root,
+		GitRoot:            gitRoot,
+		GitMetadataSkipped: true,
 		RuntimeRoot:        runtimeRoot,
 		CreatedAt:          time.Now().UTC(),
 		Keep:               req.Keep,
@@ -131,12 +136,13 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		return nil, err
 	}
 
-	env := runtimeEnv(req.Env, req.Layout, req.Config, runtimeRoot, sessionID, req.Task)
+	env := runtimeEnv(req.Env, req.Layout, req.Config, runtimeRoot, sessionID, gitRoot, req.Task)
 	return &Handle{
 		SessionID:     sessionID,
 		WorkspaceName: req.Config.Workspace.Name,
 		TaskID:        req.Task.ID,
 		ProjectRoot:   req.Config.Project.Root,
+		GitRoot:       gitRoot,
 		Root:          runtimeRoot,
 		Env:           env,
 		Keep:          req.Keep,
@@ -151,7 +157,7 @@ func Cleanup(ctx context.Context, handle Handle) error {
 	})
 }
 
-func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Config, runtimeRoot, sessionID string, task adapters.TaskContext) map[string]string {
+func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Config, runtimeRoot, sessionID, gitRoot string, task adapters.TaskContext) map[string]string {
 	env := make(map[string]string, len(base)+10)
 	for key, value := range base {
 		env[key] = value
@@ -162,8 +168,12 @@ func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Confi
 	if cliPath, err := os.Executable(); err == nil && strings.TrimSpace(cliPath) != "" {
 		env["ADP_CLI"] = cliPath
 	}
+	if gitRoot != "" {
+		env["ADP_GIT_ROOT"] = gitRoot
+	}
 	env["ADP_RUNTIME_ROOT"] = runtimeRoot
 	env["ADP_SESSION_ID"] = sessionID
+	env["GIT_CEILING_DIRECTORIES"] = mergePathList(env["GIT_CEILING_DIRECTORIES"], runtimeRoot)
 	if !task.IsZero() {
 		env["ADP_TASK_ID"] = task.ID
 		env["ADP_TASK_TITLE"] = task.Title
@@ -181,6 +191,33 @@ func runtimeEnv(base map[string]string, layout paths.Layout, config schema.Confi
 		}
 	}
 	return env
+}
+
+func discoverGitRoot(projectRoot string) string {
+	current := filepath.Clean(projectRoot)
+	for {
+		if _, err := os.Lstat(filepath.Join(current, ".git")); err == nil {
+			return current
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return ""
+		}
+		current = parent
+	}
+}
+
+func mergePathList(existing string, addition string) string {
+	addition = filepath.Clean(addition)
+	if strings.TrimSpace(existing) == "" {
+		return addition
+	}
+	for _, part := range filepath.SplitList(existing) {
+		if part == addition {
+			return existing
+		}
+	}
+	return existing + string(os.PathListSeparator) + addition
 }
 
 func appendRuntimeManifest(files []adapters.GeneratedFile, manifest Manifest) ([]adapters.GeneratedFile, error) {

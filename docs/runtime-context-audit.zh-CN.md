@@ -44,6 +44,12 @@ Claude 启动使用相同 runtime 模型，但看到的是 `CLAUDE.md` 和 `.cla
 
 生成的 `.adp-runtime.yaml` manifest 会记录 ADP ownership 和 cleanup metadata：manifest version、session ID、workspace name、可选 task ID 和 title、project root、runtime root、创建时间、keep flag，以及 `generated_by: adp`。Runtime pruning 会先把该 manifest 作为 compatibility evidence，再删除 ADP-owned runtime 目录。
 
+## Git 边界
+
+Runtime overlay 会为 Agent workflow 暴露项目内容，但不会暴露仓库 Git metadata。`.gitignore`、`.gitattributes`、`.gitmodules` 等普通项目 Git 文件仍然是 project files，可以像其他非生成文件一样链接进 overlay；`.git` metadata 会从 runtime overlay 中排除。
+
+`$ADP_RUNTIME_ROOT` 不是权威 Git worktree。需要 Git inspection 或 mutation 的 Agent 和 operator 应从真实 project root 执行 Git，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。ADP 可以在本地 planning ledger 中记录显式的 phase commit 和 push evidence，但不会自动运行 Git。
+
 ## 指令文件
 
 生成的 instruction files 是主要的人类可读上下文表面：

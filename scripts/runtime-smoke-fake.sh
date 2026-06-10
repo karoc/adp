@@ -15,6 +15,12 @@ run_fake_smoke() (
   mkdir -p "$project_root" "$diag_project_root" "$fake_bin" "$adp_home" "$runtime_dir"
   printf 'module example.com/adp-smoke\n' > "$project_root/go.mod"
   printf 'package main\n' > "$project_root/main.go"
+  printf 'dist\n' > "$project_root/.gitignore"
+  git -C "$project_root" init -q
+  git -C "$project_root" config user.name adp-smoke
+  git -C "$project_root" config user.email adp-smoke@example.invalid
+  git -C "$project_root" add go.mod main.go .gitignore
+  git -C "$project_root" commit -q -m "init smoke project"
   printf 'module example.com/adp-diagnostics-smoke\n' > "$diag_project_root/go.mod"
   printf 'package main\n' > "$diag_project_root/main.go"
 
@@ -25,6 +31,7 @@ run_fake_smoke() (
   export ADP_HOME="$adp_home"
   export ADP_RUNTIME_DIR="$runtime_dir"
   export PATH="$fake_bin:$PATH"
+  export ADP_EXPECT_PROJECT_ROOT="$project_root"
 
   info "fake smoke: init and register workspace"
   output=$(run_adp "$REPO_ROOT" init)
@@ -106,11 +113,22 @@ run_fake_smoke() (
   env_output=$(run_adp "$REPO_ROOT" env game-a --cd)
   runtime_root=$(parse_export "$env_output" ADP_RUNTIME_ROOT)
   assert_contains "$env_output" "cd '$runtime_root'" "env --cd output"
+  assert_contains "$env_output" "export ADP_GIT_ROOT='$project_root'" "env --cd output"
+  assert_contains ":$(parse_export "$env_output" GIT_CEILING_DIRECTORIES):" ":$runtime_root:" "env --cd output"
   assert_file "$runtime_root/.adp-runtime.yaml"
   assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "version: 1" "runtime manifest"
+  assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "git_root: $project_root" "runtime manifest"
+  assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "git_metadata_skipped: true" "runtime manifest"
   assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "runtime_root: $runtime_root" "runtime manifest"
   assert_contains "$(cat "$runtime_root/.adp-runtime.yaml")" "generated_by: adp" "runtime manifest"
   assert_symlink "$runtime_root/go.mod"
+  assert_absent_path "$runtime_root/.git"
+  if git -C "$runtime_root" status --short --branch >/dev/null 2>&1; then
+    fail "git status unexpectedly succeeded inside kept runtime root"
+  fi
+  git -C "$project_root" status --short --branch >/dev/null
+  printf 'package main\n// edited through ADP runtime\n' > "$runtime_root/main.go"
+  assert_contains "$(git -C "$project_root" diff -- main.go)" "edited through ADP runtime" "project-root git diff after runtime edit"
   assert_absent_project_artifacts "$project_root"
 
   completion_output=$(run_adp "$REPO_ROOT" completion --shell bash)

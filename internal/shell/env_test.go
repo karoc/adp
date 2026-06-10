@@ -18,6 +18,7 @@ func TestRenderExportsOutputsADPEnvInStableOrder(t *testing.T) {
 			"ADP_HOME":         "/tmp/adp",
 			"ADP_PROJECT_ROOT": "/repo",
 			"ADP_RUNTIME_ROOT": "/tmp/adp/runtime",
+			"GIT_CEILING_DIRECTORIES": "/tmp/adp/runtime",
 		},
 	}, ExportOptions{})
 	if err != nil {
@@ -29,7 +30,8 @@ func TestRenderExportsOutputsADPEnvInStableOrder(t *testing.T) {
 		"export ADP_PROJECT_ROOT='/repo'\n" +
 		"export ADP_RUNTIME_ROOT='/tmp/adp/runtime'\n" +
 		"export ADP_SESSION_ID='session-1'\n" +
-		"export ADP_WORKSPACE='game-a'\n"
+		"export ADP_WORKSPACE='game-a'\n" +
+		"export GIT_CEILING_DIRECTORIES='/tmp/adp/runtime'\n"
 	if got != want {
 		t.Fatalf("RenderExports() = %q, want %q", got, want)
 	}

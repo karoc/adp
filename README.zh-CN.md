@@ -159,6 +159,8 @@ test -z "$ROOT_LEAKS"
 
 Agent 专属文件由 ADP workspace config 生成。真实项目文件通过 symlink 进入 runtime root。ADP 生成路径在 runtime 视图中优先，原始项目目录不会被修改。当项目已经存在 `.codex/` 或 `.claude/` 等 provider-local configuration directories 时，非冲突子文件仍会在 runtime overlay 中可见；ADP 只在 `.codex/config.toml` 和 `.claude/settings.json` 等精确生成路径上优先。
 
+Runtime overlay 不会暴露仓库 Git metadata。`.gitignore`、`.gitattributes`、`.gitmodules` 等普通项目 Git 文件仍然是 project files，可以像其他非生成文件一样通过 overlay 可见，但 `.git` metadata 会被排除。`$ADP_RUNTIME_ROOT` 不是权威 Git worktree。Git inspection 或 mutation 应从真实 project root 执行，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。ADP 不会自动运行 Git。
+
 `adp env <workspace> --cd` 会输出 POSIX shell exports，并保留 runtime overlay，适合 shell-hook 工作流让调用方 shell 进入 runtime。
 
 `adp shell-hook --shell bash` 会输出一个 shell 函数，用 `adp env <workspace> --cd` 构建 runtime，并在父 shell 中执行返回的 exports 和 `cd`。当前支持 `sh`、`bash`、`zsh`。

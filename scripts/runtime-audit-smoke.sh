@@ -34,6 +34,12 @@ PLAN_FILE="$TMP_ROOT/plan.yaml"
 mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-runtime-audit-smoke\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+printf 'dist\n' > "$PROJECT_ROOT/.gitignore"
+git -C "$PROJECT_ROOT" init -q
+git -C "$PROJECT_ROOT" config user.name adp-smoke
+git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
+git -C "$PROJECT_ROOT" add go.mod main.go .gitignore
+git -C "$PROJECT_ROOT" commit -q -m "init runtime audit project"
 
 write_fake_agent "$FAKE_BIN/codex" codex AGENTS.md .codex/config.toml go.mod
 write_fake_agent "$FAKE_BIN/claude" claude CLAUDE.md .claude/settings.json main.go
@@ -42,6 +48,7 @@ setup_git_tripwire "$FAKE_BIN" "$GIT_TRIPWIRE_LOG"
 
 export ADP_HOME
 export ADP_RUNTIME_DIR
+export ADP_EXPECT_PROJECT_ROOT="$PROJECT_ROOT"
 export PATH="$FAKE_BIN:$PATH"
 
 info "auditing real-agent invocation smoke safety gates"

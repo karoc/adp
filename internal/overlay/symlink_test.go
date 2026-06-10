@@ -101,6 +101,61 @@ func TestSymlinkBackendMergesGeneratedDirectoriesWithProjectChildren(t *testing.
 	assertConflictPaths(t, result.Conflicts, filepath.Join(".claude", "settings.json"))
 }
 
+func TestSymlinkBackendSkipsRepositoryGitMetadata(t *testing.T) {
+	projectRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(projectRoot, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeProjectFile(t, projectRoot, ".gitignore", []byte("dist\n"))
+	writeProjectFile(t, projectRoot, ".gitattributes", []byte("* text=auto\n"))
+	writeProjectFile(t, projectRoot, ".gitmodules", []byte("[submodule]\n"))
+	writeProjectFile(t, projectRoot, "go.mod", []byte("module example\n"))
+
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	result, err := NewSymlinkBackend().Materialize(context.Background(), Request{
+		WorkspaceName: "game-a",
+		ProjectRoot:   projectRoot,
+		RuntimeRoot:   runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("materialize: %v", err)
+	}
+
+	assertNoPath(t, filepath.Join(runtimeRoot, ".git"))
+	assertSymlinkTarget(t, filepath.Join(runtimeRoot, ".gitignore"), filepath.Join(projectRoot, ".gitignore"))
+	assertSymlinkTarget(t, filepath.Join(runtimeRoot, ".gitattributes"), filepath.Join(projectRoot, ".gitattributes"))
+	assertSymlinkTarget(t, filepath.Join(runtimeRoot, ".gitmodules"), filepath.Join(projectRoot, ".gitmodules"))
+	assertSymlinkTarget(t, filepath.Join(runtimeRoot, "go.mod"), filepath.Join(projectRoot, "go.mod"))
+	if !slices.Contains(result.SkippedPaths, ".git") {
+		t.Fatalf("skipped paths missing .git: %#v", result.SkippedPaths)
+	}
+	if slices.Contains(result.LinkedPaths, ".git") {
+		t.Fatalf(".git should not be linked: %#v", result.LinkedPaths)
+	}
+}
+
+func TestSymlinkBackendSkipsRepositoryGitFile(t *testing.T) {
+	projectRoot := t.TempDir()
+	writeProjectFile(t, projectRoot, ".git", []byte("gitdir: /tmp/worktree-git\n"))
+	writeProjectFile(t, projectRoot, "go.mod", []byte("module example\n"))
+
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	result, err := NewSymlinkBackend().Materialize(context.Background(), Request{
+		WorkspaceName: "game-a",
+		ProjectRoot:   projectRoot,
+		RuntimeRoot:   runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("materialize: %v", err)
+	}
+
+	assertNoPath(t, filepath.Join(runtimeRoot, ".git"))
+	assertSymlinkTarget(t, filepath.Join(runtimeRoot, "go.mod"), filepath.Join(projectRoot, "go.mod"))
+	if !slices.Contains(result.SkippedPaths, ".git") {
+		t.Fatalf("skipped paths missing .git: %#v", result.SkippedPaths)
+	}
+}
+
 func TestSymlinkBackendRejectsUnsafeGeneratedFilePaths(t *testing.T) {
 	projectRoot := t.TempDir()
 	runtimeParent := t.TempDir()
@@ -224,6 +279,13 @@ func assertNotSymlink(t *testing.T, path string) {
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		t.Fatalf("%s should not be a symlink", path)
+	}
+}
+
+func assertNoPath(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatalf("expected %s to be absent, stat err: %v", path, err)
 	}
 }
 

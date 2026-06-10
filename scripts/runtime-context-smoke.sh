@@ -126,6 +126,7 @@ test "\${ADP_AGENT:-}" = "$agent"
 test "\${ADP_WORKSPACE:-}" = "context-a"
 test "\${ADP_HOME:-}" = "\$ADP_EXPECT_ADP_HOME"
 test "\${ADP_PROJECT_ROOT:-}" = "\$ADP_EXPECT_PROJECT_ROOT"
+test "\${ADP_GIT_ROOT:-}" = "\$ADP_EXPECT_PROJECT_ROOT"
 test "\${ADP_PROFILE:-}" = "$profile"
 test "\${ADP_TASK_ID:-}" = "\$ADP_EXPECT_TASK_ID"
 test "\${ADP_TASK_TITLE:-}" = "\$ADP_EXPECT_TASK_TITLE"
@@ -139,6 +140,13 @@ fi
 test -n "\${ADP_SESSION_ID:-}"
 test -n "\${ADP_RUNTIME_ROOT:-}"
 test "\$(pwd)" = "\$ADP_RUNTIME_ROOT"
+case ":\${GIT_CEILING_DIRECTORIES:-}:" in
+  *":\$ADP_RUNTIME_ROOT:"*) ;;
+  *)
+    printf 'GIT_CEILING_DIRECTORIES missing runtime root: %s\n' "\${GIT_CEILING_DIRECTORIES:-}" >&2
+    exit 96
+    ;;
+esac
 
 test -f "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "version: 1" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
@@ -147,9 +155,17 @@ grep -F -q "workspace: context-a" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "task_id: \$ADP_EXPECT_TASK_ID" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "task_title: \$ADP_EXPECT_TASK_TITLE" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "project_root: \$ADP_EXPECT_PROJECT_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "git_root: \$ADP_EXPECT_PROJECT_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "git_metadata_skipped: true" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "runtime_root: \$ADP_RUNTIME_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "keep: false" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "generated_by: adp" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+test ! -e "\$ADP_RUNTIME_ROOT/.git"
+if git -C "\$ADP_RUNTIME_ROOT" status --short --branch >/dev/null 2>&1; then
+  printf 'git status unexpectedly succeeded inside ADP runtime root\n' >&2
+  exit 96
+fi
+git -C "\$ADP_PROJECT_ROOT" status --short --branch >/dev/null
 
 test -f "$instructions"
 grep -F -q "# ADP Runtime Instructions for" "$instructions"
@@ -185,6 +201,9 @@ require_runtime_text "$instructions" "plan preview --workspace" "plan mode previ
 require_runtime_text "$instructions" "plan apply --workspace" "plan mode apply command"
 require_runtime_text "$instructions" "not ADP phase acceptance" "plan mode phase boundary"
 require_runtime_text "$instructions" "Provider-native plan approval is not ADP phase acceptance" "plan mode phase acceptance guard"
+require_runtime_text "$instructions" "## Git Boundary" "git boundary heading"
+require_runtime_text "$instructions" "not the authoritative Git working tree" "git worktree boundary"
+require_runtime_text "$instructions" 'git -C "\$ADP_PROJECT_ROOT" status --short --branch' "project-root git status guidance"
 if [ -n "\${ADP_CLI:-}" ]; then
   require_runtime_text "$instructions" "ADP_CLI" "ADP CLI hint"
 fi
@@ -268,6 +287,12 @@ EVENTS_FILE="$ADP_HOME/logs/events.jsonl"
 mkdir -p "$PROJECT_ROOT" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-runtime-context-smoke\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
+printf 'dist\n' > "$PROJECT_ROOT/.gitignore"
+git -C "$PROJECT_ROOT" init -q
+git -C "$PROJECT_ROOT" config user.name adp-smoke
+git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
+git -C "$PROJECT_ROOT" add go.mod main.go .gitignore
+git -C "$PROJECT_ROOT" commit -q -m "init context smoke project"
 write_fake_agent "$FAKE_BIN/codex" codex senior-engineer AGENTS.md .codex/config.toml toml --context-codex
 write_fake_agent "$FAKE_BIN/claude" claude architect CLAUDE.md .claude/settings.json json --context-claude
 

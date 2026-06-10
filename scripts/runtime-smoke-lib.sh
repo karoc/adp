@@ -208,14 +208,33 @@ set -eu
 printf 'fake-$agent cwd=%s args=%s\n' "\$(pwd)" "\$*"
 
 test "\${ADP_WORKSPACE:-}" = "game-a"
+test "\${ADP_PROJECT_ROOT:-}" = "\$ADP_EXPECT_PROJECT_ROOT"
+test "\${ADP_GIT_ROOT:-}" = "\$ADP_EXPECT_PROJECT_ROOT"
 test -n "\${ADP_SESSION_ID:-}"
 test -n "\${ADP_RUNTIME_ROOT:-}"
 test "\$(pwd)" = "\$ADP_RUNTIME_ROOT"
+case ":\${GIT_CEILING_DIRECTORIES:-}:" in
+  *":\$ADP_RUNTIME_ROOT:"*) ;;
+  *)
+    printf 'GIT_CEILING_DIRECTORIES missing runtime root: %s\n' "\${GIT_CEILING_DIRECTORIES:-}" >&2
+    exit 96
+    ;;
+esac
 test -f "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "version: 1" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "git_root: \$ADP_EXPECT_PROJECT_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "git_metadata_skipped: true" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "runtime_root: \$ADP_RUNTIME_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "generated_by: adp" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+test ! -e "\$ADP_RUNTIME_ROOT/.git"
+if git -C "\$ADP_RUNTIME_ROOT" status --short --branch >/dev/null 2>&1; then
+  printf 'git status unexpectedly succeeded inside ADP runtime root\n' >&2
+  exit 96
+fi
+git -C "\$ADP_PROJECT_ROOT" status --short --branch >/dev/null
 test -f "$instructions"
+grep -F -q "## Git Boundary" "$instructions"
+grep -F -q 'git -C "\$ADP_PROJECT_ROOT" status --short --branch' "$instructions"
 test -f "$config"
 test -L "$linked"
 test -f "$linked"

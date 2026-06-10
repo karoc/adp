@@ -22,6 +22,8 @@ The external agent CLI owns its own behavior after launch, including authenticat
 
 Task ownership and lease recovery remain ADP-owned. A provider-native task panel, plan mode, or successful external process exit can mirror or inform local work, but it must not be treated as task completion, phase acceptance, commit evidence, push evidence, Git execution, or authoritative recovery state.
 
+The runtime overlay is not the authoritative Git worktree and does not expose repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files, while `.git` metadata is excluded. Real agents and operators should run Git inspection or mutation from the real project root with `git -C "$ADP_PROJECT_ROOT" ...` or by `cd "$ADP_PROJECT_ROOT"` first. ADP does not run Git automatically.
+
 ## Shared Runtime Contract
 
 The currently documented real-agent adapter contracts are `codex` and `claude`. Future adapter design notes should use neutral placeholders until an adapter is implemented and validated, and must not describe provider-native resume semantics.

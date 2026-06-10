@@ -90,6 +90,14 @@ test -n "\${ADP_ENTER_PROBE_OUT:-}"
 test "\$(pwd)" = "\${ADP_RUNTIME_ROOT:-}"
 test "\${ADP_WORKSPACE:-}" = "game-a"
 test "\${ADP_PROJECT_ROOT:-}" = "$expected_project_root"
+test "\${ADP_GIT_ROOT:-}" = "$expected_project_root"
+case ":\${GIT_CEILING_DIRECTORIES:-}:" in
+  *":\$ADP_RUNTIME_ROOT:"*) ;;
+  *)
+    printf 'GIT_CEILING_DIRECTORIES missing runtime root: %s\n' "\${GIT_CEILING_DIRECTORIES:-}" >&2
+    exit 96
+    ;;
+esac
 test -z "\${ADP_TASK_ID:-}"
 test -z "\${ADP_TASK_TITLE:-}"
 test -z "\${ADP_TASK_STATUS:-}"
@@ -99,8 +107,16 @@ test -f "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "version: 1" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "workspace: game-a" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "project_root: $expected_project_root" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "git_root: $expected_project_root" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "git_metadata_skipped: true" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "runtime_root: \$ADP_RUNTIME_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "generated_by: adp" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+test ! -e "\$ADP_RUNTIME_ROOT/.git"
+if git -C "\$ADP_RUNTIME_ROOT" status --short --branch >/dev/null 2>&1; then
+  printf 'git status unexpectedly succeeded inside ADP runtime root\n' >&2
+  exit 96
+fi
+git -C "\$ADP_PROJECT_ROOT" status --short --branch >/dev/null
 test -L go.mod
 test -f go.mod
 test -L main.go

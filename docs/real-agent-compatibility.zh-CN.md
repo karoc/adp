@@ -22,6 +22,8 @@ ADP 负责本地 runtime 边界：
 
 Task ownership 和 lease recovery 仍由 ADP 管理。Provider 原生 task panel、plan mode 或外部进程成功退出可以镜像或辅助本地工作，但不能被视为 task completion、phase acceptance、commit evidence、push evidence、Git execution，或权威 recovery state。
 
+Runtime overlay 不是权威 Git worktree，也不会暴露仓库 Git metadata。`.gitignore`、`.gitattributes`、`.gitmodules` 等普通项目 Git 文件仍然是 project files，但 `.git` metadata 会被排除。真实 Agent 和 operator 应从真实 project root 执行 Git inspection 或 mutation，可以使用 `git -C "$ADP_PROJECT_ROOT" ...`，也可以先 `cd "$ADP_PROJECT_ROOT"`。ADP 不会自动运行 Git。
+
 ## 共享 Runtime Contract
 
 当前已文档化的真实 Agent adapter contract 是 `codex` 和 `claude`。未来 adapter design notes 在 adapter 实现并验收前应使用中性 placeholder，并且不得描述 provider-native resume 语义。

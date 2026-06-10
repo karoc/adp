@@ -17,10 +17,15 @@ import (
 
 func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 	projectRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(projectRoot, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(projectRoot, ".gitignore"), []byte("dist\n"))
 	writeFile(t, filepath.Join(projectRoot, "go.mod"), []byte("module example\n"))
 	writeFile(t, filepath.Join(projectRoot, "AGENTS.md"), []byte("real agents\n"))
 
 	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
+	existingCeiling := filepath.Join(t.TempDir(), "existing-ceiling")
 	handle, err := Build(context.Background(), BuildRequest{
 		Layout: layout,
 		Config: testConfig(projectRoot),
@@ -28,8 +33,9 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 			{Path: "AGENTS.md", Data: []byte("adp agents\n")},
 		},
 		Env: map[string]string{
-			"CUSTOM":      "1",
-			paths.EnvHome: "adapter-should-not-win",
+			"CUSTOM":                  "1",
+			"GIT_CEILING_DIRECTORIES": existingCeiling,
+			paths.EnvHome:             "adapter-should-not-win",
 		},
 		Task: adapters.TaskContext{
 			ID:       "task-20260608-0001",
@@ -66,8 +72,17 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 	if handle.Env["ADP_PROJECT_ROOT"] != projectRoot {
 		t.Fatalf("ADP_PROJECT_ROOT mismatch: %s", handle.Env["ADP_PROJECT_ROOT"])
 	}
+	if handle.GitRoot != projectRoot || handle.Env["ADP_GIT_ROOT"] != projectRoot {
+		t.Fatalf("git root mismatch: handle=%s env=%s", handle.GitRoot, handle.Env["ADP_GIT_ROOT"])
+	}
 	if handle.Env["ADP_RUNTIME_ROOT"] != wantRoot {
 		t.Fatalf("ADP_RUNTIME_ROOT mismatch: %s", handle.Env["ADP_RUNTIME_ROOT"])
+	}
+	if !pathListContains(handle.Env["GIT_CEILING_DIRECTORIES"], wantRoot) {
+		t.Fatalf("GIT_CEILING_DIRECTORIES missing runtime root: %#v", handle.Env)
+	}
+	if !pathListContains(handle.Env["GIT_CEILING_DIRECTORIES"], existingCeiling) {
+		t.Fatalf("GIT_CEILING_DIRECTORIES lost existing entry: %#v", handle.Env)
 	}
 	if handle.Env["ADP_SESSION_ID"] != "session-1" {
 		t.Fatalf("ADP_SESSION_ID mismatch: %s", handle.Env["ADP_SESSION_ID"])
@@ -81,6 +96,8 @@ func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
 
 	assertContent(t, filepath.Join(handle.Root, "AGENTS.md"), "adp agents\n")
 	assertSymlink(t, filepath.Join(handle.Root, "go.mod"), filepath.Join(projectRoot, "go.mod"))
+	assertSymlink(t, filepath.Join(handle.Root, ".gitignore"), filepath.Join(projectRoot, ".gitignore"))
+	assertNoPath(t, filepath.Join(handle.Root, ".git"))
 	assertContent(t, filepath.Join(projectRoot, "AGENTS.md"), "real agents\n")
 	if len(handle.Warnings) == 0 {
 		t.Fatalf("expected conflict warning for project AGENTS.md")
@@ -147,6 +164,9 @@ func TestBuildWritesRuntimeManifestWithoutPollutingProject(t *testing.T) {
 	}
 	if manifest.ProjectRoot != projectRoot {
 		t.Fatalf("manifest project root mismatch: %s", manifest.ProjectRoot)
+	}
+	if !manifest.GitMetadataSkipped {
+		t.Fatalf("manifest should record skipped Git metadata")
 	}
 	if manifest.RuntimeRoot != handle.Root {
 		t.Fatalf("manifest runtime root mismatch: %s", manifest.RuntimeRoot)
@@ -373,6 +393,22 @@ func assertSymlink(t *testing.T, path, want string) {
 	if got != want {
 		t.Fatalf("symlink target mismatch for %s: got %s want %s", path, got, want)
 	}
+}
+
+func assertNoPath(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatalf("expected %s to be absent, stat err: %v", path, err)
+	}
+}
+
+func pathListContains(pathList string, want string) bool {
+	for _, item := range filepath.SplitList(pathList) {
+		if item == want {
+			return true
+		}
+	}
+	return false
 }
 
 func safeSessionSuffix(name string) string {

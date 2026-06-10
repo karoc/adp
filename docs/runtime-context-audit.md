@@ -44,6 +44,12 @@ If the real project already has provider-local configuration directories such as
 
 The generated `.adp-runtime.yaml` manifest records ADP ownership and cleanup metadata: manifest version, session ID, workspace name, optional task ID and title, project root, runtime root, creation time, keep flag, and `generated_by: adp`. Runtime pruning uses this manifest as compatibility evidence before deleting an ADP-owned runtime directory.
 
+## Git Boundary
+
+Runtime overlays expose project content for agent workflows, but they do not expose repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files and can be linked into the overlay like any other non-generated file; `.git` metadata is excluded from runtime overlays.
+
+`$ADP_RUNTIME_ROOT` is not the authoritative Git worktree. Agents and operators that need Git inspection or mutation should run Git from the real project root, either with `git -C "$ADP_PROJECT_ROOT" ...` or after `cd "$ADP_PROJECT_ROOT"`. ADP may record explicit phase commit and push evidence in its local planning ledger, but it does not run Git automatically.
+
 ## Instruction Files
 
 Generated instruction files are the primary human-readable context surface:

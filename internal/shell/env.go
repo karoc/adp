@@ -22,7 +22,7 @@ func RenderExports(handle adapters.RuntimeHandle, opts ExportOptions) (string, e
 
 	keys := make([]string, 0, len(handle.Env))
 	for key := range handle.Env {
-		if !strings.HasPrefix(key, "ADP_") {
+		if !isRuntimeExportName(key) {
 			continue
 		}
 		if !isShellName(key) {
@@ -48,6 +48,10 @@ func RenderExports(handle adapters.RuntimeHandle, opts ExportOptions) (string, e
 	}
 
 	return out.String(), nil
+}
+
+func isRuntimeExportName(name string) bool {
+	return strings.HasPrefix(name, "ADP_") || name == "GIT_CEILING_DIRECTORIES"
 }
 
 func shellQuote(value string) string {

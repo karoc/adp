@@ -52,7 +52,7 @@ func (b *SymlinkBackend) Materialize(ctx context.Context, req Request) (*Result,
 	if err != nil {
 		return nil, err
 	}
-	linkedPaths, conflicts, err := linkProjectChildren(projectRoot, runtimeRoot, reserved)
+	linkedPaths, skippedPaths, conflicts, err := linkProjectChildren(projectRoot, runtimeRoot, reserved)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +63,7 @@ func (b *SymlinkBackend) Materialize(ctx context.Context, req Request) (*Result,
 		ProjectRoot:    projectRoot,
 		GeneratedPaths: generatedPaths,
 		LinkedPaths:    linkedPaths,
+		SkippedPaths:   skippedPaths,
 		Conflicts:      conflicts,
 		Keep:           req.Keep,
 	}, nil
@@ -133,22 +134,27 @@ func writeGeneratedFiles(runtimeRoot string, files []adapters.GeneratedFile, res
 	return generatedPaths, nil
 }
 
-func linkProjectChildren(projectRoot, runtimeRoot string, reserved map[string]struct{}) ([]string, []Conflict, error) {
+func linkProjectChildren(projectRoot, runtimeRoot string, reserved map[string]struct{}) ([]string, []string, []Conflict, error) {
 	return linkProjectEntries(projectRoot, runtimeRoot, "", reserved)
 }
 
-func linkProjectEntries(sourceRoot, runtimeRoot, relRoot string, reserved map[string]struct{}) ([]string, []Conflict, error) {
+func linkProjectEntries(sourceRoot, runtimeRoot, relRoot string, reserved map[string]struct{}) ([]string, []string, []Conflict, error) {
 	sourceDir := filepath.Join(sourceRoot, relRoot)
 	entries, err := os.ReadDir(sourceDir)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read project path %q: %w", relRoot, err)
+		return nil, nil, nil, fmt.Errorf("read project path %q: %w", relRoot, err)
 	}
 
 	linkedPaths := make([]string, 0, len(entries))
+	skippedPaths := []string{}
 	conflicts := []Conflict{}
 	for _, entry := range entries {
 		name := entry.Name()
 		rel := filepath.Join(relRoot, name)
+		if isRepositoryGitMetadata(rel) {
+			skippedPaths = append(skippedPaths, rel)
+			continue
+		}
 		if _, exists := reserved[rel]; exists {
 			conflicts = append(conflicts, Conflict{
 				Path:   rel,
@@ -159,46 +165,51 @@ func linkProjectEntries(sourceRoot, runtimeRoot, relRoot string, reserved map[st
 
 		target := filepath.Join(runtimeRoot, rel)
 		if _, err := os.Lstat(target); err == nil {
-			merged, nestedLinks, nestedConflicts, err := mergeProjectDirectory(entry, sourceRoot, runtimeRoot, rel, reserved)
+			merged, nestedLinks, nestedSkipped, nestedConflicts, err := mergeProjectDirectory(entry, sourceRoot, runtimeRoot, rel, reserved)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			if merged {
 				linkedPaths = append(linkedPaths, nestedLinks...)
+				skippedPaths = append(skippedPaths, nestedSkipped...)
 				conflicts = append(conflicts, nestedConflicts...)
 				continue
 			}
 			conflicts = append(conflicts, Conflict{Path: rel, Reason: "runtime path already exists"})
 			continue
 		} else if !os.IsNotExist(err) {
-			return nil, nil, fmt.Errorf("inspect runtime path %q: %w", rel, err)
+			return nil, nil, nil, fmt.Errorf("inspect runtime path %q: %w", rel, err)
 		}
 
 		source := filepath.Join(sourceRoot, rel)
 		if err := os.Symlink(source, target); err != nil {
-			return nil, nil, fmt.Errorf("link project path %q: %w", rel, err)
+			return nil, nil, nil, fmt.Errorf("link project path %q: %w", rel, err)
 		}
 		linkedPaths = append(linkedPaths, rel)
 	}
 
-	return linkedPaths, conflicts, nil
+	return linkedPaths, skippedPaths, conflicts, nil
 }
 
-func mergeProjectDirectory(entry os.DirEntry, sourceRoot, runtimeRoot, rel string, reserved map[string]struct{}) (bool, []string, []Conflict, error) {
+func mergeProjectDirectory(entry os.DirEntry, sourceRoot, runtimeRoot, rel string, reserved map[string]struct{}) (bool, []string, []string, []Conflict, error) {
 	if !entry.IsDir() {
-		return false, nil, nil, nil
+		return false, nil, nil, nil, nil
 	}
 	target := filepath.Join(runtimeRoot, rel)
 	info, err := os.Lstat(target)
 	if err != nil {
-		return false, nil, nil, fmt.Errorf("inspect runtime path %q: %w", rel, err)
+		return false, nil, nil, nil, fmt.Errorf("inspect runtime path %q: %w", rel, err)
 	}
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return false, nil, nil, nil
+		return false, nil, nil, nil, nil
 	}
 
-	linkedPaths, conflicts, err := linkProjectEntries(sourceRoot, runtimeRoot, rel, reserved)
-	return true, linkedPaths, conflicts, err
+	linkedPaths, skippedPaths, conflicts, err := linkProjectEntries(sourceRoot, runtimeRoot, rel, reserved)
+	return true, linkedPaths, skippedPaths, conflicts, err
+}
+
+func isRepositoryGitMetadata(rel string) bool {
+	return filepath.Clean(rel) == ".git"
 }
 
 func requireAbsoluteDir(path, label string) (string, error) {

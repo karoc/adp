@@ -58,6 +58,7 @@ type RuntimeHandle struct {
 	WorkspaceName string
 	TaskID        string
 	ProjectRoot   string
+	GitRoot       string
 	Root          string
 	Env           map[string]string
 	Keep          bool
