@@ -216,6 +216,8 @@ adp workspace doctor game-a
 
 `adp workspace doctor` 会检查本地配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、agent command 设置、project root 中的保留路径、继承的仓库指向 Git environment variables，以及只读 Git topology/status。它会把 adapter default command fallback、写在 command 字段里的 inline arguments、缺失或不可执行的路径型 command wrapper、缺失、重复或逃逸到 workspace 外部的非 default profile、不可用或 nested Git worktree、linked worktree 或 submodule 常见的 gitfile metadata、Git status inspection 不可用，以及 dirty Git status 报告为本地 diagnostics。运行真实 Agent 前应先修复 doctor error；warning-only command/profile/Git diagnostics 不能证明或否定真实 provider CLI 的认证、网络访问、模型可用性，或某个 Git mutation 是否安全。
 
+默认 text 输出会隐藏 info-level diagnostics；当剩余的 diagnostics 只有 info 时，会输出 `ok - no issues`。使用 `adp workspace doctor game-a --verbose` 可以显示 Git topology 等本地 info diagnostics；当脚本、子 Agent 或外部工具需要完整机器可读报告时，使用 `adp workspace doctor game-a --format json`。这些模式仍然是只读的：不会 stage、checkout、commit、push、fetch、clean，也不会推断 release evidence。
+
 ## 进入或运行 Runtime
 
 为一个保留的 runtime overlay 渲染 shell exports：

@@ -400,7 +400,12 @@ output=$(run_adp "$TMP_ROOT" workspace add game-a "$PROJECT_ROOT")
 assert_contains "$output" 'workspace "game-a" added' "workspace add output"
 output=$(run_adp "$TMP_ROOT" workspace doctor game-a)
 assert_contains "$output" "game-a" "workspace doctor output"
-assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
+assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "no issues" "workspace doctor output"
+output=$(run_adp "$TMP_ROOT" workspace doctor game-a --verbose)
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor verbose output"
+output=$(run_adp "$TMP_ROOT" workspace doctor game-a --format json)
+assert_contains "$output" '"code": "workspace.git.root.detected"' "workspace doctor json output"
 output=$(run_adp "$TMP_ROOT" tasks add --workspace game-a --priority high --phase artifact-smoke "Validate artifact install")
 assert_contains "$output" "task task-" "tasks add output"
 TASK_ID=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')

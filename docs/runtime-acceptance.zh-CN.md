@@ -96,7 +96,7 @@ fake Codex 和 Claude 命令会断言：
 
 脚本还会检查本地 CLI hardening surface：
 
-- `adp doctor [workspace]` 输出与 workspace 命令组一致的 workspace diagnostics，并支持检查单个 workspace 或全部已注册 workspace；fake smoke 会覆盖 runtime parent 等于 project root 和位于 project root 内部时的拒绝路径。Go 测试覆盖更完整的 runtime parent guard：文件系统根目录、等于 project root、位于 project root 内部、包含 project root、symlink warning 和非目录路径。
+- `adp doctor [workspace]` 输出与 workspace 命令组一致的 workspace diagnostics，并支持检查单个 workspace 或全部已注册 workspace；fake smoke 会覆盖 runtime parent 等于 project root 和位于 project root 内部时的拒绝路径。默认 text 输出会隐藏 info diagnostics；如果没有剩余 warning 或 error，则输出 `ok - no issues`；`--verbose` 会显示 Git topology 等 info diagnostics；`--format json` 会为本地工具输出完整机器可读报告。Go 测试覆盖更完整的 runtime parent guard：文件系统根目录、等于 project root、位于 project root 内部、包含 project root、symlink warning 和非目录路径。
 - fake smoke 也会通过两个 doctor 入口检查 warning-only agent command/profile diagnostics：project root 中的保留路径、adapter default command fallback、inline command arguments、缺失的非 default profile、逃逸到 workspace 外部的 profile symlink，以及 enabled 但未知的 agent 配置。这些 diagnostics 只做本地静态检查，不运行真实 provider CLI。
 - `adp version` 和 `adp --version` 可以在不访问网络、不依赖 provider CLI 的情况下输出 CLI build identity。
 - bash 和 zsh completion 脚本包含动态值端点调用。

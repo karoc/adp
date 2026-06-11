@@ -14,8 +14,8 @@ Implemented Phase 1 foundations. If you are trying ADP for the first time, start
 - `adp workspace add <name> <project-root>`
 - `adp workspace list`
 - `adp workspace show <name>`
-- `adp workspace doctor [name]`
-- `adp doctor [workspace]`
+- `adp workspace doctor [name] [--verbose] [--format <text|json>]`
+- `adp doctor [workspace] [--verbose] [--format <text|json>]`
 - `adp workspace remove <name>`
 - `adp workspace rename <old-name> <new-name>`
 - `adp env <workspace> [--cd]`
@@ -186,9 +186,13 @@ adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format 
 adp sessions resume-plan <session-id> --agent claude --owner reviewer --lease 1h --format json
 ```
 
-`adp workspace doctor [name]` validates workspace configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, agent command settings, reserved project-root paths, and read-only Git topology/status. It reports adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, missing, ambiguous, or escaping non-default profiles, and Git boundary caveats as local diagnostics. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
+`adp workspace doctor [name] [--verbose] [--format <text|json>]` validates workspace configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, agent command settings, reserved project-root paths, and read-only Git topology/status. It reports adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, missing, ambiguous, or escaping non-default profiles, and Git boundary caveats as local diagnostics. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.
 
-`adp doctor [workspace]` is the global diagnostics entry point for the same local workspace checks. It is intended for terminal workflows where diagnostics should be available without first entering the `workspace` command group.
+Default text output is operator-focused: it hides info-only diagnostics and prints `ok - no issues` when no warning or error diagnostics remain after that filter. Use `--verbose` when the terminal output should include info diagnostics such as Git topology details. Use `--format json` when tools or sub-agents need the complete machine-readable diagnostic report, including info, warning, and error diagnostics.
+
+Git diagnostics stay read-only. Doctor commands may inspect topology and status, but they do not stage, checkout, commit, push, fetch, clean files, run release evidence commands, or infer phase acceptance, commit evidence, or push evidence.
+
+`adp doctor [workspace] [--verbose] [--format <text|json>]` is the global diagnostics entry point for the same local workspace checks and output modes. It is intended for terminal workflows where diagnostics should be available without first entering the `workspace` command group.
 
 `adp version` and `adp --version` print the CLI build identity. Packaged binaries can inject version, commit, and build-date values at build time; development builds fall back to `dev`.
 

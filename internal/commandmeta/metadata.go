@@ -17,7 +17,15 @@ type Command struct {
 
 var rootCommands = []Command{
 	{Name: "init", Description: "initialize ADP home", Usage: []string{"adp init"}},
-	{Name: "doctor", Description: "diagnose registered workspaces", Usage: []string{"adp doctor [workspace]"}},
+	{
+		Name:        "doctor",
+		Description: "diagnose registered workspaces",
+		Usage:       []string{"adp doctor [workspace] [--verbose] [--format <text|json>]"},
+		Options: describedValues(valueDescriptions{
+			"--verbose": "show info diagnostics",
+			"--format":  "output format",
+		}, "--verbose", "--format"),
+	},
 	{Name: "version", Description: "print version information", Usage: []string{"adp version"}},
 	{
 		Name:        "workspace",
@@ -28,7 +36,7 @@ var rootCommands = []Command{
 			"adp workspace show <name>",
 			"adp workspace remove <name>",
 			"adp workspace rename <old-name> <new-name>",
-			"adp workspace doctor [name]",
+			"adp workspace doctor [name] [--verbose] [--format <text|json>]",
 		},
 		Subcommands: describedValues(valueDescriptions{
 			"add":    "register a project root",
@@ -38,6 +46,10 @@ var rootCommands = []Command{
 			"rename": "rename workspace registration",
 			"doctor": "diagnose workspace config",
 		}, "add", "list", "show", "remove", "rename", "doctor"),
+		Options: describedValues(valueDescriptions{
+			"--verbose": "show info diagnostics",
+			"--format":  "output format",
+		}, "--verbose", "--format"),
 	},
 	{
 		Name:        "enter",

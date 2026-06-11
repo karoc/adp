@@ -41,16 +41,33 @@ YAML
   output=$(run_adp "$REPO_ROOT" workspace doctor diag-a)
   assert_contains "$output" "diag-a" "agent diagnostics output"
   assert_contains "$output" "workspace.project.reserved_path.present" "agent diagnostics output"
-  assert_contains "$output" "workspace.agent.command.default" "agent diagnostics output"
   assert_contains "$output" "workspace.agent.command.arguments" "agent diagnostics output"
   assert_contains "$output" "workspace.agent.profile.missing" "agent diagnostics output"
   assert_contains "$output" "workspace.agent.profile.outside_workspace" "agent diagnostics output"
   assert_contains "$output" "workspace.agent.unknown" "agent diagnostics output"
+  case "$output" in
+    *"workspace.agent.command.default"*)
+      printf '%s\n' "$output" >&2
+      fail "agent diagnostics default output should hide info diagnostics"
+      ;;
+  esac
+
+  output=$(run_adp "$REPO_ROOT" workspace doctor diag-a --verbose)
+  assert_contains "$output" "workspace.agent.command.default" "agent diagnostics verbose output"
 
   output=$(run_adp "$REPO_ROOT" doctor diag-a)
   assert_contains "$output" "diag-a" "global agent diagnostics output"
   assert_contains "$output" "workspace.project.reserved_path.present" "global agent diagnostics output"
   assert_contains "$output" "workspace.agent.profile.outside_workspace" "global agent diagnostics output"
+  case "$output" in
+    *"workspace.agent.command.default"*)
+      printf '%s\n' "$output" >&2
+      fail "global agent diagnostics default output should hide info diagnostics"
+      ;;
+  esac
+
+  output=$(run_adp "$REPO_ROOT" doctor diag-a --verbose)
+  assert_contains "$output" "workspace.agent.command.default" "global agent diagnostics verbose output"
 
   output=$(
     export ADP_RUNTIME_DIR="$project_root"

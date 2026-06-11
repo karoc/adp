@@ -2,9 +2,9 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/karoc/adp/internal/workspace"
@@ -76,27 +76,25 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 }
 
 func (a *App) doctor(ctx context.Context, args []string) error {
-	if len(args) > 1 {
-		return errors.New("usage: adp doctor [workspace]")
-	}
-	if len(args) == 1 && strings.HasPrefix(args[0], "-") {
-		return fmt.Errorf("unknown doctor option %q", args[0])
+	opts, err := parseDoctorArgs(args)
+	if err != nil {
+		return err
 	}
 	if a.deps.WorkspaceStore == nil {
 		return errors.New("workspace store is not configured")
 	}
-	if len(args) == 1 {
-		report, err := a.deps.WorkspaceStore.Diagnose(ctx, args[0])
+	if opts.workspace != "" {
+		report, err := a.deps.WorkspaceStore.Diagnose(ctx, opts.workspace)
 		if err != nil {
 			return err
 		}
-		return a.workspaceDoctorReports([]workspace.DiagnosticReport{report})
+		return a.workspaceDoctorReports([]workspace.DiagnosticReport{report}, opts)
 	}
 	reports, err := a.deps.WorkspaceStore.DiagnoseAll(ctx)
 	if err != nil {
 		return err
 	}
-	return a.workspaceDoctorReports(reports)
+	return a.workspaceDoctorReports(reports, opts)
 }
 
 func (a *App) workspaceList(ctx context.Context) error {
@@ -126,19 +124,24 @@ func (a *App) workspaceShow(ctx context.Context, name string) error {
 	return nil
 }
 
-func (a *App) workspaceDoctorReports(reports []workspace.DiagnosticReport) error {
+func (a *App) workspaceDoctorReports(reports []workspace.DiagnosticReport, opts doctorOptions) error {
+	if opts.format == outputFormatJSON {
+		return a.workspaceDoctorJSON(reports)
+	}
+
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(writer, "WORKSPACE\tLEVEL\tCODE\tMESSAGE\tPATH")
 	hasErrors := false
 	for _, report := range reports {
-		if len(report.Diagnostics) == 0 {
-			fmt.Fprintf(writer, "%s\tok\t-\tno issues\t%s\n", valueOrDash(report.Workspace), valueOrDash(report.WorkspaceDir))
-			continue
-		}
 		if report.HasErrors() {
 			hasErrors = true
 		}
-		for _, diagnostic := range report.Diagnostics {
+		diagnostics := visibleDiagnostics(report.Diagnostics, opts.verbose)
+		if len(diagnostics) == 0 {
+			fmt.Fprintf(writer, "%s\tok\t-\tno issues\t%s\n", valueOrDash(report.Workspace), valueOrDash(report.WorkspaceDir))
+			continue
+		}
+		for _, diagnostic := range diagnostics {
 			fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n",
 				valueOrDash(report.Workspace),
 				diagnostic.Level,
@@ -155,4 +158,31 @@ func (a *App) workspaceDoctorReports(reports []workspace.DiagnosticReport) error
 		return processExitError{code: 2}
 	}
 	return nil
+}
+
+func (a *App) workspaceDoctorJSON(reports []workspace.DiagnosticReport) error {
+	out := workspaceDoctorOutput(reports)
+	encoder := json.NewEncoder(a.stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(out); err != nil {
+		return err
+	}
+	if out.HasErrors {
+		return processExitError{code: 2}
+	}
+	return nil
+}
+
+func visibleDiagnostics(diagnostics []workspace.Diagnostic, verbose bool) []workspace.Diagnostic {
+	if verbose {
+		return diagnostics
+	}
+	out := make([]workspace.Diagnostic, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Level == workspace.DiagnosticLevelInfo {
+			continue
+		}
+		out = append(out, diagnostic)
+	}
+	return out
 }

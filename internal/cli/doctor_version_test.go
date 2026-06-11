@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -99,6 +100,58 @@ func TestDoctorCommandKeepsZeroForWarningDiagnostics(t *testing.T) {
 	for _, want := range []string{"game-a", "warning", workspace.DiagnosticCodeAgentProfileAmbiguous, "/tmp/adp-home/workspaces/game-a/profiles/senior.{md,yaml,yml,json}"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("doctor output missing %q: %q", want, stdout.String())
+		}
+	}
+}
+
+func TestDoctorCommandJSONIncludesCompleteDiagnosticsAndReturnsTwoForErrors(t *testing.T) {
+	store := &fakeStore{
+		diagnoseReport: workspace.DiagnosticReport{
+			Workspace:    "game-a",
+			WorkspaceDir: "/tmp/adp-home/workspaces/game-a",
+			Diagnostics: []workspace.Diagnostic{
+				{
+					Level:   workspace.DiagnosticLevelInfo,
+					Code:    workspace.DiagnosticCodeGitRootDetected,
+					Message: "Git worktree detected",
+					Path:    "/srv/game-a",
+				},
+				{
+					Level:   workspace.DiagnosticLevelError,
+					Code:    workspace.DiagnosticCodeRuntimeParentProjectRoot,
+					Message: "runtime parent must not be the project root",
+					Path:    "/srv/game-a",
+				},
+			},
+		},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &stderr).Execute(
+		context.Background(),
+		[]string{"doctor", "--format", "json", "game-a"},
+	)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	var got workspaceDoctorJSONOutput
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("doctor JSON did not parse: %v\n%s", err, stdout.String())
+	}
+	if !got.HasErrors || len(got.Reports) != 1 || !got.Reports[0].HasErrors {
+		t.Fatalf("doctor JSON error summary = %+v, want errors", got)
+	}
+	if got.Reports[0].DiagnosticCount != 2 || len(got.Reports[0].Diagnostics) != 2 {
+		t.Fatalf("doctor JSON diagnostics = %+v, want complete diagnostics", got.Reports[0])
+	}
+	for _, want := range []string{workspace.DiagnosticCodeGitRootDetected, workspace.DiagnosticCodeRuntimeParentProjectRoot} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("doctor JSON missing %q: %s", want, stdout.String())
 		}
 	}
 }

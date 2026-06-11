@@ -314,7 +314,12 @@ output=$(run_adp "$TMP_ROOT" workspace add onboarding-a "$PROJECT_ROOT")
 assert_contains "$output" 'workspace "onboarding-a" added' "workspace add output"
 output=$(run_adp "$TMP_ROOT" workspace doctor onboarding-a)
 assert_contains "$output" "onboarding-a" "workspace doctor output"
-assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
+assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "no issues" "workspace doctor output"
+output=$(run_adp "$TMP_ROOT" workspace doctor onboarding-a --verbose)
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor verbose output"
+output=$(run_adp "$TMP_ROOT" workspace doctor onboarding-a --format json)
+assert_contains "$output" '"code": "workspace.git.root.detected"' "workspace doctor json output"
 output=$(run_adp "$TMP_ROOT" workspace show onboarding-a)
 assert_contains "$output" "name: onboarding-a" "workspace show output"
 assert_contains "$output" "project_root: $PROJECT_ROOT" "workspace show output"

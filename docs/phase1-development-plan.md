@@ -340,27 +340,32 @@ Acceptance:
 - Missing workspaces return a clear not-found error.
 - Output fields remain stable enough for terminal users and tests.
 
-### `adp workspace doctor [name]`
+### `adp workspace doctor [name] [--verbose] [--format <text|json>]`
 
 Behavior:
 
 - Checks one workspace, or all registered workspaces when no name is supplied.
-- Covers config loading and validation, project root reachability, runtime parent safety, prompt, memory, MCP, profile file references, path escapes, agent command defaults, inline command arguments, path-like command wrapper readiness, unknown enabled agents, and reserved project-root paths.
-- Reports diagnostics in a stable terminal format.
+- Covers config loading and validation, project root reachability, runtime parent safety, prompt, memory, MCP, profile file references, path escapes, agent command defaults, inline command arguments, path-like command wrapper readiness, unknown enabled agents, reserved project-root paths, and read-only Git topology/status.
+- Reports warning and error diagnostics in a stable terminal format by default.
+- Hides info-only diagnostics from default text output. If the remaining visible diagnostic set is empty, reports `ok - no issues`.
+- Reports info diagnostics, including Git topology details, when `--verbose` is supplied.
+- Emits the complete machine-readable diagnostic report, including info, warning, and error diagnostics, when `--format json` is supplied.
+- Keeps Git diagnostics read-only; the command does not stage, checkout, commit, push, fetch, clean files, run Git evidence commands, or infer phase acceptance, commit evidence, or push evidence.
 
 Acceptance:
 
-- Healthy workspaces report `ok - no issues`.
+- Healthy workspaces, and workspaces with only info-level diagnostics in default text mode, report `ok - no issues`.
 - Error-level diagnostics return a non-zero exit code.
 - Warning-only command/profile diagnostics keep exit code zero.
 - A bad workspace does not prevent reporting diagnostics for other workspaces.
 
-### `adp doctor [workspace]`
+### `adp doctor [workspace] [--verbose] [--format <text|json>]`
 
 Behavior:
 
 - Provides the same local workspace diagnostics as a global command.
 - Accepts one optional workspace name; checks all registered workspaces when omitted.
+- Supports the same default text filtering, `--verbose`, `--format json`, and read-only Git boundaries as `adp workspace doctor`.
 
 Acceptance:
 

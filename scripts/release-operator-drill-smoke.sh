@@ -284,7 +284,12 @@ output=$(run_adp "$TMP_ROOT" workspace add operator-a "$PROJECT_ROOT")
 assert_contains "$output" 'workspace "operator-a" added' "workspace add output"
 output=$(run_adp "$TMP_ROOT" workspace doctor operator-a)
 assert_contains "$output" "operator-a" "workspace doctor output"
-assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
+assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "no issues" "workspace doctor output"
+output=$(run_adp "$TMP_ROOT" workspace doctor operator-a --verbose)
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor verbose output"
+output=$(run_adp "$TMP_ROOT" workspace doctor operator-a --format json)
+assert_contains "$output" '"code": "workspace.git.root.detected"' "workspace doctor json output"
 output=$(run_adp "$TMP_ROOT" phase add --workspace operator-a --goal "operator release drill" p-operator "Operator Release Drill")
 assert_contains "$output" "phase p-operator added" "phase add output"
 output=$(run_adp "$TMP_ROOT" phase start --workspace operator-a p-operator)

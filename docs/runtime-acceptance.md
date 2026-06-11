@@ -96,7 +96,7 @@ The fake Codex and Claude commands assert that:
 
 The script also checks the local CLI hardening surface:
 
-- `adp doctor [workspace]` reports the same workspace diagnostics as the workspace command group, works for one workspace or all registered workspaces, and the fake smoke exercises runtime parent rejection for project-root and inside-project-root values. Go tests cover the broader runtime parent guard set: filesystem root, project root, inside project root, containing project root, symlink warning, and non-directory paths.
+- `adp doctor [workspace]` reports the same workspace diagnostics as the workspace command group, works for one workspace or all registered workspaces, and the fake smoke exercises runtime parent rejection for project-root and inside-project-root values. Default text output hides info diagnostics and reports `ok - no issues` when no warning or error remains, `--verbose` shows info diagnostics such as Git topology, and `--format json` emits the complete machine-readable report for local tooling. Go tests cover the broader runtime parent guard set: filesystem root, project root, inside project root, containing project root, symlink warning, and non-directory paths.
 - The fake smoke also checks warning-only agent command/profile diagnostics through both doctor entry points: reserved project-root paths, adapter default command fallback, inline command arguments, missing non-default profiles, escaping profile symlinks, and unknown enabled agent entries. These diagnostics stay local and static; they do not run real provider CLIs.
 - `adp version` and `adp --version` print the CLI build identity without requiring network access or provider CLIs.
 - Bash and zsh completion scripts include dynamic value endpoint calls.

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -16,6 +17,12 @@ const (
 type workspaceOutputOptions struct {
 	workspace string
 	format    outputFormat
+}
+
+type doctorOptions struct {
+	workspace string
+	format    outputFormat
+	verbose   bool
 }
 
 func parseWorkspaceOnlyArgs(args []string, usage string) (string, error) {
@@ -61,6 +68,36 @@ func parseWorkspaceOutputArgs(args []string, usage string) (workspaceOutputOptio
 			opts.format, i = format, next
 		default:
 			return workspaceOutputOptions{}, fmt.Errorf("unknown %s option %q", command, arg)
+		}
+	}
+	return opts, nil
+}
+
+func parseDoctorArgs(args []string) (doctorOptions, error) {
+	opts := doctorOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return doctorOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return doctorOptions{}, err
+			}
+			opts.format, i = format, next
+		case "--verbose":
+			opts.verbose = true
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return doctorOptions{}, fmt.Errorf("unknown doctor option %q", arg)
+			}
+			if opts.workspace != "" {
+				return doctorOptions{}, errors.New("usage: adp doctor [workspace] [--verbose] [--format <text|json>]")
+			}
+			opts.workspace = arg
 		}
 	}
 	return opts, nil

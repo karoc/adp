@@ -10,6 +10,11 @@ import (
 	"testing"
 )
 
+type doctorJSONDiagnostic struct {
+	Level string `json:"level"`
+	Code  string `json:"code"`
+}
+
 func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell fake agents are POSIX-only")
@@ -47,8 +52,32 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 		t.Fatalf("workspace show missing details: %q", showOut)
 	}
 	doctorOut := runADP(t, adpBin, repoRoot, env, "workspace", "doctor", "game-a")
-	if !strings.Contains(doctorOut, "game-a") || !strings.Contains(doctorOut, "workspace.git.root.detected") {
+	if !strings.Contains(doctorOut, "game-a") || !strings.Contains(doctorOut, "ok") || !strings.Contains(doctorOut, "no issues") {
 		t.Fatalf("workspace doctor missing healthy report: %q", doctorOut)
+	}
+	if strings.Contains(doctorOut, "workspace.git.root.detected") {
+		t.Fatalf("workspace doctor default output should hide info diagnostics: %q", doctorOut)
+	}
+	verboseDoctorOut := runADP(t, adpBin, repoRoot, env, "workspace", "doctor", "game-a", "--verbose")
+	if !strings.Contains(verboseDoctorOut, "workspace.git.root.detected") {
+		t.Fatalf("workspace doctor verbose output missing Git info diagnostic: %q", verboseDoctorOut)
+	}
+	doctorJSONOut := runADP(t, adpBin, repoRoot, env, "workspace", "doctor", "game-a", "--format", "json")
+	var doctorJSON struct {
+		ReportCount int  `json:"report_count"`
+		HasErrors   bool `json:"has_errors"`
+		Reports     []struct {
+			Diagnostics []doctorJSONDiagnostic `json:"diagnostics"`
+		} `json:"reports"`
+	}
+	if err := json.Unmarshal([]byte(doctorJSONOut), &doctorJSON); err != nil {
+		t.Fatalf("workspace doctor JSON did not parse: %v\n%s", err, doctorJSONOut)
+	}
+	if doctorJSON.ReportCount != 1 || doctorJSON.HasErrors || len(doctorJSON.Reports) != 1 {
+		t.Fatalf("workspace doctor JSON summary = %+v, want one clean report", doctorJSON)
+	}
+	if !doctorJSONHasDiagnostic(doctorJSON.Reports[0].Diagnostics, "info", "workspace.git.root.detected") {
+		t.Fatalf("workspace doctor JSON missing Git info diagnostic: %s", doctorJSONOut)
 	}
 	envOut := runADP(t, adpBin, repoRoot, env, "env", "game-a", "--cd")
 	runtimeRoot := parseExport(t, envOut, "ADP_RUNTIME_ROOT")
@@ -140,6 +169,15 @@ func runADP(t *testing.T, adpBin string, dir string, env []string, args ...strin
 		t.Fatalf("adp %v failed: %v\n%s", args, err, output)
 	}
 	return string(output)
+}
+
+func doctorJSONHasDiagnostic(diagnostics []doctorJSONDiagnostic, level string, code string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Level == level && diagnostic.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func initGitProject(t *testing.T, projectRoot string) {

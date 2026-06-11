@@ -230,7 +230,12 @@ assert_contains "$output" "initialized ADP home" "init output"
 info "validating copied workspace"
 output=$(run_adp "$REPO_ROOT" workspace doctor game-a)
 assert_contains "$output" "game-a" "workspace doctor output"
-assert_contains "$output" "workspace.git.root.detected" "workspace doctor output"
+assert_contains "$output" "ok" "workspace doctor output"
+assert_contains "$output" "no issues" "workspace doctor output"
+output=$(run_adp "$REPO_ROOT" workspace doctor game-a --verbose)
+assert_contains "$output" "workspace.git.root.detected" "workspace doctor verbose output"
+output=$(run_adp "$REPO_ROOT" workspace doctor game-a --format json)
+assert_contains "$output" '"code": "workspace.git.root.detected"' "workspace doctor json output"
 
 output=$(run_adp "$REPO_ROOT" workspace show game-a)
 assert_contains "$output" "name: game-a" "workspace show output"
