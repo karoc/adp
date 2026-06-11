@@ -101,7 +101,9 @@ assert_help "tasks help take description" "take - atomically claim next work" ta
 assert_help "tasks help stale description" "stale - inspect expired in-progress claims" tasks --help
 assert_help "tasks add help" "adp tasks add" tasks add --help
 assert_help "tasks take help" "adp tasks take" tasks take --help
+assert_help "tasks take help example" "adp tasks take --workspace game-a --owner codex-main --lease 4h --format json" tasks take --help
 assert_help "tasks claim help" "adp tasks claim" tasks claim --help
+assert_help "tasks claim help example" "adp tasks claim --workspace game-a task-20260611-0001 --owner codex-main --lease 4h" tasks claim --help
 assert_help "tasks help renew" "adp tasks renew" tasks --help
 assert_help "tasks help stale" "adp tasks stale" tasks --help
 assert_help "tasks renew help" "adp tasks renew" tasks renew --help
@@ -110,12 +112,14 @@ assert_help "plan help" "adp plan preview" plan --help
 assert_help "plan help preview description" "preview - validate plan input without writing" plan --help
 assert_help "plan doctor help" "adp plan doctor" plan doctor --help
 assert_help "phase help" "adp phase accept" phase --help
+assert_help "phase accept help example" "adp phase accept --workspace game-a P60" phase accept --help
 assert_help "phase help evidence description" "accept - record validation evidence" phase --help
 assert_help "phase help push description" "push - record push evidence" phase --help
 assert_help "phase commit help" "adp phase commit" phase commit --help
 assert_help "progress help" "adp progress report" progress --help
 assert_help "progress report help" "adp progress report" progress report --help
 assert_help "run help" "adp run <agent>" run --help
+assert_help "run help take example" "adp run codex --workspace game-a --take --owner codex-main --lease 4h" run --help
 output=$(run_adp_expect_fail "$REPO_ROOT" run)
 assert_contains "$output" "--take --owner <owner>" "run usage output"
 assert_contains "$output" "try: adp run --help" "run usage output"

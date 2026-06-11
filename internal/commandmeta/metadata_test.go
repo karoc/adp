@@ -106,6 +106,48 @@ func TestSubcommandHelpIncludesFocusedUsage(t *testing.T) {
 	}
 }
 
+func TestHelpIncludesCopyableExamples(t *testing.T) {
+	t.Parallel()
+
+	help, ok := CommandHelp("run")
+	if !ok {
+		t.Fatal("CommandHelp(run) returned false")
+	}
+	for _, want := range []string{
+		"Examples:",
+		"adp run codex --workspace game-a --take --owner codex-main --lease 4h",
+		"adp run claude --workspace game-a --task task-20260611-0001 --keep-runtime",
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("run help missing example %q:\n%s", want, help)
+		}
+	}
+
+	help, ok = SubcommandHelp("tasks", "take")
+	if !ok {
+		t.Fatal("SubcommandHelp(tasks, take) returned false")
+	}
+	for _, want := range []string{
+		"Examples:",
+		"adp tasks take --workspace game-a --owner codex-main --lease 4h --format json",
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("tasks take help missing example %q:\n%s", want, help)
+		}
+	}
+	if strings.Contains(help, "adp tasks claim --workspace") {
+		t.Fatalf("tasks take help included claim example:\n%s", help)
+	}
+
+	help, ok = SubcommandHelp("phase", "accept")
+	if !ok {
+		t.Fatal("SubcommandHelp(phase, accept) returned false")
+	}
+	if want := `adp phase accept --workspace game-a P60 --command "scripts/check-all.sh" --result passed --notes "runtime smoke passed"`; !strings.Contains(help, want) {
+		t.Fatalf("phase accept help missing example %q:\n%s", want, help)
+	}
+}
+
 func assertUniqueValues(t *testing.T, label string, values []Value) {
 	t.Helper()
 

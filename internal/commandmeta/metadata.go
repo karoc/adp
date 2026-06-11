@@ -399,6 +399,7 @@ func CommandHelp(name string) (string, bool) {
 	writeUsageLines(&out, command.Usage)
 	writeValuesSection(&out, "Subcommands", command.Subcommands)
 	writeValuesSection(&out, "Options", command.Options)
+	writeExamplesSection(&out, examplesForCommand(command.Name))
 	return out.String(), true
 }
 
@@ -424,6 +425,7 @@ func SubcommandHelp(commandName, subcommand string) (string, bool) {
 	}
 	out.WriteString("\n\nUsage:\n")
 	writeUsageLines(&out, usage)
+	writeExamplesSection(&out, examplesForSubcommand(command.Name, subcommand))
 	out.WriteString("\nSee also:\n  adp ")
 	out.WriteString(command.Name)
 	out.WriteString(" --help\n")
