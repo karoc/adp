@@ -247,6 +247,8 @@ func shouldShowHelpHint(err error) bool {
 		return true
 	case strings.HasPrefix(message, "parse limit: "):
 		return true
+	case strings.HasPrefix(message, "tasks take does not accept task id "):
+		return true
 	case message == "--take cannot be combined with --task":
 		return true
 	case message == "--owner is required with --take":

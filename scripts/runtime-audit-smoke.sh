@@ -201,6 +201,15 @@ output=$(run_adp_expect_fail "$REPO_ROOT" tasks next --workspace game-a --limit 
 assert_contains "$output" "parse limit:" "invalid tasks next output"
 assert_contains "$output" "try: adp tasks next --help" "invalid tasks next output"
 assert_read_only_lease_state "invalid tasks next" "$tasks_before_invalid_next" "$phases_before_invalid_next" "$progress_before_invalid_next" "$events_before_invalid_next" "$runtime_before_invalid_next" "$project_before_invalid_next" "$git_before_invalid_next"
+tasks_before_invalid_take=$(cat "$TASKS_FILE"); phases_before_invalid_take=$(cat "$PHASES_FILE")
+progress_before_invalid_take=$(cat "$PROGRESS_FILE"); events_before_invalid_take=$(event_log_count)
+runtime_before_invalid_take=$(runtime_dirs_state); project_before_invalid_take=$(project_root_state); git_before_invalid_take=$(git_state)
+reset_git_tripwire
+output=$(run_adp_expect_fail "$REPO_ROOT" tasks take --workspace game-a "$task_id" --owner audit-agent)
+assert_contains "$output" "tasks take does not accept task id \"$task_id\"" "invalid tasks take task id output"
+assert_contains "$output" "use adp tasks claim" "invalid tasks take task id output"
+assert_contains "$output" "try: adp tasks take --help" "invalid tasks take task id output"
+assert_read_only_lease_state "invalid tasks take task id" "$tasks_before_invalid_take" "$phases_before_invalid_take" "$progress_before_invalid_take" "$events_before_invalid_take" "$runtime_before_invalid_take" "$project_before_invalid_take" "$git_before_invalid_take"
 output=$(run_adp "$REPO_ROOT" tasks show --workspace game-a "$task_id" --format json)
 assert_json_valid "$output" "tasks show json output"
 assert_contains "$output" "Bind runtime session to task" "tasks show json output"

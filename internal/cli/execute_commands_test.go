@@ -154,6 +154,12 @@ func TestExecuteReportsSubcommandUsageHelpHints(t *testing.T) {
 			hint: "try: adp tasks take --help",
 		},
 		{
+			name: "tasks take task id",
+			args: []string{"tasks", "take", "task-1", "--owner", "agent-a"},
+			want: `tasks take does not accept task id "task-1"; use adp tasks claim`,
+			hint: "try: adp tasks take --help",
+		},
+		{
 			name: "tasks claim missing owner",
 			args: []string{"tasks", "claim", "task-1"},
 			want: "--owner is required; usage: adp tasks claim",

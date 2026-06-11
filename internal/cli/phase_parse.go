@@ -168,7 +168,7 @@ func parseTasksTakeArgs(args []string) (tasksTakeOptions, error) {
 			if strings.HasPrefix(arg, "-") {
 				return tasksTakeOptions{}, fmt.Errorf("unknown tasks take option %q", arg)
 			}
-			return tasksTakeOptions{}, errors.New("usage: adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--format <text|json>]")
+			return tasksTakeOptions{}, fmt.Errorf("tasks take does not accept task id %q; use adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>] to claim a selected task", arg)
 		}
 	}
 	if opts.owner == "" {
