@@ -22,7 +22,9 @@ The external agent CLI owns its own behavior after launch, including authenticat
 
 Task ownership and lease recovery remain ADP-owned. A provider-native task panel, plan mode, or successful external process exit can mirror or inform local work, but it must not be treated as task completion, phase acceptance, commit evidence, push evidence, Git execution, or authoritative recovery state.
 
-The runtime overlay is not the authoritative Git worktree and does not expose repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files, while `.git` metadata is excluded. Symlinked runtime project subpaths may still map to real files, so edits under those links can affect the real project even though Git metadata is absent from the overlay. Before launching a real agent, ADP neutralizes repository-directing Git environment variables such as `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, and `GIT_NAMESPACE`. Normal shell environment and auth-related variables remain available to the external CLI. Real agents and operators should run Git inspection or mutation from the real project root with `git -C "$ADP_PROJECT_ROOT" ...` or by `cd "$ADP_PROJECT_ROOT"` first. ADP may run read-only Git topology and status inspection for workspace diagnostics, but it does not wrap or auto-run Git mutations.
+The runtime overlay is not the authoritative Git worktree and does not expose repository Git metadata. Normal project Git files such as `.gitignore`, `.gitattributes`, and `.gitmodules` remain project files, while `.git` metadata is excluded. Symlinked runtime project subpaths may still map to real files, so edits under those links can affect the real project even though Git metadata is absent from the overlay. Before launching a real agent, ADP neutralizes repository-directing Git environment variables such as `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, and `GIT_NAMESPACE`. Normal shell environment and auth-related variables remain available to the external CLI.
+
+Generated real-agent context makes the repository boundary explicit. Instruction files, adapter metadata, runtime manifests, and runtime environment variables expose `ADP_PROJECT_ROOT` plus `ADP_GIT_ROOT`, `git_root`, or `gitRoot` when ADP can discover the worktree root. `ADP_PROJECT_ROOT` is the configured project root and operator workspace boundary; `ADP_GIT_ROOT` is the broader Git worktree root. In monorepos or registered subdirectories, use `git -C "$ADP_PROJECT_ROOT" ...` for project-scoped commands and reserve `git -C "$ADP_GIT_ROOT" ...` for intentional whole-worktree inspection. ADP may run read-only Git topology and status inspection for workspace diagnostics, but it does not stage, commit, push, pull, clean, checkout, or otherwise wrap or auto-run Git mutations.
 
 ## Shared Runtime Contract
 
@@ -65,9 +67,9 @@ The launched process receives:
   - `ADP_AGENT`.
   - `ADP_PROFILE`, when a profile is resolved.
 
-Runtime manifests also record `git_root` when available and `git_metadata_skipped: true`. ADP sets `GIT_CEILING_DIRECTORIES` for the runtime root so Git discovery does not treat the overlay as an authoritative repository. If `ADP_PROJECT_ROOT` is a subdirectory inside a larger worktree, `ADP_GIT_ROOT` points at that larger worktree while project-root commands should still use `git -C "$ADP_PROJECT_ROOT" ...` for the operator's configured workspace boundary.
+Generated `AGENTS.md`/`CLAUDE.md` and adapter metadata expose the same project-root and Git-root distinction visible in the environment. Runtime manifests also record `git_root` when available and `git_metadata_skipped: true`. ADP sets `GIT_CEILING_DIRECTORIES` for the runtime root so Git discovery does not treat the overlay as an authoritative repository. If `ADP_PROJECT_ROOT` is a subdirectory inside a larger worktree, `ADP_GIT_ROOT` points at that larger worktree while project-root commands should still use `git -C "$ADP_PROJECT_ROOT" ...` for the operator's configured workspace boundary. Use `git -C "$ADP_GIT_ROOT" ...` only for deliberate whole-worktree inspection.
 
-Workspace doctor diagnostics may inspect Git topology and status from the real project root. These diagnostics can report that no usable Git worktree is available, that the project root is nested below the Git root, that `.git` is a gitfile as in linked worktrees or submodules, that status inspection failed, or that the worktree has changed/untracked entries. They are inspection-only compatibility signals. ADP does not stage files, clean files, checkout branches, commit, push, or convert phase evidence into Git execution.
+Workspace doctor diagnostics may inspect Git topology and status from the real project root. These diagnostics can report that no usable Git worktree is available, that the project root is nested below the Git root, that `.git` is a gitfile as in linked worktrees or submodules, that status inspection failed, or that the worktree has changed/untracked entries. They are inspection-only compatibility signals. ADP does not stage files, clean files, checkout branches, pull, commit, push, or convert phase evidence into Git execution.
 
 The workspace agent command can override the default command through `workspace.yaml`:
 
@@ -98,9 +100,9 @@ Generated runtime files:
 - `AGENTS.md`.
 - `.codex/config.toml`.
 
-The generated `AGENTS.md` contains ADP runtime instructions assembled from the workspace config, including workspace metadata, base prompt, shared memory, rules, MCP summary, and selected profile content when available.
+The generated `AGENTS.md` contains ADP runtime instructions assembled from the workspace config, including workspace metadata, project-root and Git-root context, base prompt, shared memory, rules, MCP summary, and selected profile content when available.
 
-The generated `.codex/config.toml` contains ADP metadata for the runtime session. It is an ADP-generated file and should not be treated as a complete statement of the external Codex CLI's current configuration schema.
+The generated `.codex/config.toml` contains ADP metadata for the runtime session, including the Git root when discovered. It is an ADP-generated file and should not be treated as a complete statement of the external Codex CLI's current configuration schema.
 
 ADP forwards `--` arguments directly:
 
@@ -125,9 +127,9 @@ Generated runtime files:
 - `CLAUDE.md`.
 - `.claude/settings.json`.
 
-The generated `CLAUDE.md` contains ADP runtime instructions assembled from the workspace config, including workspace metadata, base prompt, shared memory, rules, MCP summary, and selected profile content when available.
+The generated `CLAUDE.md` contains ADP runtime instructions assembled from the workspace config, including workspace metadata, project-root and Git-root context, base prompt, shared memory, rules, MCP summary, and selected profile content when available.
 
-The generated `.claude/settings.json` contains ADP metadata for the runtime session. It is an ADP-generated file and should not be treated as a complete statement of the external Claude CLI's current settings schema.
+The generated `.claude/settings.json` contains ADP metadata for the runtime session, including the Git root when discovered. It is an ADP-generated file and should not be treated as a complete statement of the external Claude CLI's current settings schema.
 
 If the real project already has provider-local configuration such as `.claude/settings.local.json`, ADP preserves non-conflicting files in the runtime overlay. ADP-generated metadata still wins at the exact `.claude/settings.json` path so a project file cannot override the runtime session metadata.
 

@@ -61,6 +61,7 @@ type BuildRequest struct {
 	WorkspaceDir string
 	Files        []adapters.GeneratedFile
 	Env          map[string]string
+	GitRoot      string
 	Task         adapters.TaskContext
 	Backend      overlay.Backend
 	Keep         bool
@@ -101,7 +102,16 @@ func Build(ctx context.Context, req BuildRequest) (*Handle, error) {
 		return nil, err
 	}
 	runtimeRoot := filepath.Join(runtimeParent, req.Config.Workspace.Name+"-"+sessionID)
-	gitRoot := gitstate.DiscoverRoot(ctx, req.Config.Project.Root)
+	gitRoot := strings.TrimSpace(req.GitRoot)
+	if gitRoot == "" {
+		gitRoot = gitstate.DiscoverRoot(ctx, req.Config.Project.Root)
+	}
+	if gitRoot != "" {
+		if !filepath.IsAbs(gitRoot) {
+			return nil, fmt.Errorf("git root must be absolute")
+		}
+		gitRoot = filepath.Clean(gitRoot)
+	}
 	files, err := appendRuntimeManifest(req.Files, Manifest{
 		Version:            ManifestVersion,
 		SessionID:          sessionID,

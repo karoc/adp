@@ -45,6 +45,7 @@ func MetadataTOML(adapterName string, ctx api.Context) []byte {
 	fmt.Fprintf(&b, "adapter = %s\n", quote(ctxString(adapterName)))
 	fmt.Fprintf(&b, "workspace = %s\n", quote(ctx.Config.Workspace.Name))
 	fmt.Fprintf(&b, "project_root = %s\n", quote(ctx.Config.Project.Root))
+	fmt.Fprintf(&b, "git_root = %s\n", quote(ctx.GitRoot))
 	fmt.Fprintf(&b, "profile = %s\n", quote(EffectiveProfile(ctx)))
 	fmt.Fprintf(&b, "memory_enabled = %t\n", ctx.Config.Memory.Enabled)
 	fmt.Fprintf(&b, "mcp_enabled = %t\n", ctx.Config.MCP.Enabled)
@@ -72,6 +73,7 @@ func MetadataJSON(adapterName string, ctx api.Context) ([]byte, error) {
 		"adapter":       adapterName,
 		"workspace":     ctx.Config.Workspace.Name,
 		"projectRoot":   ctx.Config.Project.Root,
+		"gitRoot":       ctx.GitRoot,
 		"profile":       EffectiveProfile(ctx),
 		"memoryEnabled": ctx.Config.Memory.Enabled,
 		"mcpEnabled":    ctx.Config.MCP.Enabled,
@@ -110,6 +112,9 @@ func RenderEnv(adapterName string, ctx api.Context) map[string]string {
 	}
 	if ctx.Config.Project.Root != "" {
 		env["ADP_PROJECT_ROOT"] = ctx.Config.Project.Root
+	}
+	if ctx.GitRoot != "" {
+		env["ADP_GIT_ROOT"] = ctx.GitRoot
 	}
 	if profile := EffectiveProfile(ctx); profile != "" {
 		env["ADP_PROFILE"] = profile
@@ -269,14 +274,32 @@ func writeLeaseHandoff(b *strings.Builder, ctx api.Context) {
 
 func writeGitBoundary(b *strings.Builder, ctx api.Context) {
 	projectRoot := defaultText(ctx.Config.Project.Root, "$ADP_PROJECT_ROOT")
+	workspace := shellQuote(defaultText(ctx.Config.Workspace.Name, "$ADP_WORKSPACE"))
+	gitRoot := strings.TrimSpace(ctx.GitRoot)
 
 	b.WriteString("## Git Boundary\n\n")
 	b.WriteString("The ADP runtime root is not the authoritative Git working tree. Repository Git metadata is intentionally not exposed in the runtime overlay, so Git inspection or mutation must target the real project root explicitly.\n\n")
 	fmt.Fprintf(b, "ADP neutralizes repository-directing Git environment variables before launch: `%s`. Normal shell environment and auth-related variables remain available.\n\n", strings.Join(gitenv.RepositoryDirectiveNames(), "`, `"))
+	if gitRoot == "" {
+		b.WriteString("No Git worktree root was detected for this project root, so `ADP_GIT_ROOT` may be unset. Inspect local diagnostics before assuming repository state.\n")
+		fmt.Fprintf(b, "- Diagnose Git context: `$ADP_CLI workspace doctor %s --verbose`\n", workspace)
+		fmt.Fprintf(b, "- Diagnose Git context as JSON: `$ADP_CLI workspace doctor %s --format json`\n\n", workspace)
+	} else {
+		fmt.Fprintf(b, "Detected Git worktree root: %s\n", gitRoot)
+		if ctx.Config.Project.Root != "" && filepath.Clean(ctx.Config.Project.Root) != filepath.Clean(gitRoot) {
+			b.WriteString("`ADP_PROJECT_ROOT` and `ADP_GIT_ROOT` differ. This usually means the configured project root is a subdirectory inside a larger Git worktree; keep project-scoped inspection on `ADP_PROJECT_ROOT`, and use `ADP_GIT_ROOT` only when you intentionally need whole-worktree context.\n")
+			b.WriteString("Staging and committing still use the repository index for the whole worktree, so Git mutations must be deliberate and explicitly targeted.\n\n")
+		} else {
+			b.WriteString("`ADP_GIT_ROOT` matches `ADP_PROJECT_ROOT` for this runtime session.\n\n")
+		}
+	}
 	b.WriteString("Use project-root Git commands:\n")
 	b.WriteString("- Inspect status: `git -C \"$ADP_PROJECT_ROOT\" status --short --branch`\n")
 	b.WriteString("- Inspect unstaged changes: `git -C \"$ADP_PROJECT_ROOT\" diff`\n")
 	b.WriteString("- Inspect staged changes: `git -C \"$ADP_PROJECT_ROOT\" diff --cached`\n")
+	if gitRoot != "" {
+		b.WriteString("- Inspect whole-worktree status: `git -C \"$ADP_GIT_ROOT\" status --short --branch`\n")
+	}
 	b.WriteString("- For Git mutations, first `cd \"$ADP_PROJECT_ROOT\"` or use `git -C \"$ADP_PROJECT_ROOT\" ...` deliberately.\n\n")
 	fmt.Fprintf(b, "Real project root: %s\n\n", projectRoot)
 }

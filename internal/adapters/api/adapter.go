@@ -22,6 +22,7 @@ type Context struct {
 	Config       schema.Config
 	Agent        schema.AgentConfig
 	Profile      string
+	GitRoot      string
 	Task         TaskContext
 }
 

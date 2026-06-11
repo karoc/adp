@@ -11,6 +11,7 @@ import (
 	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/events"
 	"github.com/karoc/adp/internal/gitenv"
+	"github.com/karoc/adp/internal/gitstate"
 	"github.com/karoc/adp/internal/runner"
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/schema"
@@ -113,6 +114,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	gitRoot := gitstate.DiscoverRoot(ctx, cfg.Project.Root)
 
 	agentCfg := cfg.Agents[opts.agent]
 	profile := opts.profile
@@ -125,6 +127,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		Config:       *cfg,
 		Agent:        agentCfg,
 		Profile:      profile,
+		GitRoot:      gitRoot,
 		Task:         taskCtx,
 	}
 	if err := adapter.Validate(ctx, adapterCtx); err != nil {
@@ -145,6 +148,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		WorkspaceDir: workspaceDir,
 		Files:        rendered.Files,
 		Env:          rendered.Env,
+		GitRoot:      gitRoot,
 		Task:         taskCtx,
 		Keep:         opts.keep,
 	})

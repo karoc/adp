@@ -50,9 +50,11 @@ Runtime overlays expose project content for agent workflows, but they do not exp
 
 ADP also neutralizes repository-directing Git environment variables before launching agents. This includes `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, and `GIT_NAMESPACE`. These values can redirect Git to a different worktree, index, object store, common directory, or namespace, so they are removed at the runtime boundary. Normal shell environment and auth-related variables are preserved.
 
-Runtime handles and `.adp-runtime.yaml` record `ADP_GIT_ROOT`/`git_root` when ADP can discover the repository root from the configured project root, plus `git_metadata_skipped: true` to make the omission explicit. The runtime environment also adds the runtime root to `GIT_CEILING_DIRECTORIES` so Git discovery does not walk from `$ADP_RUNTIME_ROOT` into a parent repository and accidentally treat the overlay as authoritative. `ADP_GIT_ROOT` can differ from `ADP_PROJECT_ROOT` when the configured project root is a subdirectory of a larger worktree.
+Generated agent context exposes the Git distinction when available. Instruction files include the real project root and discovered Git worktree root; adapter metadata records the same Git root as `git_root` for Codex TOML and `gitRoot` for Claude JSON; and runtime handles plus `.adp-runtime.yaml` record `ADP_GIT_ROOT`/`git_root` with `git_metadata_skipped: true` to make the metadata omission explicit. The runtime environment also adds the runtime root to `GIT_CEILING_DIRECTORIES` so Git discovery does not walk from `$ADP_RUNTIME_ROOT` into a parent repository and accidentally treat the overlay as authoritative.
 
-`$ADP_RUNTIME_ROOT` is not the authoritative Git worktree. Agents and operators that need Git inspection or mutation should run Git from the real project root, either with `git -C "$ADP_PROJECT_ROOT" ...` or after `cd "$ADP_PROJECT_ROOT"`. `adp env <workspace> --cd` and shell-hook output may emit `unset` commands for dangerous Git variables before exporting ADP runtime environment. Workspace diagnostics may run read-only Git inspection against the real project root, including topology discovery, `.git` metadata shape, and status checks such as `git status --porcelain=v2 --branch`. Those diagnostics can report nested project roots, gitfile metadata for linked worktrees or submodules, unavailable status, or dirty status, but they do not perform commits, pushes, staging, checkout, cleanup, or any other Git mutation. ADP may record explicit phase commit and push evidence in its local planning ledger, but it does not wrap or auto-run Git.
+`ADP_PROJECT_ROOT` is the configured real project root and operator workspace boundary. `ADP_GIT_ROOT` is the discovered Git worktree root. In monorepos, subdirectory workspaces, or other nested registrations, `ADP_GIT_ROOT` can point above `ADP_PROJECT_ROOT`. Agents and operators should use explicit real-root commands such as `git -C "$ADP_PROJECT_ROOT" status --short` for task-scoped project work. Whole-worktree inspection should be deliberate and should use `git -C "$ADP_GIT_ROOT" ...` only when the work intentionally needs the broader repository view.
+
+`$ADP_RUNTIME_ROOT` is not the authoritative Git worktree. Agents and operators that need Git mutation own the exact Git command they run from the real project root; ADP does not automate `git add`, `git commit`, `git push`, `git pull`, staging, checkout, cleanup, or any other Git mutation. `adp env <workspace> --cd` and shell-hook output may emit `unset` commands for dangerous Git variables before exporting ADP runtime environment. Workspace diagnostics may run read-only Git inspection against the real project root, including topology discovery, `.git` metadata shape, and status checks such as `git status --porcelain=v2 --branch`. Those diagnostics can report nested project roots, gitfile metadata for linked worktrees or submodules, unavailable status, or dirty status. ADP may record explicit phase commit and push evidence in its local planning ledger, but it does not wrap or auto-run Git.
 
 ## Instruction Files
 
@@ -63,7 +65,7 @@ Generated instruction files are the primary human-readable context surface:
 
 Both files are generated from the same ADP renderer. The visible sections are:
 
-- Workspace metadata: workspace name, real project root, adapter name, and effective profile.
+- Workspace and Git metadata: workspace name, real project root, discovered Git worktree root when available, adapter name, and effective profile.
 - Current task: task ID, title, status, priority, phase, description, and blocked reason when a task is bound.
 - ADP Planning Contract: ADP remains the authoritative local planning ledger, and durable task state changes must use ADP task and phase commands.
 - Task lease maintenance: long-running owners renew leases through ADP, and expired in-progress claims are inspected through read-only stale-task commands.
@@ -86,9 +88,9 @@ Adapter config files are generated beside the instruction file to expose ADP run
 - Codex receives `.codex/config.toml`.
 - Claude receives `.claude/settings.json`.
 
-The Codex metadata contains an `[adp]` table with adapter name, workspace name, project root, effective profile, memory enabled state, MCP enabled state, and task fields when a task is bound.
+The Codex metadata contains an `[adp]` table with adapter name, workspace name, project root, `git_root`, effective profile, memory enabled state, MCP enabled state, and task fields when a task is bound.
 
-The Claude metadata contains an `adp` JSON object with adapter name, workspace name, project root, effective profile, memory enabled state, MCP enabled state, and a task object when a task is bound.
+The Claude metadata contains an `adp` JSON object with adapter name, workspace name, project root, `gitRoot`, effective profile, memory enabled state, MCP enabled state, and a task object when a task is bound.
 
 These files are ADP metadata, not a full or current declaration of either external provider CLI's native configuration schema. External CLI authentication, model selection, network behavior, tool permissions, and prompt interpretation remain owned by the external command and the local operator.
 
@@ -173,7 +175,7 @@ The launched agent process inherits the parent shell environment and receives AD
 - `ADP_HOME`: local ADP home.
 - `ADP_WORKSPACE`: selected workspace.
 - `ADP_PROJECT_ROOT`: real project root.
-- `ADP_GIT_ROOT`: discovered Git worktree root when one is available; it may differ from `ADP_PROJECT_ROOT` for nested workspace roots.
+- `ADP_GIT_ROOT`: discovered Git worktree root when one is available; it may differ from `ADP_PROJECT_ROOT` for monorepo or nested workspace roots.
 - `ADP_RUNTIME_ROOT`: temporary runtime root and process working directory.
 - `ADP_SESSION_ID`: ADP runtime session ID.
 - `ADP_AGENT`: adapter name.

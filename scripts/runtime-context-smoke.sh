@@ -158,7 +158,7 @@ test "\${ADP_AGENT:-}" = "$agent"
 test "\${ADP_WORKSPACE:-}" = "context-a"
 test "\${ADP_HOME:-}" = "\$ADP_EXPECT_ADP_HOME"
 test "\${ADP_PROJECT_ROOT:-}" = "\$ADP_EXPECT_PROJECT_ROOT"
-test "\${ADP_GIT_ROOT:-}" = "\$ADP_EXPECT_PROJECT_ROOT"
+test "\${ADP_GIT_ROOT:-}" = "\$ADP_EXPECT_GIT_ROOT"
 test "\${ADP_PROFILE:-}" = "$profile"
 test "\${ADP_TASK_ID:-}" = "\$ADP_EXPECT_TASK_ID"
 test "\${ADP_TASK_TITLE:-}" = "\$ADP_EXPECT_TASK_TITLE"
@@ -187,7 +187,7 @@ grep -F -q "workspace: context-a" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "task_id: \$ADP_EXPECT_TASK_ID" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "task_title: \$ADP_EXPECT_TASK_TITLE" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "project_root: \$ADP_EXPECT_PROJECT_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
-grep -F -q "git_root: \$ADP_EXPECT_PROJECT_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+grep -F -q "git_root: \$ADP_EXPECT_GIT_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "git_metadata_skipped: true" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "runtime_root: \$ADP_RUNTIME_ROOT" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
 grep -F -q "keep: false" "\$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
@@ -202,11 +202,11 @@ if git -C "\$ADP_RUNTIME_ROOT" status --short --branch >/dev/null 2>&1; then
   exit 96
 fi
 project_git_root=\$(git -C "\$ADP_PROJECT_ROOT" rev-parse --show-toplevel)
-test "\$project_git_root" = "\$ADP_EXPECT_PROJECT_ROOT"
+test "\$project_git_root" = "\$ADP_EXPECT_GIT_ROOT"
 git -C "\$ADP_PROJECT_ROOT" status --short --branch >/dev/null
 test -L "\$ADP_RUNTIME_ROOT/pkg"
 runtime_subpath_git_root=\$(git -C "\$ADP_RUNTIME_ROOT/pkg" rev-parse --show-toplevel)
-test "\$runtime_subpath_git_root" = "\$ADP_EXPECT_PROJECT_ROOT"
+test "\$runtime_subpath_git_root" = "\$ADP_EXPECT_GIT_ROOT"
 
 test -f "$instructions"
 grep -F -q "# ADP Runtime Instructions for" "$instructions"
@@ -244,9 +244,16 @@ require_runtime_text "$instructions" "not ADP phase acceptance" "plan mode phase
 require_runtime_text "$instructions" "Provider-native plan approval is not ADP phase acceptance" "plan mode phase acceptance guard"
 require_runtime_text "$instructions" "## Git Boundary" "git boundary heading"
 require_runtime_text "$instructions" "not the authoritative Git working tree" "git worktree boundary"
+require_runtime_text "$instructions" "Detected Git worktree root: \$ADP_EXPECT_GIT_ROOT" "detected git root guidance"
+require_runtime_text "$instructions" "differ. This usually means" "project/git root distinction"
+require_runtime_text "$instructions" "configured project root is a subdirectory inside a larger Git worktree" "nested project guidance"
+require_runtime_text "$instructions" "Staging and committing still use the repository index for the whole worktree" "whole-worktree index guidance"
 require_runtime_text "$instructions" 'git -C "\$ADP_PROJECT_ROOT" status --short --branch' "project-root git status guidance"
 require_runtime_text "$instructions" 'git -C "\$ADP_PROJECT_ROOT" diff' "project-root git diff guidance"
 require_runtime_text "$instructions" 'git -C "\$ADP_PROJECT_ROOT" diff --cached' "project-root git staged diff guidance"
+require_runtime_text "$instructions" 'git -C "\$ADP_GIT_ROOT" status --short --branch' "git-root status guidance"
+require_runtime_text "$instructions" 'git -C "\$ADP_PROJECT_ROOT" ...' "project-root mutation guidance"
+require_runtime_text "$instructions" "Real project root: \$ADP_EXPECT_PROJECT_ROOT" "real project root guidance"
 if [ -n "\${ADP_CLI:-}" ]; then
   require_runtime_text "$instructions" "ADP_CLI" "ADP CLI hint"
 fi
@@ -268,6 +275,7 @@ case "$config_kind" in
     grep -F -q 'adapter = "$agent"' "$config"
     grep -F -q 'workspace = "context-a"' "$config"
     grep -F -q "project_root = \"\$ADP_EXPECT_PROJECT_ROOT\"" "$config"
+    grep -F -q "git_root = \"\$ADP_EXPECT_GIT_ROOT\"" "$config"
     grep -F -q 'profile = "$profile"' "$config"
     grep -F -q 'memory_enabled = true' "$config"
     grep -F -q 'mcp_enabled = true' "$config"
@@ -281,6 +289,7 @@ case "$config_kind" in
     grep -F -q '"adapter": "$agent"' "$config"
     grep -F -q '"workspace": "context-a"' "$config"
     grep -F -q "\"projectRoot\": \"\$ADP_EXPECT_PROJECT_ROOT\"" "$config"
+    grep -F -q "\"gitRoot\": \"\$ADP_EXPECT_GIT_ROOT\"" "$config"
     grep -F -q '"profile": "$profile"' "$config"
     grep -F -q '"memoryEnabled": true' "$config"
     grep -F -q '"mcpEnabled": true' "$config"
@@ -322,7 +331,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-PROJECT_ROOT="$TMP_ROOT/project"
+PROJECT_GIT_ROOT="$TMP_ROOT/project"
+PROJECT_ROOT="$PROJECT_GIT_ROOT/app"
 ADP_HOME="$TMP_ROOT/adp-home"
 ADP_RUNTIME_DIR="$TMP_ROOT/runtime"
 FAKE_BIN="$TMP_ROOT/bin"
@@ -333,12 +343,12 @@ mkdir -p "$PROJECT_ROOT/pkg" "$ADP_HOME" "$ADP_RUNTIME_DIR" "$FAKE_BIN"
 printf 'module example.com/adp-runtime-context-smoke\n' > "$PROJECT_ROOT/go.mod"
 printf 'package main\n' > "$PROJECT_ROOT/main.go"
 printf 'package pkg\n' > "$PROJECT_ROOT/pkg/pkg.go"
-printf 'dist\n' > "$PROJECT_ROOT/.gitignore"
-git -C "$PROJECT_ROOT" init -q
-git -C "$PROJECT_ROOT" config user.name adp-smoke
-git -C "$PROJECT_ROOT" config user.email adp-smoke@example.invalid
-git -C "$PROJECT_ROOT" add go.mod main.go pkg .gitignore
-git -C "$PROJECT_ROOT" commit -q -m "init context smoke project"
+printf 'dist\n' > "$PROJECT_GIT_ROOT/.gitignore"
+git -C "$PROJECT_GIT_ROOT" init -q
+git -C "$PROJECT_GIT_ROOT" config user.name adp-smoke
+git -C "$PROJECT_GIT_ROOT" config user.email adp-smoke@example.invalid
+git -C "$PROJECT_GIT_ROOT" add .gitignore app
+git -C "$PROJECT_GIT_ROOT" commit -q -m "init context smoke project"
 write_fake_agent "$FAKE_BIN/codex" codex senior-engineer AGENTS.md .codex/config.toml toml --context-codex
 write_fake_agent "$FAKE_BIN/claude" claude architect CLAUDE.md .claude/settings.json json --context-claude
 
@@ -351,6 +361,7 @@ export PATH="$FAKE_BIN:$PATH"
 export ADP_EXPECT_ADP_HOME="$ADP_HOME"
 export ADP_EXPECT_ADP_CLI="$ADP_BIN"
 export ADP_EXPECT_PROJECT_ROOT="$PROJECT_ROOT"
+export ADP_EXPECT_GIT_ROOT="$PROJECT_GIT_ROOT"
 
 info "initializing workspace with marked prompt, memory, MCP, and profiles"
 output=$(run_adp "$REPO_ROOT" init)
@@ -455,18 +466,25 @@ assert_file "$WORKSPACE_DIR/planning/tasks.yaml"
 assert_file "$WORKSPACE_DIR/planning/phases.yaml"
 assert_file "$WORKSPACE_DIR/planning/progress.jsonl"
 assert_absent_project_artifacts "$PROJECT_ROOT"
+assert_absent_project_artifacts "$PROJECT_GIT_ROOT"
 
 info "running fake Codex and verifying generated context"
 output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$REPO_ROOT" run codex --workspace context-a --task "$TASK_ID" -- --context-codex)
 assert_contains "$output" "fake-codex" "codex output"
 assert_contains "$output" "--context-codex" "codex output"
 assert_absent_project_artifacts "$PROJECT_ROOT"
+assert_absent_project_artifacts "$PROJECT_GIT_ROOT"
 
 info "running fake Claude and verifying generated context"
 output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$PROJECT_ROOT" run claude --task "$TASK_ID" -- --context-claude)
 assert_contains "$output" "fake-claude" "claude output"
 assert_contains "$output" "--context-claude" "claude output"
 assert_absent_project_artifacts "$PROJECT_ROOT"
+assert_absent_project_artifacts "$PROJECT_GIT_ROOT"
+if [ -n "$(git -C "$PROJECT_GIT_ROOT" status --short)" ]; then
+  git -C "$PROJECT_GIT_ROOT" status --short >&2
+  fail "runtime launches changed Git worktree state"
+fi
 output=$(run_adp "$REPO_ROOT" tasks show --workspace context-a "$TASK_ID")
 assert_contains "$output" "status: ready" "task-bound run task state"
 assert_contains "$output" "owner: -" "task-bound run task state"
@@ -578,5 +596,10 @@ if [ "$(cat "$WORKSPACE_DIR/planning/phases.yaml")" != "$phases_before_take" ]; 
   fail "run --take changed phase evidence"
 fi
 assert_absent_project_artifacts "$PROJECT_ROOT"
+assert_absent_project_artifacts "$PROJECT_GIT_ROOT"
+if [ -n "$(git -C "$PROJECT_GIT_ROOT" status --short)" ]; then
+  git -C "$PROJECT_GIT_ROOT" status --short >&2
+  fail "run --take changed Git worktree state"
+fi
 
 info "runtime context smoke passed"

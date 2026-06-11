@@ -43,6 +43,7 @@ func TestLaunchBuildsProviderNeutralSpec(t *testing.T) {
 		"ADP_AGENT":                 "future-agent",
 		"ADP_WORKSPACE":             "demo",
 		"ADP_PROJECT_ROOT":          "/srv/demo",
+		"ADP_GIT_ROOT":              "/srv/demo",
 		"ADP_PROFILE":               "builder",
 		"ADP_RUNTIME_ROOT":          "/tmp/adp-runtime/session-1",
 		"ADP_SESSION_ID":            "session-1",
@@ -102,6 +103,9 @@ func TestInstructionsIncludePlanningContractAndTaskboxBridge(t *testing.T) {
 		"GIT_INDEX_FILE",
 		"git -C \"$ADP_PROJECT_ROOT\" status --short --branch",
 		"git -C \"$ADP_PROJECT_ROOT\" diff --cached",
+		"Detected Git worktree root: /srv/demo",
+		"`ADP_GIT_ROOT` matches `ADP_PROJECT_ROOT`",
+		"git -C \"$ADP_GIT_ROOT\" status --short --branch",
 		"Real project root: /srv/demo",
 		"## Tool Taskbox Bridge",
 		"mirror the active ADP task into this tool's native task or todo panel",
@@ -143,6 +147,7 @@ func TestMetadataIncludesTaskLeaseFields(t *testing.T) {
 		`task_owner = "codex-main"`,
 		`task_claimed_at = "2026-06-09T08:00:00Z"`,
 		`task_lease_expires_at = "2026-06-09T12:00:00Z"`,
+		`git_root = "/srv/demo"`,
 	} {
 		if !strings.Contains(toml, want) {
 			t.Fatalf("MetadataTOML missing %q:\n%s", want, toml)
@@ -155,11 +160,16 @@ func TestMetadataIncludesTaskLeaseFields(t *testing.T) {
 	}
 	var metadata struct {
 		ADP struct {
-			Task map[string]string `json:"task"`
+			ProjectRoot string            `json:"projectRoot"`
+			GitRoot     string            `json:"gitRoot"`
+			Task        map[string]string `json:"task"`
 		} `json:"adp"`
 	}
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		t.Fatalf("MetadataJSON output is invalid JSON: %v\n%s", err, data)
+	}
+	if metadata.ADP.ProjectRoot != "/srv/demo" || metadata.ADP.GitRoot != "/srv/demo" {
+		t.Fatalf("metadata roots mismatch: %+v; metadata=%s", metadata.ADP, data)
 	}
 	for key, want := range map[string]string{
 		"owner":          "codex-main",
@@ -169,6 +179,47 @@ func TestMetadataIncludesTaskLeaseFields(t *testing.T) {
 		if metadata.ADP.Task[key] != want {
 			t.Fatalf("metadata task[%s] = %q, want %q; metadata=%s", key, metadata.ADP.Task[key], want, data)
 		}
+	}
+}
+
+func TestInstructionsDescribeNestedGitRoot(t *testing.T) {
+	ctx := sharedTestContext()
+	ctx.Config.Project.Root = "/srv/repo/packages/app"
+	ctx.GitRoot = "/srv/repo"
+
+	instructions := string(Instructions("future-agent", ctx))
+	for _, want := range []string{
+		"Detected Git worktree root: /srv/repo",
+		"`ADP_PROJECT_ROOT` and `ADP_GIT_ROOT` differ",
+		"configured project root is a subdirectory inside a larger Git worktree",
+		"git -C \"$ADP_PROJECT_ROOT\" status --short --branch",
+		"git -C \"$ADP_GIT_ROOT\" status --short --branch",
+		"repository index for the whole worktree",
+		"Real project root: /srv/repo/packages/app",
+	} {
+		if !strings.Contains(instructions, want) {
+			t.Fatalf("Instructions missing %q:\n%s", want, instructions)
+		}
+	}
+}
+
+func TestInstructionsDescribeMissingGitRoot(t *testing.T) {
+	ctx := sharedTestContext()
+	ctx.GitRoot = ""
+
+	instructions := string(Instructions("future-agent", ctx))
+	for _, want := range []string{
+		"No Git worktree root was detected",
+		"`ADP_GIT_ROOT` may be unset",
+		"$ADP_CLI workspace doctor \"demo\" --verbose",
+		"$ADP_CLI workspace doctor \"demo\" --format json",
+	} {
+		if !strings.Contains(instructions, want) {
+			t.Fatalf("Instructions missing %q:\n%s", want, instructions)
+		}
+	}
+	if strings.Contains(instructions, "git -C \"$ADP_GIT_ROOT\"") {
+		t.Fatalf("missing-Git-root instructions should not suggest ADP_GIT_ROOT commands:\n%s", instructions)
 	}
 }
 
@@ -206,6 +257,7 @@ func sharedTestContext() api.Context {
 			Workspace: schema.Workspace{Name: "demo"},
 			Project:   schema.Project{Root: "/srv/demo"},
 		},
+		GitRoot: "/srv/demo",
 		Agent: schema.AgentConfig{
 			Enabled: true,
 			Profile: "builder",

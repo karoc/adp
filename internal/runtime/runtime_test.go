@@ -198,6 +198,41 @@ func TestBuildWritesRuntimeManifestWithoutPollutingProject(t *testing.T) {
 	}
 }
 
+func TestBuildUsesProvidedGitRoot(t *testing.T) {
+	projectRoot := t.TempDir()
+	gitRoot := filepath.Join(t.TempDir(), "repo")
+	if err := os.MkdirAll(gitRoot, 0755); err != nil {
+		t.Fatal(err)
+	}
+	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
+
+	handle, err := Build(context.Background(), BuildRequest{
+		Layout:    layout,
+		Config:    testConfig(projectRoot),
+		GitRoot:   gitRoot,
+		Keep:      true,
+		SessionID: "provided-git-root",
+	})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if handle.GitRoot != gitRoot || handle.Env["ADP_GIT_ROOT"] != gitRoot {
+		t.Fatalf("provided git root was not preserved: handle=%s env=%s", handle.GitRoot, handle.Env["ADP_GIT_ROOT"])
+	}
+
+	var manifest Manifest
+	data, err := os.ReadFile(filepath.Join(handle.Root, ManifestPath))
+	if err != nil {
+		t.Fatalf("read runtime manifest: %v", err)
+	}
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		t.Fatalf("parse runtime manifest: %v", err)
+	}
+	if manifest.GitRoot != gitRoot {
+		t.Fatalf("manifest git root = %q, want %q", manifest.GitRoot, gitRoot)
+	}
+}
+
 func TestBuildGeneratesSessionIDAndCleanupHonorsKeep(t *testing.T) {
 	projectRoot := t.TempDir()
 	layout := paths.New(filepath.Join(t.TempDir(), "adp-home"), filepath.Join(t.TempDir(), "runtime-parent"))
@@ -282,6 +317,16 @@ func TestBuildRejectsInvalidProjectRootAndSessionID(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected unsafe session id to fail")
+	}
+
+	_, err = Build(context.Background(), BuildRequest{
+		Layout:    layout,
+		Config:    testConfig(t.TempDir()),
+		GitRoot:   "relative-git-root",
+		SessionID: "session-1",
+	})
+	if err == nil {
+		t.Fatalf("expected relative git root to fail")
 	}
 }
 

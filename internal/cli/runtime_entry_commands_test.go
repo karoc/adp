@@ -3,6 +3,9 @@ package cli
 import (
 	"bytes"
 	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -88,6 +91,63 @@ func TestRunCommandWiresAdapterRuntimeAndRunner(t *testing.T) {
 	}
 	if cleaned.Root != "/tmp/runtime" {
 		t.Fatalf("runtime was not cleaned: %+v", cleaned)
+	}
+}
+
+func TestRunCommandPropagatesDetectedGitRoot(t *testing.T) {
+	repoRoot := filepath.Join(t.TempDir(), "repo")
+	projectRoot := filepath.Join(repoRoot, "services", "api")
+	if err := os.MkdirAll(projectRoot, 0755); err != nil {
+		t.Fatal(err)
+	}
+	initRunCommandGitRepo(t, repoRoot)
+
+	cfg := testConfig()
+	cfg.Project.Root = projectRoot
+	cfg.Agents = map[string]schema.AgentConfig{
+		"future-agent": {Enabled: true, Profile: "builder", Command: "future-cli"},
+	}
+	store := &fakeStore{cfg: cfg}
+	registry := adapters.NewRegistry()
+	adapter := &extensionAdapter{name: "future-agent"}
+	if err := registry.Register(adapter); err != nil {
+		t.Fatal(err)
+	}
+	var buildReq runtime.BuildRequest
+
+	deps := Dependencies{
+		Layout:         paths.New("/tmp/adp-home", "/tmp/adp-runtime"),
+		WorkspaceStore: store,
+		Adapters:       registry,
+		BuildRuntime: func(_ context.Context, req runtime.BuildRequest) (*runtime.Handle, error) {
+			buildReq = req
+			return &runtime.Handle{
+				SessionID:   "session-git-root",
+				ProjectRoot: projectRoot,
+				GitRoot:     req.GitRoot,
+				Root:        "/tmp/runtime",
+				Env:         map[string]string{"ADP_GIT_ROOT": req.GitRoot},
+			}, nil
+		},
+		CleanupRuntime: func(context.Context, runtime.Handle) error { return nil },
+		RunProcess: func(context.Context, adapters.LaunchSpec, runner.Streams) (*runner.Result, error) {
+			return &runner.Result{ExitCode: 0}, nil
+		},
+	}
+
+	code := NewApp(deps, &bytes.Buffer{}, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"run", "future-agent", "--workspace", "game-a"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if adapter.renderCtx.GitRoot != repoRoot {
+		t.Fatalf("adapter GitRoot = %q, want %q", adapter.renderCtx.GitRoot, repoRoot)
+	}
+	if buildReq.GitRoot != repoRoot {
+		t.Fatalf("runtime build GitRoot = %q, want %q", buildReq.GitRoot, repoRoot)
 	}
 }
 
@@ -317,6 +377,17 @@ func TestEnterCommandWiresRuntimeAndShell(t *testing.T) {
 	}
 	if cleaned.Root != "/tmp/runtime" {
 		t.Fatalf("runtime was not cleaned: %+v", cleaned)
+	}
+}
+
+func initRunCommandGitRepo(t *testing.T, repoRoot string) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable not available")
+	}
+	cmd := exec.Command("git", "-C", repoRoot, "init", "-q")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, output)
 	}
 }
 
