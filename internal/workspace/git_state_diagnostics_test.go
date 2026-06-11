@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/karoc/adp/internal/gitstate"
 )
 
 func TestRegistryDiagnoseHealthyGitWorkspace(t *testing.T) {
@@ -32,6 +34,17 @@ func TestRegistryDiagnoseHealthyGitWorkspace(t *testing.T) {
 		t.Fatalf("ConfigPath = %q, want %q", report.ConfigPath, layout.WorkspaceConfig("game-a"))
 	}
 	assertOnlyGitRootDetected(t, report, projectRoot)
+	assertGitContext(t, report, func(git *GitDiagnosticContext) {
+		if git.ProjectRoot != projectRoot || git.GitRoot != projectRoot {
+			t.Fatalf("git roots = (%q, %q), want %q", git.ProjectRoot, git.GitRoot, projectRoot)
+		}
+		if !git.GitAvailable || !git.InsideWorkTree || git.ProjectBelowRoot {
+			t.Fatalf("git topology mismatch: %+v", git)
+		}
+		if git.MetadataKind != string(gitstate.MetadataDirectory) || git.ChangeState != string(gitstate.ChangeClean) {
+			t.Fatalf("git metadata/status mismatch: %+v", git)
+		}
+	})
 	if report.HasErrors() {
 		t.Fatal("HasErrors() = true, want false")
 	}
@@ -53,6 +66,17 @@ func TestRegistryDiagnoseReportsNonGitProject(t *testing.T) {
 
 	assertDiagnostic(t, report, DiagnosticCodeGitRootAbsent, DiagnosticLevelWarning, projectRoot)
 	assertDiagnosticMessageContains(t, report, DiagnosticCodeGitRootAbsent, "ADP can still run")
+	assertGitContext(t, report, func(git *GitDiagnosticContext) {
+		if git.ProjectRoot != projectRoot || git.GitRoot != "" || git.GitDir != "" {
+			t.Fatalf("non-git context roots mismatch: %+v", git)
+		}
+		if !git.GitAvailable || git.InsideWorkTree || git.ChangeState != string(gitstate.ChangeError) {
+			t.Fatalf("non-git context mismatch: %+v", git)
+		}
+		if git.InspectionError == "" {
+			t.Fatalf("non-git context missing inspection error: %+v", git)
+		}
+	})
 	if report.HasErrors() {
 		t.Fatalf("HasErrors() = true, want false: %+v", report.Diagnostics)
 	}
@@ -83,6 +107,14 @@ func TestRegistryDiagnoseReportsNestedGitProjectRoot(t *testing.T) {
 	assertDiagnostic(t, report, DiagnosticCodeGitRootDetected, DiagnosticLevelInfo, repoRoot)
 	assertDiagnostic(t, report, DiagnosticCodeGitRootNested, DiagnosticLevelInfo, projectRoot)
 	assertDiagnosticMessageContains(t, report, DiagnosticCodeGitRootNested, "ADP_GIT_ROOT")
+	assertGitContext(t, report, func(git *GitDiagnosticContext) {
+		if git.ProjectRoot != projectRoot || git.GitRoot != repoRoot {
+			t.Fatalf("nested git roots = (%q, %q), want (%q, %q)", git.ProjectRoot, git.GitRoot, projectRoot, repoRoot)
+		}
+		if !git.ProjectBelowRoot || git.RelativeProjectDir != filepath.Join("packages", "app") {
+			t.Fatalf("nested git context mismatch: %+v", git)
+		}
+	})
 }
 
 func TestRegistryDiagnoseReportsDirtyGitStatus(t *testing.T) {
@@ -104,6 +136,11 @@ func TestRegistryDiagnoseReportsDirtyGitStatus(t *testing.T) {
 	assertDiagnostic(t, report, DiagnosticCodeGitRootDetected, DiagnosticLevelInfo, projectRoot)
 	assertDiagnostic(t, report, DiagnosticCodeGitStatusDirty, DiagnosticLevelWarning, projectRoot)
 	assertDiagnosticMessageContains(t, report, DiagnosticCodeGitStatusDirty, "untracked")
+	assertGitContext(t, report, func(git *GitDiagnosticContext) {
+		if git.ChangeState != string(gitstate.ChangeDirty) || git.ChangedEntries != 1 || git.UntrackedEntries != 1 {
+			t.Fatalf("dirty git context mismatch: %+v", git)
+		}
+	})
 }
 
 func TestRegistryDiagnoseReportsGitfileMetadata(t *testing.T) {
@@ -126,6 +163,19 @@ func TestRegistryDiagnoseReportsGitfileMetadata(t *testing.T) {
 	assertDiagnostic(t, report, DiagnosticCodeGitRootDetected, DiagnosticLevelInfo, worktreeRoot)
 	assertDiagnostic(t, report, DiagnosticCodeGitMetadataFile, DiagnosticLevelInfo, filepath.Join(worktreeRoot, ".git"))
 	assertDiagnosticMessageContains(t, report, DiagnosticCodeGitMetadataFile, "worktree or submodule")
+	assertGitContext(t, report, func(git *GitDiagnosticContext) {
+		if git.MetadataKind != string(gitstate.MetadataFile) || git.MetadataPath != filepath.Join(worktreeRoot, ".git") {
+			t.Fatalf("gitfile context mismatch: %+v", git)
+		}
+	})
+}
+
+func assertGitContext(t *testing.T, report DiagnosticReport, check func(*GitDiagnosticContext)) {
+	t.Helper()
+	if report.Git == nil {
+		t.Fatalf("report Git context is nil: %+v", report)
+	}
+	check(report.Git)
 }
 
 func assertOnlyGitRootDetected(t *testing.T, report DiagnosticReport, projectRoot string) {

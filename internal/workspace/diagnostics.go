@@ -83,7 +83,29 @@ type DiagnosticReport struct {
 	Workspace    string
 	WorkspaceDir string
 	ConfigPath   string
+	Git          *GitDiagnosticContext
 	Diagnostics  []Diagnostic
+}
+
+type GitDiagnosticContext struct {
+	ProjectRoot        string
+	GitRoot            string
+	GitDir             string
+	MetadataPath       string
+	MetadataKind       string
+	InsideWorkTree     bool
+	ProjectBelowRoot   bool
+	RelativeProjectDir string
+	Branch             string
+	Upstream           string
+	Ahead              int
+	Behind             int
+	ChangeState        string
+	ChangedEntries     int
+	UntrackedEntries   int
+	InspectionError    string
+	StatusError        string
+	GitAvailable       bool
 }
 
 func (r DiagnosticReport) HasErrors() bool {
@@ -286,6 +308,7 @@ func checkProjectGit(ctx context.Context, report *DiagnosticReport, root string)
 		return
 	}
 	state := gitstate.Inspect(ctx, root)
+	report.Git = gitDiagnosticContext(state)
 	if !state.GitAvailable || state.InspectionError != "" {
 		message := "project root is not inside a usable Git worktree; ADP can still run, but phase evidence and agent handoff are easier to audit when the real project root has Git status available"
 		if state.InspectionError != "" {
@@ -319,6 +342,29 @@ func checkProjectGit(ctx context.Context, report *DiagnosticReport, root string)
 		}
 		message += "; inspect from the real project root, not the ADP runtime root"
 		report.add(DiagnosticLevelWarning, DiagnosticCodeGitStatusDirty, message, root)
+	}
+}
+
+func gitDiagnosticContext(state gitstate.State) *GitDiagnosticContext {
+	return &GitDiagnosticContext{
+		ProjectRoot:        state.ProjectRoot,
+		GitRoot:            state.GitRoot,
+		GitDir:             state.GitDir,
+		MetadataPath:       state.MetadataPath,
+		MetadataKind:       string(state.MetadataKind),
+		InsideWorkTree:     state.InsideWorkTree,
+		ProjectBelowRoot:   state.ProjectBelowRoot,
+		RelativeProjectDir: state.RelativeProjectDir,
+		Branch:             state.Branch,
+		Upstream:           state.Upstream,
+		Ahead:              state.Ahead,
+		Behind:             state.Behind,
+		ChangeState:        string(state.ChangeState),
+		ChangedEntries:     state.ChangedEntries,
+		UntrackedEntries:   state.UntrackedEntries,
+		InspectionError:    state.InspectionError,
+		StatusError:        state.StatusError,
+		GitAvailable:       state.GitAvailable,
 	}
 }
 

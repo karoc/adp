@@ -196,6 +196,23 @@ func TestWorkspaceDoctorCommandJSONIncludesInfoDiagnostics(t *testing.T) {
 			Workspace:    "game-a",
 			WorkspaceDir: "/tmp/adp-home/workspaces/game-a",
 			ConfigPath:   "/tmp/adp-home/workspaces/game-a/workspace.yaml",
+			Git: &workspace.GitDiagnosticContext{
+				ProjectRoot:        "/srv/repo/packages/game-a",
+				GitRoot:            "/srv/repo",
+				GitDir:             "/srv/repo/.git",
+				MetadataPath:       "/srv/repo/.git",
+				MetadataKind:       "directory",
+				InsideWorkTree:     true,
+				ProjectBelowRoot:   true,
+				RelativeProjectDir: "packages/game-a",
+				Branch:             "main",
+				Upstream:           "origin/main",
+				Ahead:              1,
+				ChangeState:        "dirty",
+				ChangedEntries:     2,
+				UntrackedEntries:   1,
+				GitAvailable:       true,
+			},
 			Diagnostics: []workspace.Diagnostic{{
 				Level:   workspace.DiagnosticLevelInfo,
 				Code:    workspace.DiagnosticCodeGitRootDetected,
@@ -220,6 +237,19 @@ func TestWorkspaceDoctorCommandJSONIncludesInfoDiagnostics(t *testing.T) {
 	}
 	if len(got.Reports) != 1 || got.Reports[0].DiagnosticCount != 1 || len(got.Reports[0].Diagnostics) != 1 {
 		t.Fatalf("doctor JSON diagnostics = %+v, want one diagnostic", got.Reports)
+	}
+	if got.Reports[0].Git == nil {
+		t.Fatalf("doctor JSON missing Git context: %+v", got.Reports[0])
+	}
+	git := got.Reports[0].Git
+	if git.ProjectRoot != "/srv/repo/packages/game-a" || git.GitRoot != "/srv/repo" || !git.ProjectBelowRoot {
+		t.Fatalf("doctor JSON Git roots mismatch: %+v", git)
+	}
+	if git.Branch != "main" || git.Upstream != "origin/main" || git.Ahead != 1 || git.Behind != 0 {
+		t.Fatalf("doctor JSON Git branch mismatch: %+v", git)
+	}
+	if git.ChangeState != "dirty" || git.ChangedEntries != 2 || git.UntrackedEntries != 1 {
+		t.Fatalf("doctor JSON Git status mismatch: %+v", git)
 	}
 	diagnostic := got.Reports[0].Diagnostics[0]
 	if diagnostic.Level != string(workspace.DiagnosticLevelInfo) || diagnostic.Code != workspace.DiagnosticCodeGitRootDetected || diagnostic.Path != "/srv/game-a" {

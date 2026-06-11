@@ -440,6 +440,13 @@ info "checking workspace diagnostics before runtime launch"
 output=$(run_adp "$REPO_ROOT" workspace doctor context-a)
 assert_contains "$output" "context-a" "workspace doctor output"
 assert_contains "$output" "ok" "workspace doctor output"
+output=$(run_adp "$REPO_ROOT" workspace doctor context-a --format json)
+assert_contains "$output" "\"git\": {" "workspace doctor git json output"
+assert_contains "$output" "\"project_root\": \"$PROJECT_ROOT\"" "workspace doctor git json output"
+assert_contains "$output" "\"git_root\": \"$PROJECT_GIT_ROOT\"" "workspace doctor git json output"
+assert_contains "$output" "\"project_below_root\": true" "workspace doctor git json output"
+assert_contains "$output" "\"relative_project_dir\": \"app\"" "workspace doctor git json output"
+assert_contains "$output" "\"change_state\": \"clean\"" "workspace doctor git json output"
 output=$(run_adp "$REPO_ROOT" workspace show context-a)
 assert_contains "$output" "memory_enabled: true" "workspace show output"
 assert_contains "$output" "mcp_enabled: true" "workspace show output"

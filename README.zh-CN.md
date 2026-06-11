@@ -188,7 +188,7 @@ adp sessions resume-plan <session-id> --agent claude --owner reviewer --lease 1h
 
 `adp workspace doctor [name] [--verbose] [--format <text|json>]` 会检查 workspace 配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、agent command 设置、project root 中的保留路径，以及只读 Git topology/status。它会把 adapter default command fallback、写在 command 字段里的 inline arguments、缺失或不可执行的路径型 command wrapper、缺失、重复或逃逸到 workspace 外部的非 default profile，以及 Git boundary caveats 报告为本地 diagnostics。不传 name 时检查所有已注册 workspace；发现 error 级 diagnostics 时返回非零退出码。
 
-默认 text 输出面向 operator 阅读：它会隐藏 info-only diagnostics；如果过滤后没有 warning 或 error diagnostics，则输出 `ok - no issues`。当终端输出需要包含 Git topology details 等 info diagnostics 时，使用 `--verbose`。当本地工具或子 Agent 需要完整的机器可读 diagnostic report 时，使用 `--format json`；JSON 会包含 info、warning 和 error diagnostics。
+默认 text 输出面向 operator 阅读：它会隐藏 info-only diagnostics；如果过滤后没有 warning 或 error diagnostics，则输出 `ok - no issues`。当终端输出需要包含 Git topology details 等 info diagnostics 时，使用 `--verbose`。当本地工具或子 Agent 需要完整的机器可读 diagnostic report 时，使用 `--format json`；JSON 会包含 info、warning 和 error diagnostics。当 project Git inspection 实际运行时，JSON report 还会包含只读 `git` object，提供 project root、Git root、Git directory、metadata kind、nested-workspace flag、relative project path、branch/upstream delta、change state，以及 changed/untracked counts，这样本地工具不需要解析面向人的 diagnostic message。
 
 Git diagnostics 保持只读。Doctor 命令可以检查 topology 和 status，但不会 stage、checkout、commit、push、fetch、clean files、运行 release evidence commands，或推断 phase acceptance、commit evidence、push evidence。
 
