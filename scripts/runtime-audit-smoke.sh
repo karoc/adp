@@ -397,12 +397,32 @@ if [ -z "$codex_session" ]; then
   cat "$EVENTS_FILE" >&2
   fail "codex session id missing in event log"
 fi
+tasks_before_inspection=$(cat "$TASKS_FILE"); phases_before_inspection=$(cat "$PHASES_FILE")
+progress_before_inspection=$(cat "$PROGRESS_FILE"); events_before_inspection=$(event_log_count)
+runtime_before_inspection=$(runtime_dirs_state); project_before_inspection=$(project_root_state); git_before_inspection=$(git_state)
+reset_git_tripwire
+output=$(run_adp "$REPO_ROOT" events list --workspace game-a --task "$task_id" --type run_finished --limit 5 --format json)
+assert_json_valid "$output" "events list json output"
+assert_contains "$output" '"filters": {' "events list json output"
+assert_contains "$output" '"type": "run_finished"' "events list json output"
+assert_contains "$output" "\"task_id\": \"$task_id\"" "events list json output"
+assert_contains "$output" '"events": [' "events list json output"
 output=$(run_adp "$REPO_ROOT" sessions list --workspace game-a --agent codex --task "$task_id")
 assert_contains "$output" "$codex_session" "sessions list output"
+output=$(run_adp "$REPO_ROOT" sessions list --workspace game-a --agent codex --task "$task_id" --format json)
+assert_json_valid "$output" "sessions list json output"
+assert_contains "$output" '"sessions": [' "sessions list json output"
+assert_contains "$output" "\"session_id\": \"$codex_session\"" "sessions list json output"
+assert_contains "$output" "\"task_id\": \"$task_id\"" "sessions list json output"
 output=$(run_adp "$REPO_ROOT" completion values sessions --workspace game-a)
 assert_contains "$output" "$codex_session" "completion session values output"
 output=$(run_adp "$REPO_ROOT" sessions show "$codex_session")
 assert_contains "$output" "session_id: $codex_session" "sessions show output"
+output=$(run_adp "$REPO_ROOT" sessions show "$codex_session" --format json)
+assert_json_valid "$output" "sessions show json output"
+assert_contains "$output" '"summary": {' "sessions show json output"
+assert_contains "$output" "\"session_id\": \"$codex_session\"" "sessions show json output"
+assert_contains "$output" '"events": [' "sessions show json output"
 before_restore_lines=$(line_count "$EVENTS_FILE")
 output=$(run_adp "$REPO_ROOT" sessions restore-plan "$codex_session")
 assert_contains "$output" "status: ready" "sessions restore-plan output"
@@ -411,6 +431,12 @@ after_restore_lines=$(line_count "$EVENTS_FILE")
 if [ "$after_restore_lines" != "$before_restore_lines" ]; then
   fail "sessions restore-plan appended events"
 fi
+output=$(run_adp "$REPO_ROOT" sessions restore-plan "$codex_session" --format json)
+assert_json_valid "$output" "sessions restore-plan json output"
+assert_contains "$output" "\"session_id\": \"$codex_session\"" "sessions restore-plan json output"
+assert_contains "$output" '"status": "ready"' "sessions restore-plan json output"
+assert_contains "$output" '"suggested_command": [' "sessions restore-plan json output"
+assert_read_only_lease_state "events and sessions inspection json" "$tasks_before_inspection" "$phases_before_inspection" "$progress_before_inspection" "$events_before_inspection" "$runtime_before_inspection" "$project_before_inspection" "$git_before_inspection"
 tasks_before_resume=$(cat "$TASKS_FILE"); phases_before_resume=$(cat "$PHASES_FILE")
 progress_before_resume=$(cat "$PROGRESS_FILE"); events_before_resume=$(event_log_count)
 runtime_before_resume=$(runtime_dirs_state); project_before_resume=$(project_root_state); git_before_resume=$(git_state)
@@ -447,8 +473,18 @@ assert_contains "$output" '"agent_args"' "sessions resume-plan json output"
 assert_contains "$output" '"read_only": true' "sessions resume-plan json output"
 assert_contains "$output" '"task_mutation": false' "sessions resume-plan json output"
 assert_read_only_lease_state "sessions resume-plan" "$tasks_before_resume" "$phases_before_resume" "$progress_before_resume" "$events_before_resume" "$runtime_before_resume" "$project_before_resume" "$git_before_resume"
+tasks_before_prune=$(cat "$TASKS_FILE"); phases_before_prune=$(cat "$PHASES_FILE")
+progress_before_prune=$(cat "$PROGRESS_FILE"); events_before_prune=$(event_log_count)
+runtime_before_prune=$(runtime_dirs_state); project_before_prune=$(project_root_state); git_before_prune=$(git_state)
+reset_git_tripwire
 output=$(run_adp "$REPO_ROOT" runtime prune --older-than 0s --include-kept --dry-run)
 assert_contains "$output" "would-remove" "runtime prune dry-run output"
+output=$(run_adp "$REPO_ROOT" runtime prune --older-than 0s --include-kept --dry-run --format json)
+assert_json_valid "$output" "runtime prune json output"
+assert_contains "$output" '"dry_run": true' "runtime prune json output"
+assert_contains "$output" '"action": "would-remove"' "runtime prune json output"
+assert_contains "$output" '"results": [' "runtime prune json output"
+assert_read_only_lease_state "runtime prune dry-run json" "$tasks_before_prune" "$phases_before_prune" "$progress_before_prune" "$events_before_prune" "$runtime_before_prune" "$project_before_prune" "$git_before_prune"
 
 info "auditing phase acceptance evidence commands"
 reset_git_tripwire

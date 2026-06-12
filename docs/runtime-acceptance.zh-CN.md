@@ -70,11 +70,16 @@ adp run codex --workspace game-a --task missing-task -- --probe codex-payload
 adp enter game-a
 adp enter game-a --keep-runtime
 adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
+adp events list --workspace game-a --task <task-id> --type run_finished --limit 2 --format json
 adp sessions list --workspace game-a --agent codex --task <task-id>
+adp sessions list --workspace game-a --agent codex --task <task-id> --format json
 adp completion values sessions --workspace game-a
 adp sessions show <session-id>
+adp sessions show <session-id> --format json
 adp sessions restore-plan <session-id>
+adp sessions restore-plan <session-id> --format json
 adp runtime prune --older-than 0s --include-kept --dry-run
+adp runtime prune --older-than 0s --include-kept --dry-run --format json
 adp runtime prune --older-than 0s --include-kept
 ```
 
@@ -114,6 +119,7 @@ fake Codex 和 Claude 命令会断言：
 脚本还会验收 session restore planning：
 
 - `adp events list --session <session-id> --task <task-id>` 可以查到 Codex session 的 task-bound `run_started` 和 `run_finished` events。
+- `adp events list --format json`、`adp sessions list --format json`、`adp sessions show <session-id> --format json` 和 `adp sessions restore-plan <session-id> --format json` 会输出可解析的只读 JSON inspection output。
 - `adp sessions restore-plan <session-id>` 会打印只读的建议命令，并保留原始 agent arguments。
 - 运行 `restore-plan` 不会追加 event log、创建 runtime 状态、修改 task 状态或写入项目根目录。
 

@@ -245,10 +245,10 @@ adp run claude --workspace game-a --take --owner claude-main --lease 4h -- <agen
 查看本地历史：
 
 ```bash
-adp events list --workspace game-a
-adp sessions list --workspace game-a
-adp sessions show <session-id>
-adp sessions restore-plan <session-id>
+adp events list --workspace game-a --format json
+adp sessions list --workspace game-a --format json
+adp sessions show <session-id> --format json
+adp sessions restore-plan <session-id> --format json
 ```
 
 `sessions restore-plan` 会在非敏感 invocation 数据足够时，为历史 session 打印只读的建议 `adp run ...` 命令。它不会执行命令、启动 Agent、追加 events、修改 task 状态、写入真实项目根目录或恢复 provider 原生会话。
@@ -256,11 +256,11 @@ adp sessions restore-plan <session-id>
 清理旧的 ADP-owned runtime 目录：
 
 ```bash
-adp runtime prune --older-than 24h --dry-run
+adp runtime prune --older-than 24h --dry-run --format json
 adp runtime prune --older-than 24h
 ```
 
-`runtime prune` 只删除包含当前版本 ADP runtime manifest，且 `runtime_root` 与待删除目录一致的目录。不兼容、格式错误、外部系统生成或自相矛盾的 manifest 会被跳过。删除前先使用 `--dry-run`。
+`runtime prune` 只删除包含当前版本 ADP runtime manifest，且 `runtime_root` 与待删除目录一致的目录。不兼容、格式错误、外部系统生成或自相矛盾的 manifest 会被跳过。删除前先使用 `--dry-run`；本地工具需要可解析的候选项和 action 细节时加上 `--format json`。
 
 ## 确定性 Bootstrap Smoke
 

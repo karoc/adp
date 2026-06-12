@@ -64,6 +64,63 @@ func TestSessionsListCommandReadsAndPrintsSummaries(t *testing.T) {
 	}
 }
 
+func TestSessionsListCommandPrintsJSON(t *testing.T) {
+	var stdout bytes.Buffer
+	exitCode := 0
+	duration := int64(120000)
+
+	deps := Dependencies{
+		ListSessions: func(_ context.Context, _ paths.Layout, query sessions.Query) ([]sessions.Summary, error) {
+			if query.Workspace != "game-a" || query.Agent != "codex" || query.TaskID != "task-1" || query.Limit != 3 {
+				t.Fatalf("query = %+v", query)
+			}
+			return []sessions.Summary{{
+				SessionID:      "session-1",
+				Workspace:      "game-a",
+				Agent:          "codex",
+				Profile:        "senior",
+				TaskID:         "task-1",
+				ProjectRoot:    "/srv/game-a",
+				RuntimePath:    "/tmp/runtime",
+				StartedAt:      time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
+				FinishedAt:     time.Date(2026, 6, 8, 12, 2, 0, 0, time.UTC),
+				ExitCode:       &exitCode,
+				DurationMillis: &duration,
+				EventCount:     2,
+			}}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"sessions", "list", "--workspace", "game-a", "--agent", "codex", "--task", "task-1", "--limit", "3", "--format", "json"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	assertJSONNumberField(t, payload, "limit", 3)
+	assertJSONNumberField(t, payload, "count", 1)
+	filters := assertJSONObjectField(t, payload, "filters")
+	assertJSONStringField(t, filters, "workspace", "game-a")
+	assertJSONStringField(t, filters, "agent", "codex")
+	assertJSONStringField(t, filters, "task_id", "task-1")
+	session := assertJSONObjectListField(t, payload, "sessions")[0]
+	assertJSONStringField(t, session, "session_id", "session-1")
+	assertJSONStringField(t, session, "workspace", "game-a")
+	assertJSONStringField(t, session, "agent", "codex")
+	assertJSONStringField(t, session, "profile", "senior")
+	assertJSONStringField(t, session, "project_root", "/srv/game-a")
+	assertJSONStringField(t, session, "runtime_path", "/tmp/runtime")
+	assertJSONStringField(t, session, "task_id", "task-1")
+	assertJSONStringField(t, session, "started_at", "2026-06-08T12:00:00Z")
+	assertJSONStringField(t, session, "finished_at", "2026-06-08T12:02:00Z")
+	assertJSONNumberField(t, session, "exit_code", 0)
+	assertJSONNumberField(t, session, "duration_ms", 120000)
+	assertJSONNumberField(t, session, "event_count", 2)
+}
+
 func TestSessionsCommandReportsUnknownSubcommand(t *testing.T) {
 	var stderr bytes.Buffer
 
@@ -85,6 +142,7 @@ func TestSessionsListCommandRejectsBadLimits(t *testing.T) {
 	}{
 		{name: "not integer", args: []string{"sessions", "list", "--limit", "many"}, want: "adp: parse limit:"},
 		{name: "negative", args: []string{"sessions", "list", "--limit", "-1"}, want: "adp: limit must not be negative"},
+		{name: "unknown format", args: []string{"sessions", "list", "--format", "yaml"}, want: `adp: unknown output format "yaml"`},
 	}
 
 	for _, tt := range tests {
@@ -165,6 +223,64 @@ func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
 	}
 }
 
+func TestSessionsShowCommandPrintsJSON(t *testing.T) {
+	var stdout bytes.Buffer
+	exitCode := 7
+	duration := int64(10)
+
+	deps := Dependencies{
+		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
+			if sessionID != "session-1" {
+				t.Fatalf("session id = %q", sessionID)
+			}
+			return &sessions.Detail{
+				Summary: sessions.Summary{
+					SessionID:      "session-1",
+					Workspace:      "game-a",
+					Agent:          "codex",
+					Profile:        "senior",
+					TaskID:         "task-1",
+					ProjectRoot:    "/srv/game-a",
+					RuntimePath:    "/tmp/runtime",
+					StartedAt:      time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
+					FinishedAt:     time.Date(2026, 6, 8, 12, 0, 1, 0, time.UTC),
+					ExitCode:       &exitCode,
+					DurationMillis: &duration,
+					EventCount:     2,
+				},
+				Events: []events.Event{{
+					Timestamp:      time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
+					Type:           "run_started",
+					Workspace:      "game-a",
+					Agent:          "codex",
+					SessionID:      "session-1",
+					TaskID:         "task-1",
+					RuntimePath:    "/tmp/runtime",
+					DurationMillis: 10,
+				}},
+			}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"sessions", "show", "session-1", "--format", "json"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	summary := assertJSONObjectField(t, payload, "summary")
+	assertJSONStringField(t, summary, "session_id", "session-1")
+	assertJSONStringField(t, summary, "project_root", "/srv/game-a")
+	assertJSONStringField(t, summary, "runtime_path", "/tmp/runtime")
+	assertJSONNumberField(t, summary, "exit_code", 7)
+	assertJSONNumberField(t, summary, "duration_ms", 10)
+	event := assertJSONObjectListField(t, payload, "events")[0]
+	assertJSONStringField(t, event, "ts", "2026-06-08T12:00:00Z")
+	assertJSONStringField(t, event, "type", "run_started")
+	assertJSONStringField(t, event, "session_id", "session-1")
+	assertJSONNumberField(t, event, "duration_ms", 10)
+}
+
 func TestSessionsShowCommandReportsMissingSession(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -241,6 +357,96 @@ func TestSessionsRestorePlanCommandPrintsReadOnlyPlan(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("restore-plan output missing %q: %q", want, output)
 		}
+	}
+}
+
+func TestSessionsRestorePlanCommandPrintsJSON(t *testing.T) {
+	var stdout bytes.Buffer
+
+	deps := Dependencies{
+		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
+			if sessionID != "session-1" {
+				t.Fatalf("session id = %q", sessionID)
+			}
+			return &sessions.Detail{
+				Summary: sessions.Summary{
+					SessionID: "session-1",
+					Workspace: "game-a",
+					Agent:     "codex",
+					Profile:   "senior",
+					TaskID:    "task-1",
+				},
+				Events: []events.Event{{
+					Type: "run_started",
+					Fields: map[string]any{
+						"invocation": map[string]any{
+							"schema_version": 1,
+							"keep_runtime":   true,
+							"agent_args":     []any{"--probe"},
+						},
+					},
+				}},
+			}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"sessions", "restore-plan", "session-1", "--format", "json"})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	assertJSONStringField(t, payload, "session_id", "session-1")
+	assertJSONStringField(t, payload, "status", "ready")
+	assertJSONFieldAbsent(t, payload, "missing_fields")
+	command, ok := payload["suggested_command"].([]any)
+	if !ok {
+		t.Fatalf("suggested_command = %T, want array", payload["suggested_command"])
+	}
+	wantCommand := []string{"adp", "run", "codex", "--workspace", "game-a", "--profile", "senior", "--task", "task-1", "--keep-runtime", "--", "--probe"}
+	if len(command) != len(wantCommand) {
+		t.Fatalf("suggested_command length = %d, want %d: %#v", len(command), len(wantCommand), command)
+	}
+	for i, want := range wantCommand {
+		got, ok := command[i].(string)
+		if !ok || got != want {
+			t.Fatalf("suggested_command[%d] = %#v, want %q", i, command[i], want)
+		}
+	}
+}
+
+func TestSessionDetailCommandsRejectBadFormatsBeforeReading(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "show", args: []string{"sessions", "show", "session-1", "--format", "yaml"}},
+		{name: "restore-plan", args: []string{"sessions", "restore-plan", "session-1", "--format", "yaml"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			getCalled := false
+			deps := Dependencies{
+				GetSession: func(context.Context, paths.Layout, string) (*sessions.Detail, error) {
+					getCalled = true
+					return nil, nil
+				},
+			}
+
+			code := NewApp(deps, &bytes.Buffer{}, &stderr).Execute(context.Background(), tt.args)
+
+			if code != 1 {
+				t.Fatalf("exit code = %d, want 1", code)
+			}
+			if getCalled {
+				t.Fatal("GetSession should not be called")
+			}
+			if !strings.Contains(stderr.String(), `adp: unknown output format "yaml"`) {
+				t.Fatalf("stderr = %q", stderr.String())
+			}
+		})
 	}
 }
 

@@ -50,6 +50,54 @@ func TestRuntimePruneCommandRunsPrunerAndPrintsResults(t *testing.T) {
 	}
 }
 
+func TestRuntimePruneCommandPrintsJSON(t *testing.T) {
+	var stdout bytes.Buffer
+	var gotReq runtime.PruneRequest
+
+	layout := paths.New("/tmp/adp-home", "/tmp/adp-runtime")
+	deps := Dependencies{
+		Layout: layout,
+		PruneRuntimes: func(_ context.Context, req runtime.PruneRequest) ([]runtime.PruneResult, error) {
+			gotReq = req
+			return []runtime.PruneResult{{
+				Root:      "/tmp/adp-runtime/game-a-session",
+				Workspace: "game-a",
+				SessionID: "session-1",
+				CreatedAt: time.Date(2026, 6, 8, 10, 0, 0, 0, time.UTC),
+				Keep:      true,
+				DryRun:    true,
+			}}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"runtime", "prune", "--older-than", "2h", "--include-kept", "--dry-run", "--format", "json"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if gotReq.Layout != layout || gotReq.OlderThan != 2*time.Hour || !gotReq.IncludeKept || !gotReq.DryRun {
+		t.Fatalf("prune request = %+v", gotReq)
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	assertJSONNumberField(t, payload, "older_than_seconds", 7200)
+	assertJSONStringField(t, payload, "older_than", "2h0m0s")
+	assertJSONBoolField(t, payload, "include_kept", true)
+	assertJSONBoolField(t, payload, "dry_run", true)
+	assertJSONNumberField(t, payload, "count", 1)
+	result := assertJSONObjectListField(t, payload, "results")[0]
+	assertJSONStringField(t, result, "action", "would-remove")
+	assertJSONStringField(t, result, "workspace", "game-a")
+	assertJSONStringField(t, result, "session_id", "session-1")
+	assertJSONStringField(t, result, "created_at", "2026-06-08T10:00:00Z")
+	assertJSONBoolField(t, result, "keep", true)
+	assertJSONBoolField(t, result, "removed", false)
+	assertJSONBoolField(t, result, "dry_run", true)
+	assertJSONStringField(t, result, "root", "/tmp/adp-runtime/game-a-session")
+}
+
 func TestRuntimeCommandReportsUnknownSubcommand(t *testing.T) {
 	var stderr bytes.Buffer
 
@@ -71,6 +119,7 @@ func TestRuntimePruneCommandRejectsBadDurations(t *testing.T) {
 	}{
 		{name: "invalid duration", args: []string{"runtime", "prune", "--older-than", "tomorrow"}, want: "adp: parse older-than duration:"},
 		{name: "negative duration", args: []string{"runtime", "prune", "--older-than", "-1h"}, want: "adp: older-than must not be negative"},
+		{name: "unknown format", args: []string{"runtime", "prune", "--format", "yaml"}, want: `adp: unknown output format "yaml"`},
 	}
 
 	for _, tt := range tests {

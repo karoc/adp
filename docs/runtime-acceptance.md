@@ -70,11 +70,16 @@ adp run codex --workspace game-a --task missing-task -- --probe codex-payload
 adp enter game-a
 adp enter game-a --keep-runtime
 adp events list --workspace game-a --task <task-id> --type run_finished --limit 2
+adp events list --workspace game-a --task <task-id> --type run_finished --limit 2 --format json
 adp sessions list --workspace game-a --agent codex --task <task-id>
+adp sessions list --workspace game-a --agent codex --task <task-id> --format json
 adp completion values sessions --workspace game-a
 adp sessions show <session-id>
+adp sessions show <session-id> --format json
 adp sessions restore-plan <session-id>
+adp sessions restore-plan <session-id> --format json
 adp runtime prune --older-than 0s --include-kept --dry-run
+adp runtime prune --older-than 0s --include-kept --dry-run --format json
 adp runtime prune --older-than 0s --include-kept
 ```
 
@@ -114,6 +119,7 @@ The script also checks the local CLI hardening surface:
 The script also verifies session restore planning:
 
 - `adp events list --session <session-id> --task <task-id>` exposes the task-bound `run_started` and `run_finished` events for the Codex session.
+- `adp events list --format json`, `adp sessions list --format json`, `adp sessions show <session-id> --format json`, and `adp sessions restore-plan <session-id> --format json` emit parseable read-only JSON inspection output.
 - `adp sessions restore-plan <session-id>` prints a read-only suggested command that includes the original agent arguments.
 - Running `restore-plan` does not append event log entries, create runtime state, change task state, or write to the project root.
 

@@ -23,12 +23,12 @@ Implemented Phase 1 foundations. If you are trying ADP for the first time, start
 - `adp completion [--shell <bash|zsh>] [--command <name>]`
 - `adp completion values <agents|workspaces|profiles|tasks|phases|sessions|owners|statuses> [--workspace <name>]`
 - `adp version`
-- `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]`
-- `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
-- `adp sessions show <session-id>`
-- `adp sessions restore-plan <session-id>`
+- `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>] [--format <text|json>]`
+- `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>] [--format <text|json>]`
+- `adp sessions show <session-id> [--format <text|json>]`
+- `adp sessions restore-plan <session-id> [--format <text|json>]`
 - `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]`
-- `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
+- `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--format <text|json>]`
 - `adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>`
 - `adp tasks list/next/take/stale/show/update/claim/renew/release/done/block`
 - `adp plan preview [--workspace <name>] --file <path|-> [--format <text|json>]`
@@ -169,13 +169,13 @@ Runtime overlays do not expose repository Git metadata. Normal project Git files
 
 P16 hardens the command surface with a local metadata contract that keeps usage text, dispatch wiring, and bash/zsh completion from drifting apart. This remains part of the existing hand-written CLI implementation; it does not adopt a new CLI framework or add a Web UI, dashboard, SaaS tracker, hosted orchestration, automatic Git workflow, automatic task closure, or provider-native resume path.
 
-`adp events list` reads `$ADP_HOME/logs/events.jsonl` and prints recent runtime events with optional workspace, session, task, type, and limit filters.
+`adp events list [--format <text|json>]` reads `$ADP_HOME/logs/events.jsonl` and prints recent runtime events with optional workspace, session, task, type, and limit filters. JSON output includes the applied filters, limit, count, and event objects for local tools that need structured inspection data.
 
-`adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]` groups local event log entries by session so terminal users can inspect recent agent runs without leaving the CLI.
+`adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>] [--format <text|json>]` groups local event log entries by session so terminal users can inspect recent agent runs without leaving the CLI. JSON output includes filters, limit, count, and session summaries.
 
-`adp sessions show <session-id>` prints the ordered events for one recorded session, including start, finish, workspace, agent, task ID, runtime path, exit code, and duration data when those fields are available.
+`adp sessions show <session-id> [--format <text|json>]` prints the ordered events for one recorded session, including start, finish, workspace, agent, task ID, runtime path, exit code, and duration data when those fields are available. JSON output returns a `summary` object and ordered `events`.
 
-`adp sessions restore-plan <session-id>` reads one recorded session and prints a read-only suggested `adp run ...` command when enough non-sensitive invocation data is available. It does not execute the command, launch an agent, create a runtime, append events, change task state, write to the project root, or resume provider-native conversations. See [docs/session-restore.md](docs/session-restore.md).
+`adp sessions restore-plan <session-id> [--format <text|json>]` reads one recorded session and prints a read-only suggested `adp run ...` command when enough non-sensitive invocation data is available. JSON output exposes the same restore plan as structured fields. It does not execute the command, launch an agent, create a runtime, append events, change task state, write to the project root, or resume provider-native conversations. See [docs/session-restore.md](docs/session-restore.md).
 
 `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` extends that read-only guidance into ADP work-context resume planning. It can suggest a new same-tool or cross-tool `adp run ...` command, include owner and lease preflight notes, show phase context from the local ledger, and classify each suggested command with a machine-readable `side_effect` such as `inspect`, `task_mutation`, or `runtime_creation`. Same-tool plans can reuse non-sensitive `--profile`, `--keep-runtime`, and post-`--` agent arguments from the invocation snapshot. Cross-tool plans keep ADP-safe runtime options such as `--keep-runtime`, but omit provider-specific profile and agent arguments with explicit guidance. The command itself must not claim or renew tasks, complete tasks, accept phases, run Git, create runtimes, append events, write to the project root, or attach to provider-native Codex or Claude conversations.
 
@@ -196,7 +196,7 @@ Git diagnostics stay read-only. Doctor commands may inspect topology and status,
 
 `adp version` and `adp --version` print the CLI build identity. Packaged binaries can inject version, commit, and build-date values at build time; development builds fall back to `dev`.
 
-`adp runtime prune` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered pruneable only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp` and a matching `runtime_root`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them.
+`adp runtime prune [--format <text|json>]` removes stale ADP-owned runtime directories under `$ADP_RUNTIME_DIR`. A directory is considered pruneable only when it contains a current-version, self-consistent `.adp-runtime.yaml` with `generated_by: adp` and a matching `runtime_root`. Kept runtimes are preserved unless `--include-kept` is passed, and `--dry-run` reports candidates without deleting them. JSON output includes the requested age, dry-run and kept-runtime flags, result count, and per-runtime actions.
 
 `adp tasks` and `adp progress` manage workspace-scoped planning and execution progress under `$ADP_HOME/workspaces/<workspace>/planning`. Read-only task, phase, and progress views support `--format json` for local tools and sub-agents that need machine-readable planning snapshots; task objects expose board visibility through `claim_state` plus `owner`, `claimed_at`, and `lease_expires_at` when present. `adp phase status` adds a compact gate snapshot with the open phase, next planned phase, whether the next phase can start, and the next required action. `adp plan doctor` adds read-only local diagnostics for task, phase, progress-log, lock, and phase-gate consistency and returns exit code `2` when error-level diagnostics exist. The authoritative state still stays under `$ADP_HOME`, and task or phase changes remain explicit commands. Use `adp tasks next --format json` to preview the board, `adp tasks take --owner <owner>` when a worker should atomically take one board item without launching an agent, and `adp run <agent> --take --owner <owner>` when task pickup and runtime launch should share one command boundary. Long-running workers can renew with `adp tasks renew`; interrupted leases are visible through read-only `adp tasks stale`, then reclaimed only through an explicit `adp tasks take` or `adp tasks claim` command after ADP ownership rules allow it. `adp run <agent> --task <task-id>` and `adp run <agent> --take ...` bind local task state to runtime environment variables, generated adapter instructions, events, and sessions without writing planning files into the real project root. See [docs/task-management.md](docs/task-management.md).
 

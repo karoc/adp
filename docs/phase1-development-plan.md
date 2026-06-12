@@ -471,13 +471,14 @@ Acceptance:
 - Missing linker flags still produce a usable development identity.
 - Release packaging docs describe the linker flag fields.
 
-### `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]`
+### `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>] [--format <text|json>]`
 
 Behavior:
 
 - Reads `$ADP_HOME/logs/events.jsonl`.
 - Filters JSONL events by workspace, session, task, event type, and limit.
-- Prints recent matching events in a stable terminal table.
+- Prints recent matching events in a stable terminal table by default.
+- Emits machine-readable JSON with filters, limit, count, and event objects when `--format json` is supplied.
 - Reports corrupted event log lines with line numbers instead of silently ignoring them.
 
 Acceptance:
@@ -486,13 +487,14 @@ Acceptance:
 - `--limit` returns the most recent matching records while preserving chronological output order.
 - The command remains read-only.
 
-### `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
+### `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>] [--format <text|json>]`
 
 Behavior:
 
 - Groups local event log records by `session_id`.
 - Supports workspace, agent, task, and limit filters.
 - Ignores events with empty session IDs.
+- Emits machine-readable JSON with filters, limit, count, and session summaries when `--format json` is supplied.
 
 Acceptance:
 
@@ -500,24 +502,26 @@ Acceptance:
 - Selected sessions remain in chronological session-start order for terminal readability.
 - Missing event logs produce an empty result without creating runtime state.
 
-### `adp sessions show <session-id>`
+### `adp sessions show <session-id> [--format <text|json>]`
 
 Behavior:
 
 - Prints ordered events for one session.
 - Derives data from the local JSONL event log.
+- Emits machine-readable JSON with a session summary and ordered events when `--format json` is supplied.
 
 Acceptance:
 
 - Missing sessions return a clear not-found error.
 - The command is read-only and does not create, mutate, or delete runtime state.
 
-### `adp sessions restore-plan <session-id>`
+### `adp sessions restore-plan <session-id> [--format <text|json>]`
 
 Behavior:
 
 - Prints a read-only suggested `adp run ...` command for a previous session when enough non-sensitive invocation snapshot data is available.
 - Emits partial plans with missing fields and reasons when historical data is incomplete.
+- Emits the same restore plan as machine-readable JSON when `--format json` is supplied.
 
 Acceptance:
 
@@ -627,7 +631,7 @@ Acceptance:
 - Failed apply leaves no partial phase, task, or progress state.
 - Stdin intake preserves the same preview/apply mutation boundaries as file intake.
 
-### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
+### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--format <text|json>]`
 
 Behavior:
 
@@ -636,6 +640,7 @@ Behavior:
 - Removes ADP-owned runtime directories older than `--older-than`.
 - Skips `keep: true` by default unless `--include-kept` is passed.
 - Reports candidates without deleting when `--dry-run` is set.
+- Emits machine-readable JSON with request options, result count, and per-runtime actions when `--format json` is supplied.
 
 Acceptance:
 
@@ -759,11 +764,11 @@ adp plan preview --workspace game-a --file plan.yaml
 adp plan doctor --workspace game-a --format json
 adp run codex --workspace game-a --task <task-id> -- --version
 cd /srv/game-a && adp run claude -- --version
-adp events list --workspace game-a --task <task-id>
-adp sessions list --workspace game-a --agent codex --task <task-id>
-adp sessions show <session-id>
-adp sessions restore-plan <session-id>
-adp runtime prune --older-than 24h --dry-run
+adp events list --workspace game-a --task <task-id> --format json
+adp sessions list --workspace game-a --agent codex --task <task-id> --format json
+adp sessions show <session-id> --format json
+adp sessions restore-plan <session-id> --format json
+adp runtime prune --older-than 24h --dry-run --format json
 adp enter game-a
 adp workspace rename game-a game-renamed
 adp workspace remove game-renamed
@@ -780,14 +785,14 @@ adp workspace remove game-renamed
 - `adp completion` prints deterministic completion for `bash` and `zsh`, and `adp completion values` returns local agent, workspace, profile, task, phase, session, owner, and task status candidates.
 - The P16 command metadata drift check proves the local command inventory, usage text, dispatch wiring, and bash/zsh completion remain aligned without adopting a new CLI framework.
 - `adp version` reports the CLI build identity.
-- `adp events list` prints filtered run history from JSONL events.
-- `adp sessions list`, `adp sessions show`, and `adp sessions restore-plan` expose local session history and read-only restore planning derived from JSONL events.
+- `adp events list --format json` prints filtered run history from JSONL events as structured inspection output.
+- `adp sessions list --format json`, `adp sessions show <session-id> --format json`, and `adp sessions restore-plan <session-id> --format json` expose local session history and read-only restore planning derived from JSONL events.
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` prints a Markdown planning/execution report to stdout by default, emits a read-only JSON handoff snapshot with `--format json`, includes recent local runtime session evidence when JSONL event/session data exists, and leaves planning state, Git state, runtime state, event logs, and the real project root unchanged.
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` prints a compact prioritized next-work snapshot to stdout, exposes a stable JSON contract for local tools, and leaves task state, phase state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
 - `adp phase status [--workspace <name>] [--format text|json]` prints a compact read-only phase gate snapshot to stdout, exposes a stable JSON contract for local tools, and leaves task state, phase state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
 - `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` accepts structured local planning input; preview stays read-only, apply writes only the local planning ledger under `$ADP_HOME`, and failed apply leaves no partial phase, task, or progress state.
 - `adp plan doctor [--workspace <name>] [--format text|json]` prints read-only local planning ledger diagnostics for task, phase, progress-log, lock, and phase-gate invariants, returns exit code `2` for error-level diagnostics, and leaves planning state, Git state, runtime state, event logs, hosted services, and the real project root unchanged.
-- `adp runtime prune` reports and removes only current-version, self-consistent ADP-owned runtime directories.
+- `adp runtime prune --format json` reports only current-version, self-consistent ADP-owned runtime directories in structured form; without `--dry-run`, `runtime prune` removes the same safe candidate set.
 - `adp run codex` and `adp run claude` build runtime overlays, and `--task <task-id>` binds runtime sessions to workspace task state.
 - `examples/basic-workspace` remains a valid local workspace reference with bilingual Markdown prompt and memory files.
 - Fake agent tests can assert cwd, env, generated files, symlinks, args, exit code, logs, and cleanup.

@@ -94,7 +94,7 @@ var rootCommands = []Command{
 	{
 		Name:        "events",
 		Description: "read ADP event logs",
-		Usage:       []string{"adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]"},
+		Usage:       []string{"adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>] [--format <text|json>]"},
 		Subcommands: describedValues(valueDescriptions{"list": "list runtime events"}, "list"),
 		Options: describedValues(valueDescriptions{
 			"--workspace": "filter by workspace",
@@ -103,15 +103,16 @@ var rootCommands = []Command{
 			"--task":      "filter by task",
 			"--type":      "filter by event type",
 			"--limit":     "limit result count",
-		}, "--workspace", "-w", "--session", "--task", "--type", "--limit"),
+			"--format":    "output format",
+		}, "--workspace", "-w", "--session", "--task", "--type", "--limit", "--format"),
 	},
 	{
 		Name:        "sessions",
 		Description: "summarize ADP session history",
 		Usage: []string{
-			"adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]",
-			"adp sessions show <session-id>",
-			"adp sessions restore-plan <session-id>",
+			"adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>] [--format <text|json>]",
+			"adp sessions show <session-id> [--format <text|json>]",
+			"adp sessions restore-plan <session-id> [--format <text|json>]",
 			"adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]",
 		},
 		Subcommands: describedValues(valueDescriptions{
@@ -134,13 +135,14 @@ var rootCommands = []Command{
 	{
 		Name:        "runtime",
 		Description: "manage ADP runtime directories",
-		Usage:       []string{"adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]"},
+		Usage:       []string{"adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--format <text|json>]"},
 		Subcommands: describedValues(valueDescriptions{"prune": "delete stale ADP-owned runtimes"}, "prune"),
 		Options: describedValues(valueDescriptions{
 			"--older-than":   "minimum runtime age",
 			"--include-kept": "include kept runtimes",
 			"--dry-run":      "print candidates without deleting",
-		}, "--older-than", "--include-kept", "--dry-run"),
+			"--format":       "output format",
+		}, "--older-than", "--include-kept", "--dry-run", "--format"),
 	},
 	{
 		Name:        "tasks",

@@ -48,9 +48,9 @@ When the target agent and workspace match the source session, `resume-plan` can 
 
 Session history answers "what happened":
 
-- `adp events list` reads local JSONL runtime events.
-- `adp sessions list` groups those events into local agent sessions.
-- `adp sessions show <session-id>` prints one session with its event timeline.
+- `adp events list [--format text|json]` reads local JSONL runtime events.
+- `adp sessions list [--format text|json]` groups those events into local agent sessions.
+- `adp sessions show <session-id> [--format text|json]` prints one session with its event timeline.
 
 Resume plan answers "how could I start a new run that continues this ADP work context":
 
@@ -108,6 +108,9 @@ Inspect session history first:
 adp events list --workspace game-a --task <task-id>
 adp sessions list --workspace game-a --agent codex --task <task-id>
 adp sessions show <session-id>
+adp events list --workspace game-a --task <task-id> --format json
+adp sessions list --workspace game-a --agent codex --task <task-id> --format json
+adp sessions show <session-id> --format json
 ```
 
 Then ask ADP for a read-only resume plan:
@@ -171,6 +174,9 @@ Review the local evidence:
 adp events list --workspace game-a --task "$TASK_ID"
 adp sessions list --workspace game-a --agent codex --task "$TASK_ID"
 adp sessions show <session-id>
+adp events list --workspace game-a --task "$TASK_ID" --format json
+adp sessions list --workspace game-a --agent codex --task "$TASK_ID" --format json
+adp sessions show <session-id> --format json
 adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format text
 ```
 
@@ -214,5 +220,5 @@ Plan-mode compatibility follows the same boundary. A provider-native plan panel 
 - Move phase status explicitly with `adp phase start`, `adp phase accept`, `adp phase commit`, and `adp phase push`.
 - Treat provider-native plan and task panels as mirror or scratch surfaces, not as recovery evidence.
 - Use provider-native Codex or Claude resume only when the operator intentionally wants provider-private conversation state; do not treat it as ADP ownership, lease, task, phase, commit, or push evidence.
-- Keep acceptance evidence local by pairing resume-plan checks with `adp events list`, `adp sessions list`, `adp sessions show`, `adp tasks show`, `adp tasks stale`, and `adp phase status`.
+- Keep acceptance evidence local by pairing resume-plan checks with `adp events list`, `adp sessions list`, `adp sessions show`, `adp sessions restore-plan`, `adp tasks show`, `adp tasks stale`, and `adp phase status`. Use `--format json` when a local tool needs parseable inspection output.
 - Do not describe resume-plan as cloud sync, remote issue tracking, hosted orchestration, provider-private state scraping, automatic task completion, automatic phase acceptance, or provider-native resume.

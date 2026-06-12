@@ -30,6 +30,7 @@ type eventsListOptions struct {
 	taskID    string
 	eventType string
 	limit     int
+	format    outputFormat
 }
 
 type sessionsListOptions struct {
@@ -37,6 +38,12 @@ type sessionsListOptions struct {
 	agent     string
 	taskID    string
 	limit     int
+	format    outputFormat
+}
+
+type sessionIDOutputOptions struct {
+	sessionID string
+	format    outputFormat
 }
 
 type sessionsResumePlanOptions struct {
@@ -52,6 +59,7 @@ type runtimePruneOptions struct {
 	olderThan   time.Duration
 	includeKept bool
 	dryRun      bool
+	format      outputFormat
 }
 
 type completionValuesOptions struct {
@@ -246,44 +254,54 @@ func parseCompletionValuesArgs(args []string) (completionValuesOptions, error) {
 }
 
 func parseEventsListArgs(args []string) (eventsListOptions, error) {
-	opts := eventsListOptions{limit: defaultEventLimit}
+	opts := eventsListOptions{limit: defaultEventLimit, format: outputFormatText}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
 		case "--workspace", "-w":
-			if i+1 >= len(args) {
-				return eventsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			opts.workspace = args[i]
-		case "--session":
-			if i+1 >= len(args) {
-				return eventsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			opts.sessionID = args[i]
-		case "--task":
-			if i+1 >= len(args) {
-				return eventsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			opts.taskID = args[i]
-		case "--type":
-			if i+1 >= len(args) {
-				return eventsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			opts.eventType = args[i]
-		case "--limit":
-			if i+1 >= len(args) {
-				return eventsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			limit, err := parseNonNegativeInt(args[i], "limit")
+			value, next, err := requireValue(args, i, arg)
 			if err != nil {
 				return eventsListOptions{}, err
 			}
-			opts.limit = limit
+			opts.workspace, i = value, next
+		case "--session":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return eventsListOptions{}, err
+			}
+			opts.sessionID, i = value, next
+		case "--task":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return eventsListOptions{}, err
+			}
+			opts.taskID, i = value, next
+		case "--type":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return eventsListOptions{}, err
+			}
+			opts.eventType, i = value, next
+		case "--limit":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return eventsListOptions{}, err
+			}
+			limit, err := parseNonNegativeInt(value, "limit")
+			if err != nil {
+				return eventsListOptions{}, err
+			}
+			opts.limit, i = limit, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return eventsListOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return eventsListOptions{}, err
+			}
+			opts.format, i = format, next
 		default:
 			return eventsListOptions{}, fmt.Errorf("unknown events list option %q", arg)
 		}
@@ -292,38 +310,48 @@ func parseEventsListArgs(args []string) (eventsListOptions, error) {
 }
 
 func parseSessionsListArgs(args []string) (sessionsListOptions, error) {
-	opts := sessionsListOptions{limit: defaultSessionLimit}
+	opts := sessionsListOptions{limit: defaultSessionLimit, format: outputFormatText}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
 		case "--workspace", "-w":
-			if i+1 >= len(args) {
-				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			opts.workspace = args[i]
-		case "--agent":
-			if i+1 >= len(args) {
-				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			opts.agent = args[i]
-		case "--task":
-			if i+1 >= len(args) {
-				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			opts.taskID = args[i]
-		case "--limit":
-			if i+1 >= len(args) {
-				return sessionsListOptions{}, fmt.Errorf("%s requires a value", arg)
-			}
-			i++
-			limit, err := parseNonNegativeInt(args[i], "limit")
+			value, next, err := requireValue(args, i, arg)
 			if err != nil {
 				return sessionsListOptions{}, err
 			}
-			opts.limit = limit
+			opts.workspace, i = value, next
+		case "--agent":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsListOptions{}, err
+			}
+			opts.agent, i = value, next
+		case "--task":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsListOptions{}, err
+			}
+			opts.taskID, i = value, next
+		case "--limit":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsListOptions{}, err
+			}
+			limit, err := parseNonNegativeInt(value, "limit")
+			if err != nil {
+				return sessionsListOptions{}, err
+			}
+			opts.limit, i = limit, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsListOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return sessionsListOptions{}, err
+			}
+			opts.format, i = format, next
 		default:
 			return sessionsListOptions{}, fmt.Errorf("unknown sessions list option %q", arg)
 		}
@@ -331,18 +359,43 @@ func parseSessionsListArgs(args []string) (sessionsListOptions, error) {
 	return opts, nil
 }
 
-func parseSessionsShowArgs(args []string) (string, error) {
-	if len(args) != 1 {
-		return "", errors.New("usage: adp sessions show <session-id>")
-	}
-	return args[0], nil
+func parseSessionsShowArgs(args []string) (sessionIDOutputOptions, error) {
+	return parseSessionIDOutputArgs(args, "adp sessions show <session-id> [--format <text|json>]", "sessions show")
 }
 
-func parseSessionsRestorePlanArgs(args []string) (string, error) {
-	if len(args) != 1 {
-		return "", errors.New("usage: adp sessions restore-plan <session-id>")
+func parseSessionsRestorePlanArgs(args []string) (sessionIDOutputOptions, error) {
+	return parseSessionIDOutputArgs(args, "adp sessions restore-plan <session-id> [--format <text|json>]", "sessions restore-plan")
+}
+
+func parseSessionIDOutputArgs(args []string, usage string, command string) (sessionIDOutputOptions, error) {
+	opts := sessionIDOutputOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionIDOutputOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return sessionIDOutputOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return sessionIDOutputOptions{}, fmt.Errorf("unknown %s option %q", command, arg)
+			}
+			if opts.sessionID != "" {
+				return sessionIDOutputOptions{}, errors.New("usage: " + usage)
+			}
+			opts.sessionID = arg
+		}
 	}
-	return args[0], nil
+	if opts.sessionID == "" {
+		return sessionIDOutputOptions{}, errors.New("session-id is required; usage: " + usage)
+	}
+	return opts, nil
 }
 
 func parseSessionsResumePlanArgs(args []string) (sessionsResumePlanOptions, error) {
@@ -408,27 +461,37 @@ func parseSessionsResumePlanArgs(args []string) (sessionsResumePlanOptions, erro
 }
 
 func parseRuntimePruneArgs(args []string) (runtimePruneOptions, error) {
-	opts := runtimePruneOptions{olderThan: 24 * time.Hour}
+	opts := runtimePruneOptions{olderThan: 24 * time.Hour, format: outputFormatText}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
 		case "--older-than":
-			if i+1 >= len(args) {
-				return runtimePruneOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return runtimePruneOptions{}, err
 			}
-			i++
-			olderThan, err := time.ParseDuration(args[i])
+			olderThan, err := time.ParseDuration(value)
 			if err != nil {
 				return runtimePruneOptions{}, fmt.Errorf("parse older-than duration: %w", err)
 			}
 			if olderThan < 0 {
 				return runtimePruneOptions{}, errors.New("older-than must not be negative")
 			}
-			opts.olderThan = olderThan
+			opts.olderThan, i = olderThan, next
 		case "--include-kept":
 			opts.includeKept = true
 		case "--dry-run":
 			opts.dryRun = true
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return runtimePruneOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return runtimePruneOptions{}, err
+			}
+			opts.format, i = format, next
 		default:
 			return runtimePruneOptions{}, fmt.Errorf("unknown runtime prune option %q", arg)
 		}

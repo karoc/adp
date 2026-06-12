@@ -245,10 +245,10 @@ These commands require the corresponding external CLI to be installed and authen
 Inspect local history:
 
 ```bash
-adp events list --workspace game-a
-adp sessions list --workspace game-a
-adp sessions show <session-id>
-adp sessions restore-plan <session-id>
+adp events list --workspace game-a --format json
+adp sessions list --workspace game-a --format json
+adp sessions show <session-id> --format json
+adp sessions restore-plan <session-id> --format json
 ```
 
 `sessions restore-plan` prints a read-only suggested `adp run ...` command for a previous session when enough non-sensitive invocation data is available. It does not execute the command, launch an agent, append events, mutate task state, write to the real project root, or resume a provider-native conversation.
@@ -256,11 +256,11 @@ adp sessions restore-plan <session-id>
 Clean old ADP-owned runtime directories:
 
 ```bash
-adp runtime prune --older-than 24h --dry-run
+adp runtime prune --older-than 24h --dry-run --format json
 adp runtime prune --older-than 24h
 ```
 
-`runtime prune` only removes directories that contain a current-version ADP runtime manifest whose `runtime_root` matches the directory being removed. Incompatible, malformed, foreign, or self-inconsistent manifests are skipped. Use `--dry-run` before deleting.
+`runtime prune` only removes directories that contain a current-version ADP runtime manifest whose `runtime_root` matches the directory being removed. Incompatible, malformed, foreign, or self-inconsistent manifests are skipped. Use `--dry-run` before deleting; add `--format json` when a local tool needs parseable candidate and action details.
 
 ## Deterministic Bootstrap Smoke
 

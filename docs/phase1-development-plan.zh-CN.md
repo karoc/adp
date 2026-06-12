@@ -470,13 +470,14 @@ P16 增加本地 command metadata contract。Usage text、dispatch wiring 和 ba
 - 缺少 linker flags 时仍能输出可用的 development identity。
 - release packaging docs 记录 linker flag 字段。
 
-### `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>]`
+### `adp events list [--workspace <name>] [--session <session-id>] [--task <task-id>] [--type <event-type>] [--limit <n>] [--format <text|json>]`
 
 行为：
 
 - 读取 `$ADP_HOME/logs/events.jsonl`。
 - 按 workspace、session、task、event type 和 limit 过滤 JSONL events。
-- 以稳定终端表格输出最近匹配事件。
+- 默认以稳定终端表格输出最近匹配事件。
+- 传入 `--format json` 时输出包含 filters、limit、count 和 event objects 的机器可读 JSON。
 - 损坏 event log 行必须带行号报告，不能静默忽略。
 
 验收：
@@ -485,13 +486,14 @@ P16 增加本地 command metadata contract。Usage text、dispatch wiring 和 ba
 - `--limit` 返回最近匹配记录，同时保持输出为时间顺序。
 - 命令保持只读。
 
-### `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>]`
+### `adp sessions list [--workspace <name>] [--agent <agent>] [--task <task-id>] [--limit <n>] [--format <text|json>]`
 
 行为：
 
 - 按 `session_id` 聚合本地 event log records。
 - 支持 workspace、agent、task 和 limit filters。
 - 忽略空 `session_id` 的 events。
+- 传入 `--format json` 时输出包含 filters、limit、count 和 session summaries 的机器可读 JSON。
 
 验收：
 
@@ -499,24 +501,26 @@ P16 增加本地 command metadata contract。Usage text、dispatch wiring 和 ba
 - 选中的 sessions 保持 session-start 时间顺序，便于终端阅读。
 - event log 不存在时输出空结果且不创建 runtime state。
 
-### `adp sessions show <session-id>`
+### `adp sessions show <session-id> [--format <text|json>]`
 
 行为：
 
 - 输出一个 session 的有序 events。
 - 数据来源是本地 JSONL event log。
+- 传入 `--format json` 时输出包含 session summary 和有序 events 的机器可读 JSON。
 
 验收：
 
 - session 不存在时返回明确 not-found 错误。
 - 命令只读，不创建、修改或删除 runtime state。
 
-### `adp sessions restore-plan <session-id>`
+### `adp sessions restore-plan <session-id> [--format <text|json>]`
 
 行为：
 
 - 当历史 session 中有足够的非敏感 invocation snapshot 数据时，打印只读建议 `adp run ...` command。
 - 历史数据不完整时输出 partial plan、missing fields 和 reasons。
+- 传入 `--format json` 时以机器可读 JSON 输出同一份 restore plan。
 
 验收：
 
@@ -626,7 +630,7 @@ JSON 输出只用于 inspection 和本地跨工具解析，不能成为第二份
 - 失败的 apply 不留下 partial phase、task 或 progress state。
 - stdin intake 与 file intake 保持相同 preview/apply mutation boundaries。
 
-### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run]`
+### `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--format <text|json>]`
 
 行为：
 
@@ -635,6 +639,7 @@ JSON 输出只用于 inspection 和本地跨工具解析，不能成为第二份
 - 删除超过 `--older-than` 的 ADP-owned runtime directories。
 - 默认跳过 `keep: true`，除非传入 `--include-kept`。
 - 传入 `--dry-run` 时只报告 candidates，不删除。
+- 传入 `--format json` 时输出包含请求 options、result count 和每个 runtime action 的机器可读 JSON。
 
 验收：
 
@@ -758,11 +763,11 @@ adp plan preview --workspace game-a --file plan.yaml
 adp plan doctor --workspace game-a --format json
 adp run codex --workspace game-a --task <task-id> -- --version
 cd /srv/game-a && adp run claude -- --version
-adp events list --workspace game-a --task <task-id>
-adp sessions list --workspace game-a --agent codex --task <task-id>
-adp sessions show <session-id>
-adp sessions restore-plan <session-id>
-adp runtime prune --older-than 24h --dry-run
+adp events list --workspace game-a --task <task-id> --format json
+adp sessions list --workspace game-a --agent codex --task <task-id> --format json
+adp sessions show <session-id> --format json
+adp sessions restore-plan <session-id> --format json
+adp runtime prune --older-than 24h --dry-run --format json
 adp enter game-a
 adp workspace rename game-a game-renamed
 adp workspace remove game-renamed
@@ -779,15 +784,15 @@ adp workspace remove game-renamed
 - `adp completion` 能输出 `bash` 和 `zsh` 的稳定 completion，`adp completion values` 能返回本地 agent、workspace、profile、task、phase、session、owner 和 task status 候选值。
 - P16 command metadata drift check 能证明本地命令清单、usage text、dispatch wiring 和 bash/zsh completion 保持一致，并且不引入新的 CLI 框架。
 - `adp version` 能输出 CLI build identity。
-- `adp events list` 能查询 run start/finish 历史。
-- `adp sessions list`、`adp sessions show` 和 `adp sessions restore-plan` 能从 event log 查询 session history 和只读 restore planning。
+- `adp events list --format json` 会从 JSONL events 以结构化 inspection output 输出过滤后的 run history。
+- `adp sessions list --format json`、`adp sessions show <session-id> --format json` 和 `adp sessions restore-plan <session-id> --format json` 能从 event log 查询 session history 和只读 restore planning。
 - `adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` 默认能向 stdout 打印 Markdown 规划/执行报告，传入 `--format json` 时输出只读 JSON handoff snapshot，在 JSONL event/session 数据存在时包含最近本地 runtime session evidence，并保持 planning state、Git state、runtime state、event log 和真实项目根目录不变。
 - `adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 会向 stdout 打印紧凑的优先级 next-work snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp phase status [--workspace <name>] [--format text|json]` 会向 stdout 打印紧凑的只读 phase gate snapshot，为本地工具提供稳定 JSON contract，并保持 task state、phase state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp plan preview/apply [--workspace <name>] --file <path|-> [--format text|json]` 接收结构化本地 planning 输入；preview 保持只读，apply 只写 `$ADP_HOME` 下的本地 planning ledger，失败 apply 不留下 partial phase、task 或 progress state。
 - `adp plan doctor [--workspace <name>] [--format text|json]` 会输出只读本地 planning ledger diagnostics，覆盖 task、phase、progress-log、lock 和 phase-gate invariants；存在 error-level diagnostics 时返回退出码 `2`，并保持 planning state、Git state、runtime state、event log、hosted service state 和真实项目根目录不变。
 - `adp run codex` 和 `adp run claude` 会构建 runtime overlay，`adp run <agent> --task <task-id>` 能把 task context 注入 runtime env、生成指令、events 和 sessions。
-- `adp runtime prune` 只报告或删除当前版本且结构自洽的 ADP-owned runtime 目录。
+- `adp runtime prune --format json` 会以结构化形式报告当前版本且结构自洽的 ADP-owned runtime 目录；不带 `--dry-run` 时，`runtime prune` 会删除同一组安全候选目录。
 - `adp workspace rename` 和 `adp workspace remove` 只修改 ADP workspace registry。
 - `examples/basic-workspace` 保持为有效本地 workspace 示例，其中 Markdown prompt 和 memory 文件保持英文默认与简体中文 counterpart 配对。
 - runtime root 中存在 ADP 生成的 Agent 配置文件。

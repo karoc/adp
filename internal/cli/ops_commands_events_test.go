@@ -58,6 +58,66 @@ func TestEventsListCommandReadsAndPrintsEvents(t *testing.T) {
 	}
 }
 
+func TestEventsListCommandPrintsJSON(t *testing.T) {
+	var stdout bytes.Buffer
+	exitCode := 0
+
+	deps := Dependencies{
+		ReadEvents: func(_ context.Context, _ paths.Layout, query events.Query) ([]events.Event, error) {
+			if query.Workspace != "game-a" || query.SessionID != "session-1" || query.TaskID != "task-1" || query.Type != "run_finished" || query.Limit != 2 {
+				t.Fatalf("query = %+v", query)
+			}
+			return []events.Event{{
+				Timestamp:      time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC),
+				Type:           "run_finished",
+				Workspace:      "game-a",
+				Agent:          "codex",
+				Profile:        "senior",
+				SessionID:      "session-1",
+				TaskID:         "task-1",
+				RuntimePath:    "/tmp/runtime",
+				ProjectRoot:    "/srv/game-a",
+				PID:            1234,
+				ExitCode:       &exitCode,
+				DurationMillis: 4567,
+				Fields:         map[string]any{"note": "ok"},
+			}}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"events", "list", "--workspace", "game-a", "--session", "session-1", "--task", "task-1", "--type", "run_finished", "--limit", "2", "--format", "json"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	assertJSONNumberField(t, payload, "limit", 2)
+	assertJSONNumberField(t, payload, "count", 1)
+	filters := assertJSONObjectField(t, payload, "filters")
+	assertJSONStringField(t, filters, "workspace", "game-a")
+	assertJSONStringField(t, filters, "session_id", "session-1")
+	assertJSONStringField(t, filters, "task_id", "task-1")
+	assertJSONStringField(t, filters, "type", "run_finished")
+	event := assertJSONObjectListField(t, payload, "events")[0]
+	assertJSONStringField(t, event, "ts", "2026-06-08T12:00:00Z")
+	assertJSONStringField(t, event, "type", "run_finished")
+	assertJSONStringField(t, event, "workspace", "game-a")
+	assertJSONStringField(t, event, "agent", "codex")
+	assertJSONStringField(t, event, "profile", "senior")
+	assertJSONStringField(t, event, "session_id", "session-1")
+	assertJSONStringField(t, event, "task_id", "task-1")
+	assertJSONStringField(t, event, "runtime_path", "/tmp/runtime")
+	assertJSONStringField(t, event, "project_root", "/srv/game-a")
+	assertJSONNumberField(t, event, "pid", 1234)
+	assertJSONNumberField(t, event, "exit_code", 0)
+	assertJSONNumberField(t, event, "duration_ms", 4567)
+	fields := assertJSONObjectField(t, event, "fields")
+	assertJSONStringField(t, fields, "note", "ok")
+}
+
 func TestEventsCommandReportsUnknownSubcommand(t *testing.T) {
 	var stderr bytes.Buffer
 
@@ -79,6 +139,7 @@ func TestEventsListCommandRejectsBadLimits(t *testing.T) {
 	}{
 		{name: "not integer", args: []string{"events", "list", "--limit", "many"}, want: "adp: parse limit:"},
 		{name: "negative", args: []string{"events", "list", "--limit", "-1"}, want: "adp: limit must not be negative"},
+		{name: "unknown format", args: []string{"events", "list", "--format", "yaml"}, want: `adp: unknown output format "yaml"`},
 	}
 
 	for _, tt := range tests {

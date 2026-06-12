@@ -103,6 +103,9 @@ func (a *App) eventsList(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, eventsListOutput(opts, read))
+	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(writer, "TIME\tTYPE\tWORKSPACE\tAGENT\tSESSION\tTASK\tEXIT\tRUNTIME")
@@ -158,6 +161,9 @@ func (a *App) sessionsList(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, sessionsListOutput(opts, summaries))
+	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(writer, "SESSION\tWORKSPACE\tAGENT\tPROFILE\tTASK\tSTARTED\tFINISHED\tEXIT\tDURATION\tEVENTS\tRUNTIME")
@@ -180,7 +186,7 @@ func (a *App) sessionsList(ctx context.Context, args []string) error {
 }
 
 func (a *App) sessionsShow(ctx context.Context, args []string) error {
-	sessionID, err := parseSessionsShowArgs(args)
+	opts, err := parseSessionsShowArgs(args)
 	if err != nil {
 		return err
 	}
@@ -188,9 +194,12 @@ func (a *App) sessionsShow(ctx context.Context, args []string) error {
 		return errors.New("session reader is not configured")
 	}
 
-	detail, err := a.deps.GetSession(ctx, a.deps.Layout, sessionID)
+	detail, err := a.deps.GetSession(ctx, a.deps.Layout, opts.sessionID)
 	if err != nil {
 		return err
+	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, sessionDetailOutput(detail))
 	}
 
 	summary := detail.Summary
@@ -224,7 +233,7 @@ func (a *App) sessionsShow(ctx context.Context, args []string) error {
 }
 
 func (a *App) sessionsRestorePlan(ctx context.Context, args []string) error {
-	sessionID, err := parseSessionsRestorePlanArgs(args)
+	opts, err := parseSessionsRestorePlanArgs(args)
 	if err != nil {
 		return err
 	}
@@ -232,12 +241,15 @@ func (a *App) sessionsRestorePlan(ctx context.Context, args []string) error {
 		return errors.New("session reader is not configured")
 	}
 
-	detail, err := a.deps.GetSession(ctx, a.deps.Layout, sessionID)
+	detail, err := a.deps.GetSession(ctx, a.deps.Layout, opts.sessionID)
 	if err != nil {
 		return err
 	}
 
 	plan := sessions.BuildRestorePlan(detail)
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, plan)
+	}
 	fmt.Fprintf(a.stdout, "session_id: %s\n", valueOrDash(plan.SessionID))
 	fmt.Fprintf(a.stdout, "status: %s\n", valueOrDash(plan.Status))
 	fmt.Fprintf(a.stdout, "suggested_command: %s\n", formatSuggestedCommand(plan.SuggestedCommand))
@@ -395,6 +407,9 @@ func (a *App) runtimePrune(ctx context.Context, args []string) error {
 	})
 	if err != nil {
 		return err
+	}
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, runtimePruneOutput(opts, results))
 	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
