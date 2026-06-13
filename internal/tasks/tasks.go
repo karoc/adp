@@ -124,7 +124,7 @@ func (s *Store) FindByPrefix(ctx context.Context, prefix string) ([]Task, error)
 		for i, task := range matches {
 			ids[i] = task.ID
 		}
-		return nil, fmt.Errorf("%w: prefix %q matches multiple tasks: %s", ErrAmbiguousTaskID, prefix, strings.Join(ids, ", "))
+		return matches, fmt.Errorf("%w: prefix %q matches multiple tasks: %s", ErrAmbiguousTaskID, prefix, strings.Join(ids, ", "))
 	}
 
 	return matches, nil
