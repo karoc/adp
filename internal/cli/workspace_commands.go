@@ -42,10 +42,7 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 		}
 		fmt.Fprintf(a.stdout, "workspace %q added\n", args[1])
 	case "list":
-		if len(args) != 1 {
-			return errors.New("usage: adp workspace list")
-		}
-		return a.workspaceList(ctx)
+		return a.workspaceList(ctx, args[1:])
 	case "show":
 		if len(args) != 2 {
 			return errors.New("usage: adp workspace show <name>")
@@ -97,10 +94,19 @@ func (a *App) doctor(ctx context.Context, args []string) error {
 	return a.workspaceDoctorReports(reports, opts)
 }
 
-func (a *App) workspaceList(ctx context.Context) error {
+func (a *App) workspaceList(ctx context.Context, args []string) error {
+	opts, err := parseWorkspaceOutputArgs(args, "adp workspace list [--format <text|json>]")
+	if err != nil {
+		return err
+	}
+
 	records, err := a.deps.WorkspaceStore.List(ctx)
 	if err != nil {
 		return err
+	}
+
+	if opts.format == outputFormatJSON {
+		return a.workspaceListJSON(records)
 	}
 
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
@@ -109,6 +115,33 @@ func (a *App) workspaceList(ctx context.Context) error {
 		fmt.Fprintf(writer, "%s\t%s\t%s\n", record.Name, record.ProjectRoot, record.WorkspaceDir)
 	}
 	return writer.Flush()
+}
+
+func (a *App) workspaceListJSON(records []workspace.Record) error {
+	type workspaceItem struct {
+		Name         string `json:"name"`
+		ProjectRoot  string `json:"project_root"`
+		WorkspaceDir string `json:"workspace_dir"`
+	}
+	type output struct {
+		Workspaces []workspaceItem `json:"workspaces"`
+		Count      int             `json:"count"`
+	}
+	items := make([]workspaceItem, len(records))
+	for i, record := range records {
+		items[i] = workspaceItem{
+			Name:         record.Name,
+			ProjectRoot:  record.ProjectRoot,
+			WorkspaceDir: record.WorkspaceDir,
+		}
+	}
+	out := output{
+		Workspaces: items,
+		Count:      len(items),
+	}
+	encoder := json.NewEncoder(a.stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(out)
 }
 
 func (a *App) workspaceShow(ctx context.Context, name string) error {

@@ -5,6 +5,7 @@ import "strings"
 var commandHelpExamples = map[string][]string{
 	"workspace": {
 		"adp workspace add game-a /absolute/path/to/project",
+		"adp workspace list --format json",
 		"adp workspace doctor game-a --format json",
 	},
 	"completion": {
@@ -37,6 +38,10 @@ var subcommandHelpExamples = map[string]map[string][]string{
 	"workspace": {
 		"add": {
 			"adp workspace add game-a /absolute/path/to/project",
+		},
+		"list": {
+			"adp workspace list",
+			"adp workspace list --format json",
 		},
 		"doctor": {
 			"adp workspace doctor game-a --verbose",
