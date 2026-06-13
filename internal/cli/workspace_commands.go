@@ -52,10 +52,21 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 		if len(args) != 3 {
 			return errors.New("usage: adp workspace add <name> <project-root>")
 		}
-		if _, err := a.deps.WorkspaceStore.Add(ctx, args[1], args[2]); err != nil {
+		name, projectRoot := args[1], args[2]
+
+		// Check for name conflict first
+		if existing, _, err := a.deps.WorkspaceStore.Get(ctx, name); err == nil {
+			fmt.Fprintf(a.stderr, "adp: workspace %q already exists\n", name)
+			fmt.Fprintf(a.stderr, "  current project root: %s\n", existing.Project.Root)
+			fmt.Fprintf(a.stderr, "\nUse a different name or remove the existing workspace with:\n")
+			fmt.Fprintf(a.stderr, "  adp workspace remove %s\n", name)
+			return processExitError{code: 1}
+		}
+
+		if _, err := a.deps.WorkspaceStore.Add(ctx, name, projectRoot); err != nil {
 			return err
 		}
-		fmt.Fprintf(a.stdout, "workspace %q added\n", args[1])
+		fmt.Fprintf(a.stdout, "workspace %q added\n", name)
 	case "list":
 		return a.workspaceList(ctx, args[1:])
 	case "show":

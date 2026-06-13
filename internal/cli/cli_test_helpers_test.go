@@ -16,6 +16,7 @@ type fakeStore struct {
 	initCalled         bool
 	addName            string
 	addRoot            string
+	addedWorkspaces    map[string]bool
 	cfg                schema.Config
 	workspaceDir       string
 	records            []workspace.Record
@@ -38,23 +39,37 @@ func (s *fakeStore) Init(context.Context) error {
 func (s *fakeStore) Add(_ context.Context, name string, root string) (*schema.Config, error) {
 	s.addName = name
 	s.addRoot = root
+	if s.addedWorkspaces == nil {
+		s.addedWorkspaces = make(map[string]bool)
+	}
+	s.addedWorkspaces[name] = true
 	cfg := testConfig()
 	return &cfg, nil
 }
 
 func (s *fakeStore) Get(_ context.Context, name string) (*schema.Config, string, error) {
-	if name != "game-a" {
-		return nil, "", errors.New("workspace not found")
+	// Check if workspace was explicitly added
+	if s.addedWorkspaces != nil && s.addedWorkspaces[name] {
+		cfg := s.cfg
+		if cfg.Version == 0 {
+			cfg = testConfig()
+		}
+		workspaceDir := s.workspaceDir
+		if workspaceDir == "" {
+			workspaceDir = "/tmp/adp-home/workspaces/" + name
+		}
+		return &cfg, workspaceDir, nil
 	}
-	cfg := s.cfg
-	if cfg.Version == 0 {
-		cfg = testConfig()
+	// Legacy behavior: only "game-a" exists by default if cfg is set
+	if name == "game-a" && s.cfg.Version != 0 {
+		cfg := s.cfg
+		workspaceDir := s.workspaceDir
+		if workspaceDir == "" {
+			workspaceDir = "/tmp/adp-home/workspaces/game-a"
+		}
+		return &cfg, workspaceDir, nil
 	}
-	workspaceDir := s.workspaceDir
-	if workspaceDir == "" {
-		workspaceDir = "/tmp/adp-home/workspaces/game-a"
-	}
-	return &cfg, workspaceDir, nil
+	return nil, "", errors.New("workspace not found")
 }
 
 func (s *fakeStore) List(context.Context) ([]workspace.Record, error) {
