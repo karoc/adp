@@ -121,7 +121,13 @@ func (a *App) eventsList(ctx context.Context, args []string) error {
 			valueOrDash(event.RuntimePath),
 		)
 	}
-	return writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	if len(read) == 0 {
+		fmt.Fprintln(a.stdout, "\nNo events recorded yet. Events are created when you run agents with 'adp run'")
+	}
+	return nil
 }
 
 func (a *App) sessions(ctx context.Context, args []string) error {
@@ -182,7 +188,13 @@ func (a *App) sessionsList(ctx context.Context, args []string) error {
 			valueOrDash(summary.RuntimePath),
 		)
 	}
-	return writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	if len(summaries) == 0 {
+		fmt.Fprintln(a.stdout, "\nNo sessions found. Start an agent with 'adp run <agent> --workspace <name>'")
+	}
+	return nil
 }
 
 func (a *App) sessionsShow(ctx context.Context, args []string) error {

@@ -76,7 +76,13 @@ func (a *App) phaseList(ctx context.Context, args []string) error {
 	for _, phase := range phases {
 		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", phase.ID, phase.Status, formatEventTime(phase.UpdatedAt), phase.Title)
 	}
-	return writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	if len(phases) == 0 {
+		fmt.Fprintln(a.stdout, "\nNo phases defined. Add one with 'adp phase add --workspace <name> <id> \"<title>\"'")
+	}
+	return nil
 }
 
 func (a *App) phaseShow(ctx context.Context, args []string) error {

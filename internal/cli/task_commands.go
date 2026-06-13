@@ -134,7 +134,13 @@ func (a *App) printTaskTable(tasks []taskstore.Task) error {
 			task.Title,
 		)
 	}
-	return writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	if len(tasks) == 0 {
+		fmt.Fprintln(a.stdout, "\nNo tasks found. Create one with 'adp tasks add --workspace <name> \"<title>\"'")
+	}
+	return nil
 }
 
 func (a *App) tasksShow(ctx context.Context, args []string) error {
