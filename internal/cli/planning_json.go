@@ -11,6 +11,7 @@ import (
 
 type taskListJSON struct {
 	Workspace string     `json:"workspace"`
+	Count     int        `json:"count"`
 	Tasks     []taskJSON `json:"tasks"`
 }
 
@@ -51,6 +52,7 @@ type taskJSON struct {
 
 type phaseListJSON struct {
 	Workspace string      `json:"workspace"`
+	Count     int         `json:"count"`
 	Phases    []phaseJSON `json:"phases"`
 }
 
@@ -153,7 +155,7 @@ func writePlanningJSON(w io.Writer, value any) error {
 }
 
 func taskListOutput(workspace string, tasks []taskstore.Task) taskListJSON {
-	out := taskListJSON{Workspace: workspace, Tasks: make([]taskJSON, 0, len(tasks))}
+	out := taskListJSON{Workspace: workspace, Count: len(tasks), Tasks: make([]taskJSON, 0, len(tasks))}
 	for _, task := range tasks {
 		out.Tasks = append(out.Tasks, taskOutput(task))
 	}
@@ -224,7 +226,7 @@ func taskOutput(task taskstore.Task) taskJSON {
 }
 
 func phaseListOutput(workspace string, phases []taskstore.Phase) phaseListJSON {
-	out := phaseListJSON{Workspace: workspace, Phases: make([]phaseJSON, 0, len(phases))}
+	out := phaseListJSON{Workspace: workspace, Count: len(phases), Phases: make([]phaseJSON, 0, len(phases))}
 	for _, phase := range phases {
 		out.Phases = append(out.Phases, phaseOutput(phase))
 	}
