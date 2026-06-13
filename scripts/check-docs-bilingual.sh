@@ -17,10 +17,13 @@ is_exempt_markdown() {
     docs/verification/*.md)
       return 0
       ;;
-    VERIFICATION-*.md|USABILITY-*.md|P2-*.md|PLAN-FOLLOWUP.md|usability-*.md)
+    VERIFICATION-*.md|USABILITY-*.md|P0-P2-*.md|P2-*.md|PLAN-FOLLOWUP.md|usability-*.md)
       return 0
       ;;
-    docs/security-audit-report.md)
+    docs/security-audit-report.md|docs/P0-P2-*.md)
+      return 0
+      ;;
+    templates/*.md|templates/*/*.md|templates/*/*/*.md)
       return 0
       ;;
     *)
