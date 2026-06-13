@@ -21,7 +21,21 @@ func (a *App) init(ctx context.Context, args []string) error {
 	if err := a.deps.WorkspaceStore.Init(ctx); err != nil {
 		return err
 	}
-	fmt.Fprintln(a.stdout, "initialized ADP home")
+
+	homeDir := a.deps.Layout.Home
+	fmt.Fprintf(a.stdout, "initialized ADP home at %s\n", homeDir)
+	fmt.Fprintln(a.stdout)
+	fmt.Fprintln(a.stdout, "Next steps:")
+	fmt.Fprintln(a.stdout, "  1. Add a workspace:")
+	fmt.Fprintln(a.stdout, "     adp workspace add <name> /path/to/project")
+	fmt.Fprintln(a.stdout)
+	fmt.Fprintln(a.stdout, "  2. Check diagnostics:")
+	fmt.Fprintln(a.stdout, "     adp workspace doctor <name>")
+	fmt.Fprintln(a.stdout)
+	fmt.Fprintln(a.stdout, "  3. See all commands:")
+	fmt.Fprintln(a.stdout, "     adp --help")
+	fmt.Fprintln(a.stdout)
+	fmt.Fprintln(a.stdout, "Documentation: https://github.com/karoc/adp#quick-start")
 	return nil
 }
 
