@@ -16,6 +16,8 @@ import (
 
 var ErrCommandRequired = errors.New("launch command is required")
 
+var ErrCommandNotFound = errors.New("agent command not found")
+
 type Streams struct {
 	Stdin  io.Reader
 	Stdout io.Writer
@@ -31,14 +33,23 @@ func Run(ctx context.Context, spec adapters.LaunchSpec, streams Streams) (*Resul
 		return nil, ErrCommandRequired
 	}
 
-	cmd := exec.CommandContext(ctx, spec.Command, spec.Args...)
+	// Check if command exists in PATH
+	cmdPath, err := exec.LookPath(spec.Command)
+	if err != nil {
+		return nil, &CommandNotFoundError{
+			Command: spec.Command,
+			Err:     err,
+		}
+	}
+
+	cmd := exec.CommandContext(ctx, cmdPath, spec.Args...)
 	cmd.Dir = spec.Dir
 	cmd.Env = mergedEnv(spec.Env)
 	cmd.Stdin = streams.Stdin
 	cmd.Stdout = streams.Stdout
 	cmd.Stderr = streams.Stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if err == nil {
 		return &Result{ExitCode: 0}, nil
 	}
@@ -57,6 +68,20 @@ func Run(ctx context.Context, spec adapters.LaunchSpec, streams Streams) (*Resul
 	}
 
 	return nil, fmt.Errorf("start %q: %w", spec.Command, err)
+}
+
+// CommandNotFoundError is returned when an agent command is not found in PATH.
+type CommandNotFoundError struct {
+	Command string
+	Err     error
+}
+
+func (e *CommandNotFoundError) Error() string {
+	return fmt.Sprintf("agent command not found: %s", e.Command)
+}
+
+func (e *CommandNotFoundError) Unwrap() error {
+	return e.Err
 }
 
 func mergedEnv(overrides map[string]string) []string {

@@ -187,6 +187,24 @@ func (a *App) run(ctx context.Context, args []string) error {
 		Stdout: a.stdout,
 		Stderr: a.stderr,
 	})
+
+	// Handle command not found error with friendly message
+	var cmdNotFoundErr *runner.CommandNotFoundError
+	if errors.As(err, &cmdNotFoundErr) {
+		return fmt.Errorf(`agent command not found: %s
+
+The workspace is configured to use:
+  command: %s
+  path lookup: $PATH
+
+Possible solutions:
+  - Install %s CLI
+  - Configure explicit command path in workspace settings
+  - Check if the command is in your $PATH
+
+try: adp workspace doctor %s`, cmdNotFoundErr.Command, cmdNotFoundErr.Command, opts.agent, cfg.Workspace.Name)
+	}
+
 	exitCode := 1
 	if result != nil {
 		exitCode = result.ExitCode
