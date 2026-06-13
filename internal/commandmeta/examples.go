@@ -47,6 +47,10 @@ var subcommandHelpExamples = map[string]map[string][]string{
 			"adp workspace list",
 			"adp workspace list --format json",
 		},
+		"show": {
+			"adp workspace show game-a",
+			"adp workspace show game-a --format json",
+		},
 		"doctor": {
 			"adp workspace doctor game-a --verbose",
 			"adp workspace doctor game-a --format json",

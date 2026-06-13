@@ -135,3 +135,39 @@ func parseNonNegativeInt(value string, name string) (int, error) {
 	}
 	return parsed, nil
 }
+
+type workspaceShowOptions struct {
+	workspace string
+	format    outputFormat
+}
+
+func parseWorkspaceShowArgs(args []string) (workspaceShowOptions, error) {
+	opts := workspaceShowOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return workspaceShowOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return workspaceShowOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return workspaceShowOptions{}, fmt.Errorf("unknown workspace show option %q", arg)
+			}
+			if opts.workspace != "" {
+				return workspaceShowOptions{}, errors.New("usage: adp workspace show <name> [--format <text|json>]")
+			}
+			opts.workspace = arg
+		}
+	}
+	if opts.workspace == "" {
+		return workspaceShowOptions{}, errors.New("usage: adp workspace show <name> [--format <text|json>]")
+	}
+	return opts, nil
+}

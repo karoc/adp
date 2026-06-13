@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"text/tabwriter"
 
+	"github.com/karoc/adp/internal/schema"
 	"github.com/karoc/adp/internal/workspace"
 )
 
@@ -44,10 +45,7 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 	case "list":
 		return a.workspaceList(ctx, args[1:])
 	case "show":
-		if len(args) != 2 {
-			return errors.New("usage: adp workspace show <name>")
-		}
-		return a.workspaceShow(ctx, args[1])
+		return a.workspaceShow(ctx, args[1:])
 	case "remove":
 		if len(args) != 2 {
 			return errors.New("usage: adp workspace remove <name>")
@@ -144,10 +142,17 @@ func (a *App) workspaceListJSON(records []workspace.Record) error {
 	return encoder.Encode(out)
 }
 
-func (a *App) workspaceShow(ctx context.Context, name string) error {
-	cfg, workspaceDir, err := a.deps.WorkspaceStore.Get(ctx, name)
+func (a *App) workspaceShow(ctx context.Context, args []string) error {
+	opts, err := parseWorkspaceShowArgs(args)
 	if err != nil {
 		return err
+	}
+	cfg, workspaceDir, err := a.deps.WorkspaceStore.Get(ctx, opts.workspace)
+	if err != nil {
+		return err
+	}
+	if opts.format == outputFormatJSON {
+		return a.workspaceShowJSON(cfg, workspaceDir)
 	}
 	fmt.Fprintf(a.stdout, "name: %s\n", cfg.Workspace.Name)
 	fmt.Fprintf(a.stdout, "project_root: %s\n", cfg.Project.Root)
@@ -155,6 +160,43 @@ func (a *App) workspaceShow(ctx context.Context, name string) error {
 	fmt.Fprintf(a.stdout, "memory_enabled: %t\n", cfg.Memory.Enabled)
 	fmt.Fprintf(a.stdout, "mcp_enabled: %t\n", cfg.MCP.Enabled)
 	return nil
+}
+
+func (a *App) workspaceShowJSON(cfg *schema.Config, workspaceDir string) error {
+	type agentInfo struct {
+		Command        string `json:"command"`
+		DefaultProfile string `json:"default_profile,omitempty"`
+	}
+	type output struct {
+		Name          string               `json:"name"`
+		ProjectRoot   string               `json:"project_root"`
+		WorkspaceDir  string               `json:"workspace_dir"`
+		MemoryEnabled bool                 `json:"memory_enabled"`
+		MCPEnabled    bool                 `json:"mcp_enabled"`
+		Agents        map[string]agentInfo `json:"agents,omitempty"`
+	}
+
+	out := output{
+		Name:          cfg.Workspace.Name,
+		ProjectRoot:   cfg.Project.Root,
+		WorkspaceDir:  workspaceDir,
+		MemoryEnabled: cfg.Memory.Enabled,
+		MCPEnabled:    cfg.MCP.Enabled,
+	}
+
+	if len(cfg.Agents) > 0 {
+		out.Agents = make(map[string]agentInfo)
+		for name, agent := range cfg.Agents {
+			out.Agents[name] = agentInfo{
+				Command:        agent.Command,
+				DefaultProfile: agent.Profile,
+			}
+		}
+	}
+
+	encoder := json.NewEncoder(a.stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(out)
 }
 
 func (a *App) workspaceDoctorReports(reports []workspace.DiagnosticReport, opts doctorOptions) error {
