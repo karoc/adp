@@ -60,6 +60,22 @@ line_count() {
   wc -l < "$path" | tr -d '[:space:]'
 }
 
+runtime_entry_count() {
+  local runtime_dir="$1"
+
+  find "$runtime_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]'
+}
+
+assert_json_valid() {
+  local output="$1"
+  local label="$2"
+
+  if ! printf '%s' "$output" | "$JSON_VALIDATOR" >/dev/null 2>&1; then
+    printf '%s\n' "$output" >&2
+    fail "$label was not valid JSON"
+  fi
+}
+
 session_id_by_agent() {
   local events_file="$1"
   local agent="$2"
@@ -74,6 +90,40 @@ session_id_by_agent() {
     } || true
   )
   printf '%s\n' "$id"
+}
+
+build_json_validator() {
+  cat > "$TMP_ROOT/json-valid.go" <<'EOF'
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+)
+
+func main() {
+	dec := json.NewDecoder(os.Stdin)
+	dec.UseNumber()
+
+	var value any
+	if err := dec.Decode(&value); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		if err == nil {
+			fmt.Fprintln(os.Stderr, "multiple JSON values")
+		} else {
+			fmt.Fprintln(os.Stderr, err)
+		}
+		os.Exit(1)
+	}
+}
+EOF
+  go build -o "$JSON_VALIDATOR" "$TMP_ROOT/json-valid.go"
 }
 
 release_ldflags() {
@@ -245,6 +295,24 @@ run_adp() {
   printf '%s\n' "$output"
 }
 
+run_adp_expect_fail() {
+  local dir="$1"
+  local output
+  local code
+  shift
+
+  set +e
+  output=$(cd "$dir" && adp "$@" 2>&1)
+  code=$?
+  set -e
+
+  if [ "$code" = "0" ]; then
+    printf '%s\n' "$output" >&2
+    fail "adp $* unexpectedly succeeded"
+  fi
+  printf '%s\n' "$output"
+}
+
 for cmd in bash go git; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     fail "$cmd is required"
@@ -255,6 +323,7 @@ TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/adp-install-onboarding.XXXXXX")
 BUILD_BIN="$TMP_ROOT/build/adp"
 INSTALL_BIN="$TMP_ROOT/gobin"
 FAKE_BIN="$TMP_ROOT/fake-bin"
+JSON_VALIDATOR="$TMP_ROOT/json-valid"
 PROJECT_ROOT="$TMP_ROOT/project"
 ADP_HOME="$TMP_ROOT/adp-home"
 ADP_RUNTIME_DIR="$TMP_ROOT/runtime"
@@ -287,6 +356,7 @@ assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "local
 
 info "installing adp into a temporary GOBIN"
 install_to_temp_gobin
+build_json_validator
 
 export ADP_HOME
 export ADP_RUNTIME_DIR
@@ -305,6 +375,43 @@ fi
 
 setup_git_tripwire "$FAKE_BIN" "$GIT_TRIPWIRE_LOG"
 
+info "checking first-use help, examples, and parser hints"
+output=$(run_adp "$TMP_ROOT" --help)
+assert_contains "$output" "adp init" "root help output"
+assert_contains "$output" "adp workspace add" "root help output"
+assert_contains "$output" "adp run <agent>" "root help output"
+
+output=$(run_adp "$TMP_ROOT" workspace --help)
+assert_contains "$output" "Examples:" "workspace help output"
+assert_contains "$output" "adp workspace add game-a /absolute/path/to/project" "workspace help output"
+assert_contains "$output" "adp workspace doctor game-a --format json" "workspace help output"
+output=$(run_adp "$TMP_ROOT" tasks take --help)
+assert_contains "$output" "adp tasks take --workspace game-a --owner codex-main --lease 4h --format json" "tasks take help output"
+output=$(run_adp "$TMP_ROOT" sessions resume-plan --help)
+assert_contains "$output" "adp sessions resume-plan session-20260611-0001" "sessions resume-plan help output"
+output=$(run_adp "$TMP_ROOT" runtime prune --help)
+assert_contains "$output" "adp runtime prune --older-than 24h --dry-run --format json" "runtime prune help output"
+output=$(run_adp "$TMP_ROOT" progress report --help)
+assert_contains "$output" "adp progress report --workspace game-a --format json" "progress report help output"
+
+output=$(run_adp_expect_fail "$TMP_ROOT" run codex --take)
+assert_contains "$output" "--owner is required with --take" "run --take missing owner output"
+assert_contains "$output" "try: adp run --help" "run --take missing owner output"
+output=$(run_adp_expect_fail "$TMP_ROOT" tasks take task-123 --owner trial-agent)
+assert_contains "$output" 'tasks take does not accept task id "task-123"' "tasks take task id guard output"
+assert_contains "$output" "try: adp tasks take --help" "tasks take task id guard output"
+output=$(run_adp_expect_fail "$TMP_ROOT" completion values widgets)
+assert_contains "$output" 'unknown completion values kind "widgets"' "completion values guard output"
+assert_contains "$output" "try: adp completion values --help" "completion values guard output"
+
+assert_project_root_clean
+if [ -e "$EVENTS_FILE" ]; then
+  fail "help and parser checks created event log"
+fi
+if [ "$(runtime_entry_count "$ADP_RUNTIME_DIR")" != "0" ]; then
+  fail "help and parser checks created runtime directories"
+fi
+
 info "running first-use onboarding commands through the installed binary"
 output=$(run_adp "$TMP_ROOT" version)
 assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "installed version output"
@@ -312,13 +419,20 @@ output=$(run_adp "$TMP_ROOT" init)
 assert_contains "$output" "initialized ADP home" "init output"
 output=$(run_adp "$TMP_ROOT" workspace add onboarding-a "$PROJECT_ROOT")
 assert_contains "$output" 'workspace "onboarding-a" added' "workspace add output"
+output=$(run_adp "$TMP_ROOT" workspace list)
+assert_contains "$output" "onboarding-a" "workspace list output"
 output=$(run_adp "$TMP_ROOT" workspace doctor onboarding-a)
 assert_contains "$output" "onboarding-a" "workspace doctor output"
 assert_contains "$output" "ok" "workspace doctor output"
 assert_contains "$output" "no issues" "workspace doctor output"
+output=$(run_adp "$TMP_ROOT" doctor onboarding-a)
+assert_contains "$output" "onboarding-a" "doctor output"
+assert_contains "$output" "ok" "doctor output"
+assert_contains "$output" "no issues" "doctor output"
 output=$(run_adp "$TMP_ROOT" workspace doctor onboarding-a --verbose)
 assert_contains "$output" "workspace.git.root.detected" "workspace doctor verbose output"
 output=$(run_adp "$TMP_ROOT" workspace doctor onboarding-a --format json)
+assert_json_valid "$output" "workspace doctor json output"
 assert_contains "$output" '"code": "workspace.git.root.detected"' "workspace doctor json output"
 output=$(run_adp "$TMP_ROOT" workspace show onboarding-a)
 assert_contains "$output" "name: onboarding-a" "workspace show output"
@@ -337,6 +451,19 @@ if [ -z "$TASK_ID" ]; then
 fi
 export ADP_EXPECT_TASK_ID="$TASK_ID"
 
+output=$(run_adp "$TMP_ROOT" completion values workspaces)
+assert_contains "$output" "onboarding-a" "completion workspace values output"
+output=$(run_adp "$TMP_ROOT" completion values agents)
+assert_contains "$output" "codex" "completion agent values output"
+assert_contains "$output" "claude" "completion agent values output"
+output=$(run_adp "$TMP_ROOT" completion values phases --workspace onboarding-a)
+assert_contains "$output" "p-install" "completion phase values output"
+output=$(run_adp "$TMP_ROOT" completion values tasks --workspace onboarding-a)
+assert_contains "$output" "$TASK_ID" "completion task values output"
+output=$(run_adp "$TMP_ROOT" completion values statuses)
+assert_contains "$output" "ready" "completion status values output"
+assert_contains "$output" "done" "completion status values output"
+
 assert_file "$TASKS_FILE"
 assert_file "$PHASES_FILE"
 assert_file "$PROGRESS_FILE"
@@ -354,18 +481,28 @@ output=$(run_adp "$TMP_ROOT" events list --workspace onboarding-a --task "$TASK_
 assert_contains "$output" "run_finished" "events list output"
 assert_contains "$output" "codex" "events list output"
 assert_contains "$output" "$TASK_ID" "events list output"
+output=$(run_adp "$TMP_ROOT" events list --workspace onboarding-a --task "$TASK_ID" --type run_finished --limit 1 --format json)
+assert_json_valid "$output" "events list json output"
+assert_contains "$output" "\"task_id\": \"$TASK_ID\"" "events list json output"
+assert_contains "$output" '"events": [' "events list json output"
 assert_file "$EVENTS_FILE"
 
 output=$(run_adp "$TMP_ROOT" sessions list --workspace onboarding-a --agent codex --task "$TASK_ID")
 assert_contains "$output" "codex" "sessions list output"
 assert_contains "$output" "$TASK_ID" "sessions list output"
+output=$(run_adp "$TMP_ROOT" sessions list --workspace onboarding-a --agent codex --task "$TASK_ID" --format json)
+assert_json_valid "$output" "sessions list json output"
+assert_contains "$output" "\"task_id\": \"$TASK_ID\"" "sessions list json output"
+assert_contains "$output" '"sessions": [' "sessions list json output"
 
 output=$(run_adp "$TMP_ROOT" progress --workspace onboarding-a --format json)
+assert_json_valid "$output" "progress json output"
 assert_contains "$output" '"workspace": "onboarding-a"' "progress json output"
 assert_contains "$output" '"total": 1' "progress json output"
 assert_contains "$output" '"counts"' "progress json output"
 
 output=$(run_adp "$TMP_ROOT" plan doctor --workspace onboarding-a --format json)
+assert_json_valid "$output" "plan doctor json output"
 assert_contains "$output" '"workspace": "onboarding-a"' "plan doctor json output"
 assert_contains "$output" '"status": "ok"' "plan doctor json output"
 assert_contains "$output" '"task_count": 1' "plan doctor json output"
@@ -383,6 +520,7 @@ fi
 export ADP_EXPECT_TAKE_TASK_ID="$TAKE_TASK_ID"
 
 output=$(run_adp "$TMP_ROOT" tasks next --workspace onboarding-a --limit 1 --format json)
+assert_json_valid "$output" "tasks next json output"
 assert_contains "$output" "\"$TAKE_TASK_ID\"" "tasks next json output"
 assert_contains "$output" '"eligible_count": 1' "tasks next json output"
 assert_contains "$output" '"claim_state": "unclaimed"' "tasks next json output"
@@ -404,11 +542,16 @@ if [ -z "$take_session" ]; then
   fail "run --take session id missing in event log"
 fi
 
+output=$(run_adp "$TMP_ROOT" completion values sessions --workspace onboarding-a)
+assert_contains "$output" "$take_session" "completion session values output"
+
 output=$(run_adp "$TMP_ROOT" tasks show --workspace onboarding-a "$TAKE_TASK_ID")
 assert_contains "$output" "status: in_progress" "taken task show output"
 assert_contains "$output" "owner: trial-agent" "taken task show output"
 assert_contains "$output" "claim_state: leased" "taken task show output"
 assert_contains "$output" "lease_expires_at: 20" "taken task show output"
+output=$(run_adp "$TMP_ROOT" completion values owners --workspace onboarding-a)
+assert_contains "$output" "trial-agent" "completion owner values output"
 
 output=$(run_adp "$TMP_ROOT" tasks renew --workspace onboarding-a "$TAKE_TASK_ID" --owner trial-agent --lease 45m)
 assert_contains "$output" "task $TAKE_TASK_ID lease renewed until" "tasks renew output"
@@ -423,6 +566,7 @@ output=$(run_adp "$TMP_ROOT" tasks claim --workspace onboarding-a "$STALE_TASK_I
 assert_contains "$output" "task $STALE_TASK_ID claimed by abandoned-agent" "stale task claim output"
 sleep 1
 output=$(run_adp "$TMP_ROOT" tasks stale --workspace onboarding-a --format json)
+assert_json_valid "$output" "tasks stale json output"
 assert_contains "$output" '"stale_count": 1' "tasks stale json output"
 assert_contains "$output" "\"$STALE_TASK_ID\"" "tasks stale json output"
 assert_contains "$output" '"owner": "abandoned-agent"' "tasks stale json output"
@@ -433,6 +577,10 @@ assert_contains "$output" "session_id: $take_session" "take restore-plan output"
 assert_contains "$output" "status: ready" "take restore-plan output"
 assert_contains "$output" "adp run codex --workspace onboarding-a --task $TAKE_TASK_ID" "take restore-plan output"
 assert_contains "$output" "-- --trial-take" "take restore-plan output"
+output=$(run_adp "$TMP_ROOT" sessions restore-plan "$take_session" --format json)
+assert_json_valid "$output" "take restore-plan json output"
+assert_contains "$output" "\"session_id\": \"$take_session\"" "take restore-plan json output"
+assert_contains "$output" '"status": "ready"' "take restore-plan json output"
 
 output=$(run_adp "$TMP_ROOT" progress report --workspace onboarding-a)
 assert_contains "$output" "# ADP Progress Report" "progress report output"
@@ -442,6 +590,14 @@ assert_contains "$output" "$take_session" "progress report output"
 assert_contains "$output" "Claim" "progress report output"
 assert_contains "$output" "leased to trial-agent" "progress report output"
 assert_contains "$output" "stale claim by abandoned-agent" "progress report output"
+output=$(run_adp "$TMP_ROOT" progress report --workspace onboarding-a --format json)
+assert_json_valid "$output" "progress report json output"
+assert_contains "$output" '"runtime_sessions"' "progress report json output"
+assert_contains "$output" "\"$take_session\"" "progress report json output"
+output=$(run_adp "$TMP_ROOT" runtime prune --older-than 24h --dry-run --format json)
+assert_json_valid "$output" "runtime prune dry-run json output"
+assert_contains "$output" '"dry_run": true' "runtime prune dry-run json output"
+assert_contains "$output" '"results": [' "runtime prune dry-run json output"
 assert_project_root_clean
 
 info "install onboarding smoke passed"

@@ -6,16 +6,22 @@ This guide is the concrete first-run path for a new ADP operator. It stays termi
 
 For installation details, see [install.md](install.md). For a reusable workspace configuration example, see `examples/basic-workspace`.
 
+## Current Start-Using Boundary
+
+ADP is ready for a local technical operator to start with a provider-free first trial, then move to durable local workspaces after the isolated rehearsal passes. Treat this as local trial readiness for terminal-first workflows, not as a claim that every real provider environment or interactive session is production-ready.
+
+Use this guide when you need to verify local install paths, workspace registration, diagnostics, task pickup, fake-provider runtime handoff, event/session/progress inspection, restore guidance, completion values, runtime prune dry-run, and project-root cleanliness. Keep real provider authentication, model access, quota, network behavior, and interactive session quality as separate opt-in acceptance checks.
+
 ## What The First Trial Proves
 
 The first trial is a local rehearsal, not a production setup. By the end of it, you should have evidence that:
 
-- the selected `adp` command runs and exposes help for nested commands;
+- the selected `adp` command runs and exposes copyable help for nested commands and common parser errors point back to the right help page;
 - ADP can initialize isolated local state under a temporary `$ADP_HOME`;
 - a workspace can point at a local project without writing ADP files into that project root;
 - `workspace doctor` and `doctor` can inspect the local setup before an agent run;
 - `adp run codex --take --owner --lease` can atomically claim a task, build a runtime overlay, and launch a provider command;
-- events, sessions, progress, restore guidance, and plan diagnostics are readable from local ADP state; and
+- events, sessions, progress, restore guidance, plan diagnostics, completion values, and runtime prune dry-run are readable from local ADP state; and
 - the same board can be inspected or claimed without launching an agent through `tasks next` and `tasks take`.
 
 The provider in this guide is a fake local `codex` shell script. A passing first trial does not prove real provider authentication, model access, quota, network behavior, or interactive session quality.
@@ -57,13 +63,16 @@ Before creating state, confirm the command surface from the same command form yo
 
 ```bash
 adp_local --help
+adp_local workspace --help
 adp_local tasks --help
 adp_local tasks take --help
+adp_local sessions resume-plan --help
+adp_local runtime prune --help
 ```
 
 Use the same nesting pattern for other groups: `adp_local <command> --help` and `adp_local <command> <subcommand> --help`. Leaf help may include `See also:` for the parent command. If a build prints a friendly `try:` hint, read it as a suggested help command to run manually; it does not inspect projects, mutate `$ADP_HOME`, create runtimes, call providers, or run Git by itself.
 
-Expected result: each command exits successfully and prints local help or version text. If this fails, fix the selected command path before creating any ADP state.
+Expected result: each command exits successfully and prints local help or version text with copyable examples for first-use commands. If this fails, fix the selected command path before creating any ADP state.
 
 ## Isolated First Run
 

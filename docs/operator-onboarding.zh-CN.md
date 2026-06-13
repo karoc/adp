@@ -6,16 +6,22 @@ English: [operator-onboarding.md](operator-onboarding.md)
 
 安装细节见 [install.zh-CN.md](install.zh-CN.md)。可复用的 workspace 配置示例见 `examples/basic-workspace`。
 
+## 当前开始使用边界
+
+ADP 已经适合本地技术 operator 从不依赖 provider 的首次试运行开始；隔离演练通过后，再切换到持久本地 workspace 使用。请把这理解为 terminal-first workflow 的本地试用准备度，而不是所有真实 provider 环境或交互式 session 都已经 production-ready 的声明。
+
+当你需要验证 local install path、workspace registration、diagnostics、task pickup、fake-provider runtime handoff、event/session/progress inspection、restore guidance、completion values、runtime prune dry-run 和 project-root cleanliness 时，使用本指南。真实 provider authentication、model access、quota、network behavior 和 interactive session quality 仍然是单独的 opt-in acceptance checks。
+
 ## 首次试运行验证什么
 
 首次试运行是本地演练，不是生产配置。完成后，你应该得到以下 evidence：
 
-- 选定的 `adp` 命令可以运行，并能输出嵌套命令的 help；
+- 选定的 `adp` 命令可以运行，并能输出带可复制示例的嵌套命令 help，常见 parser error 会指向正确的 help 页面；
 - ADP 可以在临时 `$ADP_HOME` 下初始化隔离的本地状态；
 - workspace 可以指向本地项目，同时不把 ADP 文件写入该 project root；
 - `workspace doctor` 和 `doctor` 可以在 Agent 运行前检查本地配置；
 - `adp run codex --take --owner --lease` 可以原子领取 task、构建 runtime overlay，并启动 provider 命令；
-- events、sessions、progress、restore guidance 和 plan diagnostics 都可以从本地 ADP 状态读取；并且
+- events、sessions、progress、restore guidance、plan diagnostics、completion values 和 runtime prune dry-run 都可以从本地 ADP 状态读取；并且
 - 同一个看板可以通过 `tasks next` 只读检查，也可以通过 `tasks take` 在不启动 Agent 的情况下领取。
 
 本指南里的 provider 是一个本地 fake `codex` shell 脚本。首次试运行通过，并不证明真实 provider 的认证、模型访问、quota、网络行为或交互式 session 质量。
@@ -57,13 +63,16 @@ adp_local version
 
 ```bash
 adp_local --help
+adp_local workspace --help
 adp_local tasks --help
 adp_local tasks take --help
+adp_local sessions resume-plan --help
+adp_local runtime prune --help
 ```
 
 其他命令组也使用同样的嵌套模式：`adp_local <command> --help` 和 `adp_local <command> <subcommand> --help`。叶子 help 可能包含指向父命令的 `See also:`。如果某个构建打印友好的 `try:` hint，把它理解为建议手动运行的 help 命令；它本身不会 inspect project、修改 `$ADP_HOME`、创建 runtime、调用 provider 或运行 Git。
 
-预期结果：每条命令成功退出，并打印本地 help 或 version 文本。如果这里失败，先修复选定的命令路径，再创建任何 ADP 状态。
+预期结果：每条命令成功退出，并打印本地 help 或 version 文本，首用命令会带有可复制示例。如果这里失败，先修复选定的命令路径，再创建任何 ADP 状态。
 
 ## 隔离首次运行
 

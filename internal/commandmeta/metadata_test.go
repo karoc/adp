@@ -148,6 +148,61 @@ func TestHelpIncludesCopyableExamples(t *testing.T) {
 	}
 }
 
+func TestFirstUseHelpIncludesCopyableExamples(t *testing.T) {
+	t.Parallel()
+
+	commandCases := []struct {
+		command string
+		want    string
+	}{
+		{command: "workspace", want: "adp workspace doctor game-a --format json"},
+		{command: "completion", want: "adp completion values tasks --workspace game-a"},
+		{command: "events", want: "adp events list --workspace game-a --task task-20260611-0001 --format json"},
+		{command: "sessions", want: "adp sessions resume-plan session-20260611-0001 --workspace game-a --agent claude --owner claude-main --lease 4h"},
+		{command: "runtime", want: "adp runtime prune --older-than 24h --dry-run --format json"},
+		{command: "plan", want: "adp plan doctor --workspace game-a --format json"},
+		{command: "progress", want: "adp progress report --workspace game-a --format json"},
+	}
+	for _, tc := range commandCases {
+		help, ok := CommandHelp(tc.command)
+		if !ok {
+			t.Fatalf("CommandHelp(%s) returned false", tc.command)
+		}
+		for _, want := range []string{"Examples:", tc.want} {
+			if !strings.Contains(help, want) {
+				t.Fatalf("%s help missing %q:\n%s", tc.command, want, help)
+			}
+		}
+	}
+
+	subcommandCases := []struct {
+		command    string
+		subcommand string
+		want       string
+	}{
+		{command: "workspace", subcommand: "doctor", want: "adp workspace doctor game-a --format json"},
+		{command: "completion", subcommand: "values", want: "adp completion values workspaces"},
+		{command: "events", subcommand: "list", want: "adp events list --workspace game-a --task task-20260611-0001 --type run_finished --limit 5 --format json"},
+		{command: "sessions", subcommand: "restore-plan", want: "adp sessions restore-plan session-20260611-0001 --format json"},
+		{command: "sessions", subcommand: "resume-plan", want: "adp sessions resume-plan session-20260611-0001 --workspace game-a --agent claude --owner claude-main --lease 4h --format json"},
+		{command: "runtime", subcommand: "prune", want: "adp runtime prune --older-than 24h --dry-run --format json"},
+		{command: "tasks", subcommand: "stale", want: "adp tasks stale --workspace game-a --format json"},
+		{command: "plan", subcommand: "doctor", want: "adp plan doctor --workspace game-a --format json"},
+		{command: "progress", subcommand: "report", want: "adp progress report --workspace game-a --format json"},
+	}
+	for _, tc := range subcommandCases {
+		help, ok := SubcommandHelp(tc.command, tc.subcommand)
+		if !ok {
+			t.Fatalf("SubcommandHelp(%s, %s) returned false", tc.command, tc.subcommand)
+		}
+		for _, want := range []string{"Examples:", tc.want} {
+			if !strings.Contains(help, want) {
+				t.Fatalf("%s %s help missing %q:\n%s", tc.command, tc.subcommand, want, help)
+			}
+		}
+	}
+}
+
 func assertUniqueValues(t *testing.T, label string, values []Value) {
 	t.Helper()
 

@@ -3,6 +3,30 @@ package commandmeta
 import "strings"
 
 var commandHelpExamples = map[string][]string{
+	"workspace": {
+		"adp workspace add game-a /absolute/path/to/project",
+		"adp workspace doctor game-a --format json",
+	},
+	"completion": {
+		"source <(adp completion --shell bash)",
+		"adp completion values tasks --workspace game-a",
+	},
+	"events": {
+		"adp events list --workspace game-a --task task-20260611-0001 --format json",
+	},
+	"sessions": {
+		"adp sessions list --workspace game-a --agent codex --format json",
+		"adp sessions resume-plan session-20260611-0001 --workspace game-a --agent claude --owner claude-main --lease 4h",
+	},
+	"runtime": {
+		"adp runtime prune --older-than 24h --dry-run --format json",
+	},
+	"plan": {
+		"adp plan doctor --workspace game-a --format json",
+	},
+	"progress": {
+		"adp progress report --workspace game-a --format json",
+	},
 	"run": {
 		"adp run codex --workspace game-a --take --owner codex-main --lease 4h",
 		"adp run claude --workspace game-a --task task-20260611-0001 --keep-runtime",
@@ -10,6 +34,45 @@ var commandHelpExamples = map[string][]string{
 }
 
 var subcommandHelpExamples = map[string]map[string][]string{
+	"workspace": {
+		"add": {
+			"adp workspace add game-a /absolute/path/to/project",
+		},
+		"doctor": {
+			"adp workspace doctor game-a --verbose",
+			"adp workspace doctor game-a --format json",
+		},
+	},
+	"completion": {
+		"values": {
+			"adp completion values workspaces",
+			"adp completion values tasks --workspace game-a",
+		},
+	},
+	"events": {
+		"list": {
+			"adp events list --workspace game-a --task task-20260611-0001 --type run_finished --limit 5 --format json",
+		},
+	},
+	"sessions": {
+		"list": {
+			"adp sessions list --workspace game-a --agent codex --task task-20260611-0001 --format json",
+		},
+		"show": {
+			"adp sessions show session-20260611-0001 --format json",
+		},
+		"restore-plan": {
+			"adp sessions restore-plan session-20260611-0001 --format json",
+		},
+		"resume-plan": {
+			"adp sessions resume-plan session-20260611-0001 --workspace game-a --agent claude --owner claude-main --lease 4h --format json",
+		},
+	},
+	"runtime": {
+		"prune": {
+			"adp runtime prune --older-than 24h --dry-run --format json",
+		},
+	},
 	"tasks": {
 		"next": {
 			"adp tasks next --workspace game-a --limit 3 --format json",
@@ -19,6 +82,23 @@ var subcommandHelpExamples = map[string]map[string][]string{
 		},
 		"claim": {
 			"adp tasks claim --workspace game-a task-20260611-0001 --owner codex-main --lease 4h",
+		},
+		"renew": {
+			"adp tasks renew --workspace game-a task-20260611-0001 --owner codex-main --lease 4h",
+		},
+		"stale": {
+			"adp tasks stale --workspace game-a --format json",
+		},
+	},
+	"plan": {
+		"preview": {
+			"adp plan preview --workspace game-a --file plan.yaml --format json",
+		},
+		"apply": {
+			"adp plan apply --workspace game-a --file plan.yaml --format json",
+		},
+		"doctor": {
+			"adp plan doctor --workspace game-a --format json",
 		},
 	},
 	"phase": {
@@ -33,6 +113,12 @@ var subcommandHelpExamples = map[string]map[string][]string{
 		},
 		"push": {
 			"adp phase push --workspace game-a P60 --remote origin --branch main --result pushed",
+		},
+	},
+	"progress": {
+		"report": {
+			"adp progress report --workspace game-a --language en --format markdown",
+			"adp progress report --workspace game-a --format json",
 		},
 	},
 }
