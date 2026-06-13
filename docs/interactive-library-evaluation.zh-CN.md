@@ -1,6 +1,6 @@
 # 交互式输入库评估报告
 
-**任务**: P2-1a - 为 `adp quickstart` 命令选择交互式输入库  
+**任务**: P2-1a - 为 `quickstart` 命令选择交互式输入库
 **评估日期**: 2026-06-13  
 **结论**: 推荐使用标准库（`bufio.Scanner`）
 
@@ -152,7 +152,7 @@ func promptYesNo(prompt string, defaultYes bool) (bool, error) {
 
 ## 结论
 
-标准库方案完全满足 `adp quickstart` 的需求：
+标准库方案完全满足 `quickstart` 的需求：
 
 ✅ **功能完整** - 所有必需的交互已实现  
 ✅ **代码清晰** - 易于维护和扩展  
@@ -161,49 +161,6 @@ func promptYesNo(prompt string, defaultYes bool) (bool, error) {
 ✅ **文档完善** - 英文和中文文档齐全
 
 如果未来需要更丰富的 TUI 体验（如表格选择、多步骤表单等），可以考虑迁移到 `huh` 库，但当前阶段标准库方案是最优选择。
-
----
-
-## 附录：命令示例
-
-### 交互模式
-
-```bash
-$ adp quickstart
-
-Welcome to ADP (Agent Development Platform)!
-
-This wizard will help you set up your first workspace.
-
-ADP home directory [/home/user/.adp]: 
-✓ Initialized ADP home
-
-Setting up your first workspace...
-
-Workspace name: my-project
-Project root [/home/user/current-dir]: /srv/my-project
-Enable memory? (Y/n): y
-Enable MCP? (Y/n): y
-✓ Workspace "my-project" created
-
-Run diagnostics? (Y/n): y
-✓ No issues found
-
-Next steps:
-  - Start an agent: adp run codex --workspace my-project
-  - Add a task: adp tasks add --workspace my-project "First task"
-  - See all commands: adp --help
-```
-
-### 非交互模式
-
-```bash
-adp quickstart --non-interactive \
-  --workspace-name my-project \
-  --project-root /srv/my-project \
-  --memory \
-  --mcp
-```
 
 ---
 

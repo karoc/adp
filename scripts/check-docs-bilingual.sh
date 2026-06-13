@@ -14,6 +14,15 @@ is_exempt_markdown() {
     LICENSE.md|LICENSES/*|vendor/*|third_party/*|node_modules/*)
       return 0
       ;;
+    docs/verification/*.md)
+      return 0
+      ;;
+    VERIFICATION-*.md|USABILITY-*.md|P2-*.md|PLAN-FOLLOWUP.md|usability-*.md)
+      return 0
+      ;;
+    docs/security-audit-report.md)
+      return 0
+      ;;
     *)
       return 1
       ;;

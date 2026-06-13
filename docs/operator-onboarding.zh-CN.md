@@ -80,13 +80,13 @@ ADP 支持方便的 task 和 session ID 前缀匹配。无需输入完整 ID，�
 
 ```bash
 # Task ID 前缀匹配
-adp tasks show task-20260611-0001    # 完整 ID
-adp tasks show task-2026             # 前缀（如果唯一）
+adp tasks show task-20260611-0001    # Full ID
+adp tasks show task-2026             # Prefix (if unique)
 adp tasks claim task-001 --owner alice --lease 2h
 
 # Session ID 前缀匹配
-adp sessions show session-20260611T102030-abc123    # 完整 ID
-adp sessions show 20260611T10                       # 前缀（如果唯一）
+adp sessions show session-20260611T102030-abc123    # Full ID
+adp sessions show 20260611T10                       # Prefix (if unique)
 adp sessions restore-plan 2026061
 ```
 
