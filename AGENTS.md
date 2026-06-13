@@ -4,6 +4,20 @@ Simplified Chinese: [AGENTS.zh-CN.md](AGENTS.zh-CN.md)
 
 This guide captures the working rules for agents contributing to ADP. It is a project-level contract for planning, delegation, implementation, validation, and handoff.
 
+## Core Principle: Quality Over Speed
+
+**If it genuinely makes the project better, do it.**
+
+Do not worry about time or token consumption when:
+- Implementing features thoroughly and correctly
+- Writing comprehensive tests
+- Adding clear documentation
+- Refactoring for maintainability
+- Investigating root causes instead of patching symptoms
+- Ensuring changes are production-ready
+
+Speed matters less than correctness. Partial implementations that save tokens but require rework waste more resources than doing it right the first time. When in doubt, invest the effort to deliver quality work.
+
 ## Product Boundary
 
 ADP is a terminal-first, local-first Agent Runtime Environment and Agent Workspace Manager.
