@@ -151,6 +151,37 @@ test -z "$ROOT_LEAKS"
 
 预期结果：fake provider 会打印 runtime 工作目录，本地 inspection 命令会返回 task/session/progress evidence，最后的 project-root 泄漏检查通过且没有输出。持久本地使用时，可以把 `ADP_HOME` 设置为 `~/.adp` 等稳定目录；运行真实 Agent 前，先安装并认证外部 provider CLI，然后再使用 `adp run codex ...` 或 `adp run claude ...`。当你需要一份包含 Codex 和 Claude profile、base prompt、shared memory 与 MCP 设置的可复制 workspace 配置时，再使用 `examples/basic-workspace`。
 
+### ID 前缀匹配
+
+任务 ID 和会话 ID 支持前缀匹配以方便使用。接受任务 ID 或会话 ID 的命令会匹配最短的唯一前缀：
+
+```bash
+# 完整任务 ID
+adp tasks show task-20260611-0001
+
+# 前缀匹配（如果唯一）
+adp tasks show task-2026
+adp tasks claim task-001 --owner alice --lease 2h
+
+# 完整会话 ID
+adp sessions show session-20260611T102030-abc123
+
+# 前缀匹配（如果唯一）
+adp sessions show 20260611T10
+adp sessions restore-plan 2026061
+```
+
+当前缀匹配多个 ID 时，ADP 会返回错误并列出所有匹配项：
+
+```bash
+adp tasks show task-20
+# Error: ambiguous task ID "task-20", matches:
+#   - task-20260611-0001
+#   - task-20260612-0002
+```
+
+前缀匹配适用于所有任务和会话命令，包括 `tasks show`、`tasks claim`、`tasks renew`、`tasks release`、`tasks done`、`tasks block`、`sessions show`、`sessions restore-plan`、`sessions resume-plan`、`events list --task`、`events list --session` 和 `run --task`。
+
 常用环境变量：
 
 - `ADP_HOME`：ADP home 目录，默认 `~/.adp`。
