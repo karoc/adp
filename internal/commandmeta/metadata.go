@@ -18,6 +18,20 @@ type Command struct {
 var rootCommands = []Command{
 	{Name: "init", Description: "initialize ADP home", Usage: []string{"adp init"}},
 	{
+		Name:        "quickstart",
+		Description: "interactive setup for new users",
+		Usage:       []string{"adp quickstart [--non-interactive] [--adp-home <path>] [--workspace-name <name>] [--project-root <path>] [--memory] [--mcp] [--agents]"},
+		Options: describedValues(valueDescriptions{
+			"--non-interactive": "skip interactive prompts",
+			"--adp-home":        "ADP home directory path",
+			"--workspace-name":  "workspace name",
+			"--project-root":    "project root directory",
+			"--memory":          "enable memory",
+			"--mcp":             "enable MCP servers",
+			"--agents":          "enable custom agents",
+		}, "--non-interactive", "--adp-home", "--workspace-name", "--project-root", "--memory", "--mcp", "--agents"),
+	},
+	{
 		Name:        "doctor",
 		Description: "diagnose registered workspaces",
 		Usage:       []string{"adp doctor [workspace] [--verbose] [--format <text|json>]"},

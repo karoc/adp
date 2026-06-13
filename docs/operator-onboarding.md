@@ -108,6 +108,40 @@ Tips:
 
 ## Isolated First Run
 
+### Quick Start with Quickstart Command (Recommended)
+
+The fastest way to get started is using the `quickstart` command, which automates the initialization and workspace setup:
+
+```bash
+# Interactive mode - guides you through setup
+adp_local quickstart
+
+# Non-interactive mode for scripts/automation
+ADP_ONBOARDING_ROOT="$(mktemp -d)"
+export ADP_HOME="${ADP_ONBOARDING_ROOT}/adp-home"
+mkdir -p "${ADP_ONBOARDING_ROOT}/project"
+printf 'module example.com/adp-onboarding\n' > "${ADP_ONBOARDING_ROOT}/project/go.mod"
+printf 'package main\n' > "${ADP_ONBOARDING_ROOT}/project/main.go"
+
+adp_local quickstart \
+  --non-interactive \
+  --workspace-name game-a \
+  --project-root "${ADP_ONBOARDING_ROOT}/project" \
+  --memory \
+  --mcp
+```
+
+The `quickstart` command will:
+1. Initialize your ADP home directory
+2. Create your first workspace with recommended settings
+3. Optionally run diagnostics to verify the setup
+
+After quickstart completes, you can skip directly to adding tasks and running agents (see "Add Tasks and Run Agents" below).
+
+### Manual Setup (Alternative)
+
+If you prefer manual control or need to understand each step, use the detailed setup below.
+
 Use temporary state until the install path is trusted. This rehearsal registers a temporary workspace, inspects the task board, runs a fake `codex` provider through atomic `run --take`, records local events and sessions, checks lease maintenance, and verifies that the project root stays clean.
 
 ```bash
@@ -138,6 +172,29 @@ adp_local workspace show game-a
 adp_local workspace doctor game-a
 adp_local doctor game-a
 adp_local version
+```
+
+### Add Tasks and Run Agents
+
+Whether you used `quickstart` or manual setup, continue with task management and agent runs:
+
+```bash
+# Create a fake codex provider (if not already created)
+if [ ! -f "${ADP_ONBOARDING_ROOT}/fake-bin/codex" ]; then
+  mkdir -p "${ADP_ONBOARDING_ROOT}/fake-bin"
+  cat > "${ADP_ONBOARDING_ROOT}/fake-bin/codex" <<'SH'
+#!/usr/bin/env sh
+printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
+test -n "${ADP_SESSION_ID:-}"
+test -n "${ADP_RUNTIME_ROOT:-}"
+test -n "${ADP_TASK_ID:-}"
+test "$(pwd)" = "$ADP_RUNTIME_ROOT"
+test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
+test -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+SH
+  chmod +x "${ADP_ONBOARDING_ROOT}/fake-bin/codex"
+  export PATH="${ADP_ONBOARDING_ROOT}/fake-bin:${PATH}"
+fi
 
 TASK_ID=$(adp_local tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 test -n "$TASK_ID"

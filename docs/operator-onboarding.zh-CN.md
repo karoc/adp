@@ -76,6 +76,40 @@ adp_local runtime prune --help
 
 ## 隔离首次运行
 
+### 使用 Quickstart 命令快速开始（推荐）
+
+最快速的入门方式是使用 `quickstart` 命令，它会自动完成初始化和 workspace 设置：
+
+```bash
+# 交互模式 - 引导你完成设置
+adp_local quickstart
+
+# 非交互模式（用于脚本/自动化）
+ADP_ONBOARDING_ROOT="$(mktemp -d)"
+export ADP_HOME="${ADP_ONBOARDING_ROOT}/adp-home"
+mkdir -p "${ADP_ONBOARDING_ROOT}/project"
+printf 'module example.com/adp-onboarding\n' > "${ADP_ONBOARDING_ROOT}/project/go.mod"
+printf 'package main\n' > "${ADP_ONBOARDING_ROOT}/project/main.go"
+
+adp_local quickstart \
+  --non-interactive \
+  --workspace-name game-a \
+  --project-root "${ADP_ONBOARDING_ROOT}/project" \
+  --memory \
+  --mcp
+```
+
+`quickstart` 命令会：
+1. 初始化你的 ADP home 目录
+2. 使用推荐设置创建你的第一个 workspace
+3. 可选地运行诊断以验证设置
+
+quickstart 完成后，你可以直接跳到添加任务和运行 Agent（见下面"添加任务并运行 Agent"）。
+
+### 手动设置（备选方案）
+
+如果你更喜欢手动控制或需要理解每一步，使用下面的详细设置。
+
 在确认安装路径可信前，先使用临时状态。这次演练会注册一个临时 workspace，检查任务看板，通过原子 `run --take` 运行 fake `codex` provider，记录本地 events 和 sessions，检查 lease 维护，并验证 project root 保持干净。
 
 ```bash
@@ -106,6 +140,29 @@ adp_local workspace show game-a
 adp_local workspace doctor game-a
 adp_local doctor game-a
 adp_local version
+```
+
+### 添加任务并运行 Agent
+
+无论使用 `quickstart` 还是手动设置，都继续进行任务管理和 Agent 运行：
+
+```bash
+# 创建 fake codex provider（如果还没创建）
+if [ ! -f "${ADP_ONBOARDING_ROOT}/fake-bin/codex" ]; then
+  mkdir -p "${ADP_ONBOARDING_ROOT}/fake-bin"
+  cat > "${ADP_ONBOARDING_ROOT}/fake-bin/codex" <<'SH'
+#!/usr/bin/env sh
+printf 'fake codex cwd=%s args=%s\n' "$(pwd)" "$*"
+test -n "${ADP_SESSION_ID:-}"
+test -n "${ADP_RUNTIME_ROOT:-}"
+test -n "${ADP_TASK_ID:-}"
+test "$(pwd)" = "$ADP_RUNTIME_ROOT"
+test -f "$ADP_RUNTIME_ROOT/AGENTS.md"
+test -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml"
+SH
+  chmod +x "${ADP_ONBOARDING_ROOT}/fake-bin/codex"
+  export PATH="${ADP_ONBOARDING_ROOT}/fake-bin:${PATH}"
+fi
 
 TASK_ID=$(adp_local tasks add --workspace game-a --priority high "Validate isolated first run" | sed -n 's/^task \(task-[^ ]*\) added$/\1/p')
 test -n "$TASK_ID"

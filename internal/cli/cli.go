@@ -52,6 +52,7 @@ type TaskStore interface {
 	Add(context.Context, taskstore.AddRequest) (taskstore.Task, error)
 	List(context.Context) ([]taskstore.Task, error)
 	Get(context.Context, string) (taskstore.Task, error)
+	FindByPrefix(context.Context, string) ([]taskstore.Task, error)
 	UpdateStatus(context.Context, string, taskstore.Status) (taskstore.Task, error)
 	Block(context.Context, string, string) (taskstore.Task, error)
 	Claim(context.Context, taskstore.ClaimRequest) (taskstore.Task, error)
@@ -181,6 +182,7 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 func (a *App) commandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
 		"init":       a.init,
+		"quickstart": a.quickstart,
 		"doctor":     a.doctor,
 		"version":    a.version,
 		"workspace":  a.workspace,

@@ -25,7 +25,7 @@ func TestRenderCompletionDefaultsToBash(t *testing.T) {
 		"completion values sessions",
 		"completion values owners",
 		"completion values statuses",
-		"init doctor version workspace enter env shell-hook completion events sessions runtime tasks plan phase progress run",
+		"init quickstart doctor version workspace enter env shell-hook completion events sessions runtime tasks plan phase progress run",
 		"add list show remove rename doctor",
 		"--shell -s --command",
 		"[ \"$subcommand\" = \"values\" ] && [ \"$COMP_CWORD\" -eq 3 ]",

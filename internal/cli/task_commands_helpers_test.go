@@ -46,6 +46,34 @@ func (s *fakeTaskStore) Get(_ context.Context, id string) (taskstore.Task, error
 	return testTask(id, "Add task manager", taskstore.StatusReady), nil
 }
 
+func (s *fakeTaskStore) FindByPrefix(_ context.Context, prefix string) ([]taskstore.Task, error) {
+	// Check for exact match first
+	for _, task := range s.tasks {
+		if task.ID == prefix {
+			return []taskstore.Task{task}, nil
+		}
+	}
+
+	// Look for prefix matches
+	var matches []taskstore.Task
+	for _, task := range s.tasks {
+		if len(task.ID) >= len(prefix) && task.ID[:len(prefix)] == prefix {
+			matches = append(matches, task)
+		}
+	}
+
+	if len(matches) == 0 {
+		// Fallback: return a fake task (same behavior as Get)
+		return []taskstore.Task{testTask(prefix, "Add task manager", taskstore.StatusReady)}, nil
+	}
+
+	if len(matches) > 1 {
+		return matches, taskstore.ErrAmbiguousTaskID
+	}
+
+	return matches, nil
+}
+
 func (s *fakeTaskStore) UpdateStatus(_ context.Context, id string, status taskstore.Status) (taskstore.Task, error) {
 	s.updatedStatus = status
 	return testTask(id, "Add task manager", status), nil

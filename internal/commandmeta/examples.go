@@ -3,6 +3,10 @@ package commandmeta
 import "strings"
 
 var commandHelpExamples = map[string][]string{
+	"quickstart": {
+		"adp quickstart",
+		"adp quickstart --non-interactive --workspace-name my-project --project-root /path/to/project --memory --mcp",
+	},
 	"workspace": {
 		"adp workspace add game-a /absolute/path/to/project",
 		"adp workspace list --format json",

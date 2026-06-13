@@ -85,6 +85,24 @@ Prefix matching works across all task and session commands, including `tasks sho
 
 ## Quick Start
 
+**New users**: Use the interactive quickstart command to set up ADP in one step:
+
+```bash
+# Interactive mode (recommended for first-time setup)
+adp quickstart
+
+# Non-interactive mode (for scripts/CI)
+adp quickstart --non-interactive \
+  --workspace-name my-project \
+  --project-root /path/to/project \
+  --memory --mcp
+```
+
+The `quickstart` command will:
+1. Initialize your ADP home directory (default: `~/.adp`)
+2. Create your first workspace with recommended settings
+3. Optionally run diagnostics to verify the setup
+
 For installation and bootstrap details, see [docs/install.md](docs/install.md). For a concrete new-operator walkthrough, see [docs/operator-onboarding.md](docs/operator-onboarding.md).
 
 If this is your first trial, use [docs/operator-onboarding.md](docs/operator-onboarding.md) as the guided path. It explains what the rehearsal proves, what output to expect, which commands are read-only, and when to move from temporary state to durable local use. The command block below is the compact smoke-first reference version.
