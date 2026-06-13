@@ -74,6 +74,37 @@ adp_local runtime prune --help
 
 预期结果：每条命令成功退出，并打印本地 help 或 version 文本，首用命令会带有可复制示例。如果这里失败，先修复选定的命令路径，再创建任何 ADP 状态。
 
+## ID 前缀匹配
+
+ADP 支持方便的 task 和 session ID 前缀匹配。无需输入完整 ID，你可以使用任何唯一前缀：
+
+```bash
+# Task ID 前缀匹配
+adp tasks show task-20260611-0001    # 完整 ID
+adp tasks show task-2026             # 前缀（如果唯一）
+adp tasks claim task-001 --owner alice --lease 2h
+
+# Session ID 前缀匹配
+adp sessions show session-20260611T102030-abc123    # 完整 ID
+adp sessions show 20260611T10                       # 前缀（如果唯一）
+adp sessions restore-plan 2026061
+```
+
+当前缀有歧义（匹配多个 ID）时，ADP 会返回错误并列出所有匹配的 ID：
+
+```bash
+adp tasks show task-20
+# Error: ambiguous task ID "task-20", matches:
+#   - task-20260611-0001
+#   - task-20260612-0002
+```
+
+前缀匹配在所有接受 task 或 session ID 的命令中可用，包括 `tasks show/claim/renew/release/done/block`、`sessions show/restore-plan/resume-plan`、`events list` 和 `run --task`。
+
+提示：
+- 当有许多 task 或 session 时使用较长的前缀
+- 对于最近的 ID，最短的唯一前缀通常是日期部分
+
 ## 隔离首次运行
 
 ### 使用 Quickstart 命令快速开始（推荐）
