@@ -372,7 +372,12 @@ func CommandValues(command string) []Value {
 
 func Usage() string {
 	var out strings.Builder
-	out.WriteString("adp - Agent Development Platform\n\nUsage:\n")
+	out.WriteString("adp - Agent Development Platform\n\n")
+	out.WriteString("Manage AI agent workspaces, tasks, and runtime environments.\n")
+	out.WriteString("Keep agent configuration outside project roots with runtime overlays.\n\n")
+	out.WriteString("Documentation: https://github.com/karoc/adp\n")
+	out.WriteString("Quick start: https://github.com/karoc/adp#quick-start\n\n")
+	out.WriteString("Usage:\n")
 	for _, command := range rootCommands {
 		for _, line := range command.Usage {
 			out.WriteString("  ")
