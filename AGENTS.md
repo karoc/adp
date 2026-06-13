@@ -119,6 +119,50 @@ P50 cross-tool resume planning follows the same rule. `adp sessions resume-plan 
 - Preserve local-first behavior. Tests should use temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, fake binaries, and temporary project roots.
 - Avoid real external CLI calls in default tests. Real Codex/Claude checks must be explicit opt-in.
 
+## Incremental Development Workflow
+
+When implementing features from `PLAN.md`:
+
+- **Verify after each unit of work**: After completing a logical piece (one function, one command, one file), immediately run the relevant validation:
+  ```bash
+  go build -o ./bin/adp ./cmd/adp  # verify it compiles
+  go test ./internal/cli/...       # run focused tests
+  ./bin/adp <command> --help       # verify command works
+  ```
+
+- **Follow PLAN.md structure**: When `PLAN.md` exists with defined tasks:
+  - Read the full task specification before starting
+  - Implement according to the designed solution
+  - Check off sub-items as you complete them
+  - Report deviations or discovered issues immediately
+
+- **Document decisions in context**: Keep implementation notes in your work context:
+  - Why a particular approach was chosen
+  - Trade-offs considered
+  - Deviations from the plan and rationale
+  - Issues discovered during implementation
+  - These notes help with handoff and future maintenance
+
+- **Test incrementally**: Do not wait until the end to validate:
+  - Run `go build` after file changes
+  - Run `go test` after adding or changing tests
+  - Run `scripts/check-all.sh` before considering work complete
+  - For CLI changes, manually test the command output
+  - For format changes, verify both text and JSON output
+
+- **Check integration points**: When your change affects multiple components:
+  - Verify command metadata is updated (`internal/commandmeta/`)
+  - Ensure examples are added for new commands or flags
+  - Update completion values if adding new entities
+  - Check that smoke tests cover the new behavior
+
+- **Maintain consistency**: When adding or modifying commands:
+  - Follow existing patterns for flag names and output formats
+  - Support `--format json` if other similar commands do
+  - Use consistent error message style
+  - Add examples to `commandmeta/examples.go`
+  - Update both English and Chinese documentation
+
 ## Tool Plan Mode
 
 Provider-native plan mode and plan panels are proposal surfaces. They can help an agent show candidate work, but ADP remains the authoritative local planning and progress ledger.

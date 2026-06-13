@@ -119,6 +119,50 @@ P50 cross-tool resume planning 遵循同一规则。`adp sessions resume-plan <s
 - 保持 local-first。测试应使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、fake binary 和临时 project root。
 - 默认测试不能调用真实外部 CLI。真实 Codex/Claude 检查必须显式 opt-in。
 
+## 增量开发工作流
+
+从 `PLAN.md` 实现功能时：
+
+- **每完成一个工作单元就验证**：完成一个逻辑片段（一个函数、一个命令、一个文件）后，立即运行相关验证：
+  ```bash
+  go build -o ./bin/adp ./cmd/adp  # verify it compiles
+  go test ./internal/cli/...       # run focused tests
+  ./bin/adp <command> --help       # verify command works
+  ```
+
+- **遵循 PLAN.md 结构**：当 `PLAN.md` 存在并定义了任务时：
+  - 开始前先通读完整任务规格
+  - 按照设计方案实施
+  - 完成子项后逐项勾选
+  - 发现偏离或问题立即报告
+
+- **在上下文中记录决策**：在工作上下文中保留实现笔记：
+  - 为什么选择特定方案
+  - 考虑过哪些权衡
+  - 与计划的偏离及理由
+  - 实现过程中发现的问题
+  - 这些笔记有助于交接和未来维护
+
+- **增量测试**：不要等到最后才验证：
+  - 文件变更后运行 `go build`
+  - 添加或修改测试后运行 `go test`
+  - 认为工作完成前运行 `scripts/check-all.sh`
+  - CLI 变更需要手动测试命令输出
+  - 格式变更需要验证 text 和 JSON 两种输出
+
+- **检查集成点**：当变更影响多个组件时：
+  - 验证 command metadata 已更新（`internal/commandmeta/`）
+  - 确保为新命令或标志添加了示例
+  - 如果添加了新实体，更新 completion values
+  - 检查 smoke 测试是否覆盖了新行为
+
+- **保持一致性**：添加或修改命令时：
+  - 遵循现有模式定义标志名和输出格式
+  - 如果其他类似命令支持 `--format json`，也要支持
+  - 使用一致的错误消息风格
+  - 在 `commandmeta/examples.go` 中添加示例
+  - 同时更新英文和中文文档
+
 ## 工具 Plan Mode
 
 Provider 原生 plan mode 和 plan panels 是 proposal surfaces。它们可以帮助 Agent 展示候选工作，但 ADP 仍然是权威本地 planning 和 progress ledger。
