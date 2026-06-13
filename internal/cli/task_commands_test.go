@@ -262,3 +262,155 @@ func TestTasksCommandReportsUnknownSubcommand(t *testing.T) {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
+
+func TestTasksPrefixMatching(t *testing.T) {
+	t.Run("exact match works", func(t *testing.T) {
+		store := &fakeTaskStore{
+			tasks: []taskstore.Task{
+				testTask("task-20260611-0001", "First task", taskstore.StatusReady),
+				testTask("task-20260611-0002", "Second task", taskstore.StatusReady),
+			},
+		}
+		deps := Dependencies{
+			WorkspaceStore:   &fakeStore{cfg: testConfig()},
+			TaskStoreFactory: func(string) TaskStore { return store },
+		}
+		var stdout bytes.Buffer
+
+		code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{
+			"tasks", "show", "--workspace", "game-a", "task-20260611-0001",
+		})
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0", code)
+		}
+		if !strings.Contains(stdout.String(), "id: task-20260611-0001") {
+			t.Fatalf("stdout = %q", stdout.String())
+		}
+	})
+
+	t.Run("unique prefix match works", func(t *testing.T) {
+		store := &fakeTaskStore{
+			tasks: []taskstore.Task{
+				testTask("task-20260611-0001", "First task", taskstore.StatusReady),
+				testTask("task-20260612-0001", "Second task", taskstore.StatusReady),
+			},
+		}
+		deps := Dependencies{
+			WorkspaceStore:   &fakeStore{cfg: testConfig()},
+			TaskStoreFactory: func(string) TaskStore { return store },
+		}
+		var stdout bytes.Buffer
+
+		code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{
+			"tasks", "show", "--workspace", "game-a", "task-20260611",
+		})
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0", code)
+		}
+		if !strings.Contains(stdout.String(), "id: task-20260611-0001") {
+			t.Fatalf("stdout = %q", stdout.String())
+		}
+	})
+
+	t.Run("ambiguous prefix reports error", func(t *testing.T) {
+		store := &fakeTaskStore{
+			tasks: []taskstore.Task{
+				testTask("task-20260611-0001", "First task", taskstore.StatusReady),
+				testTask("task-20260611-0002", "Second task", taskstore.StatusReady),
+			},
+		}
+		deps := Dependencies{
+			WorkspaceStore:   &fakeStore{cfg: testConfig()},
+			TaskStoreFactory: func(string) TaskStore { return store },
+		}
+		var stderr bytes.Buffer
+
+		code := NewApp(deps, &bytes.Buffer{}, &stderr).Execute(context.Background(), []string{
+			"tasks", "show", "--workspace", "game-a", "task-20260611",
+		})
+
+		if code != 1 {
+			t.Fatalf("exit code = %d, want 1", code)
+		}
+		output := stderr.String()
+		if !strings.Contains(output, "ambiguous task ID") {
+			t.Fatalf("stderr should mention ambiguous, got: %q", output)
+		}
+		if !strings.Contains(output, "task-20260611-0001") || !strings.Contains(output, "task-20260611-0002") {
+			t.Fatalf("stderr should list matching tasks, got: %q", output)
+		}
+	})
+
+	t.Run("prefix works with update command", func(t *testing.T) {
+		store := &fakeTaskStore{
+			tasks: []taskstore.Task{
+				testTask("task-20260611-0001", "First task", taskstore.StatusReady),
+			},
+		}
+		deps := Dependencies{
+			WorkspaceStore:   &fakeStore{cfg: testConfig()},
+			TaskStoreFactory: func(string) TaskStore { return store },
+		}
+		var stdout bytes.Buffer
+
+		code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{
+			"tasks", "update", "--workspace", "game-a", "task-2026", "--status", "in_progress",
+		})
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0", code)
+		}
+		if store.updatedStatus != taskstore.StatusInProgress {
+			t.Fatalf("status = %q, want in_progress", store.updatedStatus)
+		}
+	})
+
+	t.Run("prefix works with claim command", func(t *testing.T) {
+		store := &fakeTaskStore{
+			tasks: []taskstore.Task{
+				testTask("task-20260611-0001", "First task", taskstore.StatusReady),
+			},
+		}
+		deps := Dependencies{
+			WorkspaceStore:   &fakeStore{cfg: testConfig()},
+			TaskStoreFactory: func(string) TaskStore { return store },
+		}
+
+		code := NewApp(deps, &bytes.Buffer{}, &bytes.Buffer{}).Execute(context.Background(), []string{
+			"tasks", "claim", "--workspace", "game-a", "task-2026", "--owner", "agent-1",
+		})
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0", code)
+		}
+		if store.claimReq.TaskID != "task-20260611-0001" {
+			t.Fatalf("claimed task = %q, want task-20260611-0001", store.claimReq.TaskID)
+		}
+	})
+
+	t.Run("prefix works with done command", func(t *testing.T) {
+		store := &fakeTaskStore{
+			tasks: []taskstore.Task{
+				testTask("task-20260611-0001", "First task", taskstore.StatusInProgress),
+			},
+		}
+		deps := Dependencies{
+			WorkspaceStore:   &fakeStore{cfg: testConfig()},
+			TaskStoreFactory: func(string) TaskStore { return store },
+		}
+
+		code := NewApp(deps, &bytes.Buffer{}, &bytes.Buffer{}).Execute(context.Background(), []string{
+			"tasks", "done", "--workspace", "game-a", "task-2026",
+		})
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0", code)
+		}
+		if store.updatedStatus != taskstore.StatusDone {
+			t.Fatalf("status = %q, want done", store.updatedStatus)
+		}
+	})
+}
+

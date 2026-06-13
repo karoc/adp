@@ -85,6 +85,51 @@ func (s *Store) Get(ctx context.Context, id string) (Task, error) {
 	return Task{}, fmt.Errorf("%w: %s", ErrTaskNotFound, id)
 }
 
+func (s *Store) FindByPrefix(ctx context.Context, prefix string) ([]Task, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return nil, errors.New("prefix cannot be empty")
+	}
+
+	data, err := s.load(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for exact match first
+	for _, task := range data.Tasks {
+		if task.ID == prefix {
+			return []Task{task}, nil
+		}
+	}
+
+	// Look for prefix matches
+	var matches []Task
+	for _, task := range data.Tasks {
+		if strings.HasPrefix(task.ID, prefix) {
+			matches = append(matches, task)
+		}
+	}
+
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("%w: no task with ID or prefix %q", ErrTaskNotFound, prefix)
+	}
+
+	if len(matches) > 1 {
+		ids := make([]string, len(matches))
+		for i, task := range matches {
+			ids[i] = task.ID
+		}
+		return nil, fmt.Errorf("%w: prefix %q matches multiple tasks: %s", ErrAmbiguousTaskID, prefix, strings.Join(ids, ", "))
+	}
+
+	return matches, nil
+}
+
 func (s *Store) UpdateStatus(ctx context.Context, id string, status Status) (Task, error) {
 	if !isValidStatus(status) {
 		return Task{}, fmt.Errorf("unknown task status %q", status)

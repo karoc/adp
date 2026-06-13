@@ -52,6 +52,37 @@ Implemented Phase 1 foundations. If you are trying ADP for the first time, start
 
 Command discovery stays inside the CLI. Use `adp --help` for the root command list, `adp <command> --help` for a command group such as `adp tasks --help`, and `adp <command> <subcommand> --help` for a leaf command such as `adp tasks take --help`. If you are using `ADP_BIN`, `adp_local`, or a packaged binary name, substitute that command name in the same pattern. Leaf help may point back to parent help with `See also:`; if a build prints a friendly `try:` hint, treat it as a pointer to the same help surface, not as an automatic action or state change.
 
+### ID Prefix Matching
+
+Task and session IDs support prefix matching for convenience. Commands that accept task IDs or session IDs will match the shortest unique prefix:
+
+```bash
+# Full task ID
+adp tasks show task-20260611-0001
+
+# Prefix matching (if unique)
+adp tasks show task-2026
+adp tasks claim task-001 --owner alice --lease 2h
+
+# Full session ID
+adp sessions show session-20260611T102030-abc123
+
+# Prefix matching (if unique)
+adp sessions show 20260611T10
+adp sessions restore-plan 2026061
+```
+
+When a prefix matches multiple IDs, ADP returns an error listing all matches:
+
+```bash
+adp tasks show task-20
+# Error: ambiguous task ID "task-20", matches:
+#   - task-20260611-0001
+#   - task-20260612-0002
+```
+
+Prefix matching works across all task and session commands, including `tasks show`, `tasks claim`, `tasks renew`, `tasks release`, `tasks done`, `tasks block`, `sessions show`, `sessions restore-plan`, `sessions resume-plan`, `events list --task`, `events list --session`, and `run --task`.
+
 ## Quick Start
 
 For installation and bootstrap details, see [docs/install.md](docs/install.md). For a concrete new-operator walkthrough, see [docs/operator-onboarding.md](docs/operator-onboarding.md).

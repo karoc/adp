@@ -310,6 +310,17 @@ func (s *runTaskStore) Get(_ context.Context, id string) (taskstore.Task, error)
 	return s.task, nil
 }
 
+func (s *runTaskStore) FindByPrefix(_ context.Context, prefix string) ([]taskstore.Task, error) {
+	s.getID = prefix // Track the prefix that was looked up
+	if s.err != nil {
+		return nil, s.err
+	}
+	if strings.HasPrefix(s.task.ID, prefix) {
+		return []taskstore.Task{s.task}, nil
+	}
+	return nil, nil
+}
+
 func (s *runTaskStore) UpdateStatus(context.Context, string, taskstore.Status) (taskstore.Task, error) {
 	return taskstore.Task{}, errors.New("not implemented")
 }

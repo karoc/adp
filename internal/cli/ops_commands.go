@@ -93,10 +93,52 @@ func (a *App) eventsList(ctx context.Context, args []string) error {
 		return errors.New("event reader is not configured")
 	}
 
+	// Resolve task ID prefix if provided
+	resolvedTaskID := opts.taskID
+	if opts.taskID != "" && opts.workspace != "" {
+		store, _, err := a.loadTaskStore(ctx, opts.workspace)
+		if err == nil {
+			tasks, err := store.FindByPrefix(ctx, opts.taskID)
+			if err != nil {
+				if errors.Is(err, taskstore.ErrAmbiguousTaskID) {
+					ids := make([]string, len(tasks))
+					for i, task := range tasks {
+						ids[i] = task.ID
+					}
+					return fmt.Errorf("adp: ambiguous task ID %q, matches multiple tasks:\n  - %s\n\nPlease use a more specific prefix.", opts.taskID, strings.Join(ids, "\n  - "))
+				}
+				// If task not found, use the original ID as-is
+				if !errors.Is(err, taskstore.ErrTaskNotFound) {
+					return err
+				}
+			} else if len(tasks) == 1 {
+				resolvedTaskID = tasks[0].ID
+			}
+		}
+	}
+
+	// Resolve session ID prefix if provided
+	resolvedSessionID := opts.sessionID
+	if opts.sessionID != "" && a.deps.Layout.Home != "" {
+		summaries, err := sessions.FindByPrefix(ctx, a.deps.Layout, opts.sessionID)
+		if err != nil {
+			if errors.Is(err, sessions.ErrAmbiguousSessionID) {
+				ids := extractSessionIDs(summaries)
+				return fmt.Errorf("adp: ambiguous session ID %q, matches multiple sessions:\n%s\n\nPlease use a more specific prefix.", opts.sessionID, formatSessionIDList(ids))
+			}
+			// If session not found, use the original ID as-is
+			if !errors.Is(err, sessions.ErrSessionNotFound) {
+				return err
+			}
+		} else if len(summaries) == 1 {
+			resolvedSessionID = summaries[0].SessionID
+		}
+	}
+
 	read, err := a.deps.ReadEvents(ctx, a.deps.Layout, events.Query{
 		Workspace: opts.workspace,
-		SessionID: opts.sessionID,
-		TaskID:    opts.taskID,
+		SessionID: resolvedSessionID,
+		TaskID:    resolvedTaskID,
 		Type:      opts.eventType,
 		Limit:     opts.limit,
 	})
@@ -206,7 +248,21 @@ func (a *App) sessionsShow(ctx context.Context, args []string) error {
 		return errors.New("session reader is not configured")
 	}
 
-	detail, err := a.deps.GetSession(ctx, a.deps.Layout, opts.sessionID)
+	// Resolve session ID prefix
+	summaries, err := sessions.FindByPrefix(ctx, a.deps.Layout, opts.sessionID)
+	if err != nil {
+		if errors.Is(err, sessions.ErrAmbiguousSessionID) {
+			ids := extractSessionIDs(summaries)
+			return fmt.Errorf("adp: ambiguous session ID %q, matches multiple sessions:\n%s\n\nPlease use a more specific prefix.", opts.sessionID, formatSessionIDList(ids))
+		}
+		return err
+	}
+	if len(summaries) != 1 {
+		return fmt.Errorf("session %q not found", opts.sessionID)
+	}
+	resolvedSessionID := summaries[0].SessionID
+
+	detail, err := a.deps.GetSession(ctx, a.deps.Layout, resolvedSessionID)
 	if err != nil {
 		return err
 	}
@@ -253,7 +309,21 @@ func (a *App) sessionsRestorePlan(ctx context.Context, args []string) error {
 		return errors.New("session reader is not configured")
 	}
 
-	detail, err := a.deps.GetSession(ctx, a.deps.Layout, opts.sessionID)
+	// Resolve session ID prefix
+	summaries, err := sessions.FindByPrefix(ctx, a.deps.Layout, opts.sessionID)
+	if err != nil {
+		if errors.Is(err, sessions.ErrAmbiguousSessionID) {
+			ids := extractSessionIDs(summaries)
+			return fmt.Errorf("adp: ambiguous session ID %q, matches multiple sessions:\n%s\n\nPlease use a more specific prefix.", opts.sessionID, formatSessionIDList(ids))
+		}
+		return err
+	}
+	if len(summaries) != 1 {
+		return fmt.Errorf("session %q not found", opts.sessionID)
+	}
+	resolvedSessionID := summaries[0].SessionID
+
+	detail, err := a.deps.GetSession(ctx, a.deps.Layout, resolvedSessionID)
 	if err != nil {
 		return err
 	}
@@ -279,7 +349,21 @@ func (a *App) sessionsResumePlan(ctx context.Context, args []string) error {
 		return errors.New("session reader is not configured")
 	}
 
-	detail, err := a.deps.GetSession(ctx, a.deps.Layout, opts.sessionID)
+	// Resolve session ID prefix
+	summaries, err := sessions.FindByPrefix(ctx, a.deps.Layout, opts.sessionID)
+	if err != nil {
+		if errors.Is(err, sessions.ErrAmbiguousSessionID) {
+			ids := extractSessionIDs(summaries)
+			return fmt.Errorf("adp: ambiguous session ID %q, matches multiple sessions:\n%s\n\nPlease use a more specific prefix.", opts.sessionID, formatSessionIDList(ids))
+		}
+		return err
+	}
+	if len(summaries) != 1 {
+		return fmt.Errorf("session %q not found", opts.sessionID)
+	}
+	resolvedSessionID := summaries[0].SessionID
+
+	detail, err := a.deps.GetSession(ctx, a.deps.Layout, resolvedSessionID)
 	if err != nil {
 		return err
 	}
@@ -508,4 +592,22 @@ func shellQuoteArg(arg string) string {
 		return arg
 	}
 	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
+}
+
+func extractSessionIDs(summaries []sessions.Summary) []string {
+	ids := make([]string, 0, len(summaries))
+	for _, summary := range summaries {
+		ids = append(ids, summary.SessionID)
+	}
+	return ids
+}
+
+func formatSessionIDList(ids []string) string {
+	var buf strings.Builder
+	for _, id := range ids {
+		buf.WriteString("  - ")
+		buf.WriteString(id)
+		buf.WriteString("\n")
+	}
+	return strings.TrimSuffix(buf.String(), "\n")
 }

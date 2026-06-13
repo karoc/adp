@@ -172,12 +172,16 @@ func TestSessionsListCommandRejectsBadLimits(t *testing.T) {
 }
 
 func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
 	var stdout bytes.Buffer
 	var gotSessionID string
 	exitCode := 7
 	duration := int64(10)
 
 	deps := Dependencies{
+		Layout: layout,
 		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
 			gotSessionID = sessionID
 			return &sessions.Detail{
@@ -224,11 +228,15 @@ func TestSessionsShowCommandReadsAndPrintsDetail(t *testing.T) {
 }
 
 func TestSessionsShowCommandPrintsJSON(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
 	var stdout bytes.Buffer
 	exitCode := 7
 	duration := int64(10)
 
 	deps := Dependencies{
+		Layout: layout,
 		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
 			if sessionID != "session-1" {
 				t.Fatalf("session id = %q", sessionID)
@@ -282,13 +290,13 @@ func TestSessionsShowCommandPrintsJSON(t *testing.T) {
 }
 
 func TestSessionsShowCommandReportsMissingSession(t *testing.T) {
+	layout := setupSessionTestLayout(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	var gotSessionID string
 
 	deps := Dependencies{
+		Layout: layout,
 		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
-			gotSessionID = sessionID
 			return nil, sessions.ErrNotFound
 		},
 	}
@@ -298,22 +306,23 @@ func TestSessionsShowCommandReportsMissingSession(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
-	if gotSessionID != "missing" {
-		t.Fatalf("session id = %q", gotSessionID)
-	}
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "adp: session not found") {
+	if !strings.Contains(stderr.String(), "not found") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 
 func TestSessionsRestorePlanCommandPrintsReadOnlyPlan(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
 	var stdout bytes.Buffer
 	var gotSessionID string
 
 	deps := Dependencies{
+		Layout: layout,
 		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
 			gotSessionID = sessionID
 			return &sessions.Detail{
@@ -361,9 +370,13 @@ func TestSessionsRestorePlanCommandPrintsReadOnlyPlan(t *testing.T) {
 }
 
 func TestSessionsRestorePlanCommandPrintsJSON(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
 	var stdout bytes.Buffer
 
 	deps := Dependencies{
+		Layout: layout,
 		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
 			if sessionID != "session-1" {
 				t.Fatalf("session id = %q", sessionID)
@@ -451,13 +464,13 @@ func TestSessionDetailCommandsRejectBadFormatsBeforeReading(t *testing.T) {
 }
 
 func TestSessionsRestorePlanCommandReportsMissingSession(t *testing.T) {
+	layout := setupSessionTestLayout(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	var gotSessionID string
 
 	deps := Dependencies{
+		Layout: layout,
 		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
-			gotSessionID = sessionID
 			return nil, sessions.ErrNotFound
 		},
 	}
@@ -467,18 +480,18 @@ func TestSessionsRestorePlanCommandReportsMissingSession(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
-	if gotSessionID != "missing" {
-		t.Fatalf("session id = %q", gotSessionID)
-	}
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "adp: session not found") {
+	if !strings.Contains(stderr.String(), "not found") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 
 func TestSessionsResumePlanCommandPrintsCrossToolGuidance(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
 	now := time.Now().UTC().Truncate(time.Second)
 	task := testTask("task-1", "Resume task", taskstore.StatusInProgress)
 	task.Owner = "codex-main"
@@ -491,6 +504,7 @@ func TestSessionsResumePlanCommandPrintsCrossToolGuidance(t *testing.T) {
 	var stdout bytes.Buffer
 	var gotSessionID string
 	deps := Dependencies{
+		Layout:           layout,
 		WorkspaceStore:   &fakeStore{cfg: testConfig()},
 		TaskStoreFactory: func(string) TaskStore { return store },
 		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
@@ -554,6 +568,9 @@ func TestSessionsResumePlanCommandPrintsCrossToolGuidance(t *testing.T) {
 }
 
 func TestSessionsResumePlanCommandPrintsJSONAndDoesNotMutate(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
 	now := time.Now().UTC().Truncate(time.Second)
 	task := testTask("task-1", "Resume task", taskstore.StatusInProgress)
 	task.Owner = "old-agent"
@@ -565,6 +582,7 @@ func TestSessionsResumePlanCommandPrintsJSONAndDoesNotMutate(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	deps := Dependencies{
+		Layout:           layout,
 		WorkspaceStore:   &fakeStore{cfg: testConfig()},
 		TaskStoreFactory: func(string) TaskStore { return store },
 		GetSession: func(_ context.Context, _ paths.Layout, _ string) (*sessions.Detail, error) {
@@ -616,3 +634,25 @@ func TestSessionsResumePlanCommandPrintsJSONAndDoesNotMutate(t *testing.T) {
 		t.Fatalf("resume-plan mutated fake store: claim=%+v renew=%+v status=%q", store.claimReq, store.renewReq, store.updatedStatus)
 	}
 }
+
+func setupSessionTestLayout(t *testing.T) paths.Layout {
+	t.Helper()
+	tmpDir := t.TempDir()
+	return paths.New(tmpDir, tmpDir)
+}
+
+func createTestSession(t *testing.T, layout paths.Layout, sessionID, workspace string) {
+	t.Helper()
+	ctx := context.Background()
+	logger := events.NewLogger(layout)
+	if err := logger.Log(ctx, events.Event{
+		SessionID: sessionID,
+		Workspace: workspace,
+		Agent:     "test-agent",
+		Type:      "run_started",
+		Timestamp: time.Now(),
+	}); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+}
+

@@ -74,6 +74,38 @@ Use the same nesting pattern for other groups: `adp_local <command> --help` and 
 
 Expected result: each command exits successfully and prints local help or version text with copyable examples for first-use commands. If this fails, fix the selected command path before creating any ADP state.
 
+## ID Prefix Matching
+
+ADP supports convenient prefix matching for task and session IDs. Instead of typing the full ID, you can use any unique prefix:
+
+```bash
+# Task ID prefix matching
+adp tasks show task-20260611-0001    # Full ID
+adp tasks show task-2026             # Prefix (if unique)
+adp tasks claim task-001 --owner alice --lease 2h
+
+# Session ID prefix matching
+adp sessions show session-20260611T102030-abc123    # Full ID
+adp sessions show 20260611T10                       # Prefix (if unique)
+adp sessions restore-plan 2026061
+```
+
+When a prefix is ambiguous (matches multiple IDs), ADP returns an error with all matching IDs:
+
+```bash
+adp tasks show task-20
+# Error: ambiguous task ID "task-20", matches:
+#   - task-20260611-0001
+#   - task-20260612-0002
+```
+
+Prefix matching is available in all commands that accept task or session IDs, including `tasks show/claim/renew/release/done/block`, `sessions show/restore-plan/resume-plan`, `events list`, and `run --task`.
+
+Tips:
+- Use longer prefixes when you have many tasks or sessions
+- The shortest unique prefix is usually the date portion for recent IDs
+- Full IDs always work and are never ambiguous
+
 ## Isolated First Run
 
 Use temporary state until the install path is trusted. This rehearsal registers a temporary workspace, inspects the task board, runs a fake `codex` provider through atomic `run --take`, records local events and sessions, checks lease maintenance, and verifies that the project root stays clean.

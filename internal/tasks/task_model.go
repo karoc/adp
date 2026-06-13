@@ -25,6 +25,7 @@ var (
 	ErrTaskClaimed       = errors.New("task already claimed")
 	ErrNoClaimableTask   = errors.New("no claimable task")
 	ErrTaskOwnerMismatch = errors.New("task owner mismatch")
+	ErrAmbiguousTaskID   = errors.New("ambiguous task ID prefix")
 	statusOrder          = []Status{StatusPlanned, StatusReady, StatusInProgress, StatusBlocked, StatusReview, StatusValidated, StatusDone, StatusCanceled}
 )
 

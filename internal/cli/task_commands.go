@@ -152,7 +152,7 @@ func (a *App) tasksShow(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := store.Get(ctx, opts.taskID)
+	task, err := a.findTaskByPrefix(ctx, store, opts.taskID)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,11 @@ func (a *App) tasksUpdate(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := store.UpdateStatus(ctx, opts.taskID, status)
+	task, err := a.findTaskByPrefix(ctx, store, opts.taskID)
+	if err != nil {
+		return err
+	}
+	task, err = store.UpdateStatus(ctx, task.ID, status)
 	if err != nil {
 		return err
 	}
@@ -193,8 +197,12 @@ func (a *App) tasksClaim(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := store.Claim(ctx, taskstore.ClaimRequest{
-		TaskID: opts.taskID,
+	task, err := a.findTaskByPrefix(ctx, store, opts.taskID)
+	if err != nil {
+		return err
+	}
+	task, err = store.Claim(ctx, taskstore.ClaimRequest{
+		TaskID: task.ID,
 		Owner:  opts.owner,
 		Lease:  opts.lease,
 	})
@@ -264,7 +272,11 @@ func (a *App) tasksRelease(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := store.Release(ctx, taskstore.ReleaseRequest{TaskID: opts.taskID, Owner: opts.owner})
+	task, err := a.findTaskByPrefix(ctx, store, opts.taskID)
+	if err != nil {
+		return err
+	}
+	task, err = store.Release(ctx, taskstore.ReleaseRequest{TaskID: task.ID, Owner: opts.owner})
 	if err != nil {
 		return err
 	}
@@ -281,8 +293,12 @@ func (a *App) tasksRenew(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := store.Renew(ctx, taskstore.RenewRequest{
-		TaskID: opts.taskID,
+	task, err := a.findTaskByPrefix(ctx, store, opts.taskID)
+	if err != nil {
+		return err
+	}
+	task, err = store.Renew(ctx, taskstore.RenewRequest{
+		TaskID: task.ID,
 		Owner:  opts.owner,
 		Lease:  opts.lease,
 	})
@@ -302,7 +318,11 @@ func (a *App) tasksDone(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := store.UpdateStatus(ctx, taskID, taskstore.StatusDone)
+	task, err := a.findTaskByPrefix(ctx, store, taskID)
+	if err != nil {
+		return err
+	}
+	task, err = store.UpdateStatus(ctx, task.ID, taskstore.StatusDone)
 	if err != nil {
 		return err
 	}
@@ -319,7 +339,11 @@ func (a *App) tasksBlock(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := store.Block(ctx, opts.taskID, opts.reason)
+	task, err := a.findTaskByPrefix(ctx, store, opts.taskID)
+	if err != nil {
+		return err
+	}
+	task, err = store.Block(ctx, task.ID, opts.reason)
 	if err != nil {
 		return err
 	}
@@ -419,4 +443,25 @@ func (a *App) printTask(task taskstore.Task) {
 
 func joinTitle(parts []string) string {
 	return strings.TrimSpace(strings.Join(parts, " "))
+}
+
+// findTaskByPrefix resolves a task ID prefix to a single task.
+// Returns an error if the prefix is ambiguous or no task is found.
+func (a *App) findTaskByPrefix(ctx context.Context, store TaskStore, prefix string) (taskstore.Task, error) {
+	tasks, err := store.FindByPrefix(ctx, prefix)
+	if err != nil {
+		if errors.Is(err, taskstore.ErrAmbiguousTaskID) {
+			// Extract task IDs for a friendly error message
+			ids := make([]string, len(tasks))
+			for i, task := range tasks {
+				ids[i] = task.ID
+			}
+			return taskstore.Task{}, fmt.Errorf("ambiguous task ID %q, matches multiple tasks:\n  - %s\n\nPlease use a more specific prefix.", prefix, strings.Join(ids, "\n  - "))
+		}
+		return taskstore.Task{}, err
+	}
+	if len(tasks) != 1 {
+		return taskstore.Task{}, fmt.Errorf("task %q not found", prefix)
+	}
+	return tasks[0], nil
 }
