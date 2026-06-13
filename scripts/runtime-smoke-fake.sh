@@ -87,10 +87,10 @@ run_fake_smoke() (
   run_fake_diagnostics_checks
 
   version_output=$(run_adp "$REPO_ROOT" version)
-  assert_contains "$version_output" "adp dev" "version output"
+  assert_contains "$version_output" "adp version dev" "version output"
 
   version_output=$(run_adp "$REPO_ROOT" --version)
-  assert_contains "$version_output" "adp dev" "--version output"
+  assert_contains "$version_output" "adp version dev" "--version output"
 
   workspace_values=$(run_adp "$REPO_ROOT" completion values workspaces)
   assert_contains "$workspace_values" "game-a" "completion workspace values output"

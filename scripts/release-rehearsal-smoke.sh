@@ -180,7 +180,9 @@ LDFLAGS="$LDFLAGS -X github.com/karoc/adp/internal/cli.Commit=$COMMIT"
 LDFLAGS="$LDFLAGS -X github.com/karoc/adp/internal/cli.BuildDate=$BUILD_DATE"
 (cd "$CHECKOUT_ROOT" && go build -trimpath -ldflags="$LDFLAGS" -o "$ADP_BIN" ./cmd/adp)
 output=$("$ADP_BIN" version)
-assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "version output"
+assert_contains "$output" "adp version $VERSION" "version output"
+assert_contains "$output" "commit: $COMMIT" "version output"
+assert_contains "$output" "built: $BUILD_DATE" "version output"
 
 info "checking copied docs and file limits"
 (cd "$CHECKOUT_ROOT" && scripts/check-file-lines.sh)

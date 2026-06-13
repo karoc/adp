@@ -352,7 +352,9 @@ write_fake_claude_guard "$FAKE_BIN/claude"
 info "building local binary with deterministic release metadata"
 build_local_binary
 output=$("$BUILD_BIN" version)
-assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "local build version output"
+assert_contains "$output" "adp version $VERSION" "local build version output"
+assert_contains "$output" "commit: $COMMIT" "local build version output"
+assert_contains "$output" "built: $BUILD_DATE" "local build version output"
 
 info "installing adp into a temporary GOBIN"
 install_to_temp_gobin
@@ -414,7 +416,9 @@ fi
 
 info "running first-use onboarding commands through the installed binary"
 output=$(run_adp "$TMP_ROOT" version)
-assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "installed version output"
+assert_contains "$output" "adp version $VERSION" "installed version output"
+assert_contains "$output" "commit: $COMMIT" "installed version output"
+assert_contains "$output" "built: $BUILD_DATE" "installed version output"
 output=$(run_adp "$TMP_ROOT" init)
 assert_contains "$output" "initialized ADP home" "init output"
 output=$(run_adp "$TMP_ROOT" workspace add onboarding-a "$PROJECT_ROOT")

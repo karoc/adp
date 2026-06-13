@@ -258,7 +258,9 @@ info "syntax-checking release scripts from the clean source tree"
 info "building documented source-archive release binary with explicit COMMIT"
 build_release_binary "$SOURCE_ROOT" "$DIST_DIR/adp"
 output=$("$DIST_DIR/adp" version)
-assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "release binary version output"
+assert_contains "$output" "adp version $VERSION" "release binary version output"
+assert_contains "$output" "commit: $COMMIT" "release binary version output"
+assert_contains "$output" "built: $BUILD_DATE" "release binary version output"
 
 info "generating and verifying release checksum"
 sha256_write "$DIST_DIR/adp" "$DIST_DIR/adp.sha256"
@@ -277,7 +279,9 @@ setup_git_tripwire "$FAKE_BIN" "$GIT_TRIPWIRE_LOG"
 
 info "running provider-free operator handoff sequence"
 output=$(run_adp "$TMP_ROOT" version)
-assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "installed version output"
+assert_contains "$output" "adp version $VERSION" "installed version output"
+assert_contains "$output" "commit: $COMMIT" "installed version output"
+assert_contains "$output" "built: $BUILD_DATE" "installed version output"
 output=$(run_adp "$TMP_ROOT" init)
 assert_contains "$output" "initialized ADP home" "init output"
 output=$(run_adp "$TMP_ROOT" workspace add operator-a "$PROJECT_ROOT")

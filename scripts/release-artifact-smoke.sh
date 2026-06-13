@@ -360,7 +360,9 @@ build_target_artifact "$SOURCE_ROOT" linux amd64 "$DIST_DIR/$(artifact_name linu
 build_target_artifact "$SOURCE_ROOT" darwin arm64 "$DIST_DIR/$(artifact_name darwin arm64)"
 build_target_artifact "$SOURCE_ROOT" windows amd64 "$DIST_DIR/$(artifact_name windows amd64)"
 output=$("$DIST_DIR/adp" version)
-assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "preview artifact version output"
+assert_contains "$output" "adp version $VERSION" "preview artifact version output"
+assert_contains "$output" "commit: $COMMIT" "preview artifact version output"
+assert_contains "$output" "built: $BUILD_DATE" "preview artifact version output"
 
 info "verifying source archive build without .git and with explicit COMMIT"
 if [ -d "$SOURCE_ARCHIVE_ROOT/.git" ]; then
@@ -368,7 +370,9 @@ if [ -d "$SOURCE_ARCHIVE_ROOT/.git" ]; then
 fi
 build_adp "$SOURCE_ARCHIVE_ROOT" "$TMP_ROOT/source-archive-bin/adp" "$SOURCE_COMMIT"
 output=$("$TMP_ROOT/source-archive-bin/adp" version)
-assert_contains "$output" "adp $VERSION commit $SOURCE_COMMIT built $BUILD_DATE" "source archive version output"
+assert_contains "$output" "adp version $VERSION" "source archive version output"
+assert_contains "$output" "commit: $SOURCE_COMMIT" "source archive version output"
+assert_contains "$output" "built: $BUILD_DATE" "source archive version output"
 
 info "staging release package and checking excluded local state"
 stage_release_package "$SOURCE_ROOT" "$DIST_DIR/adp" "$PACKAGE_ROOT"
@@ -393,7 +397,9 @@ setup_git_tripwire "$FAKE_BIN" "$GIT_TRIPWIRE_LOG"
 
 info "running provider-free first-run rehearsal from installed artifact"
 output=$(run_adp "$TMP_ROOT" version)
-assert_contains "$output" "adp $VERSION commit $COMMIT built $BUILD_DATE" "installed version output"
+assert_contains "$output" "adp version $VERSION" "installed version output"
+assert_contains "$output" "commit: $COMMIT" "installed version output"
+assert_contains "$output" "built: $BUILD_DATE" "installed version output"
 output=$(run_adp "$TMP_ROOT" init)
 assert_contains "$output" "initialized ADP home" "init output"
 output=$(run_adp "$TMP_ROOT" workspace add game-a "$PROJECT_ROOT")

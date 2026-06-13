@@ -165,9 +165,9 @@ func TestVersionCommandPrintsVersionMetadata(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0", code)
 		}
-		want := "adp 1.2.3 commit abc123 built 2026-06-08T00:00:00Z\n"
-		if got := stdout.String(); got != want {
-			t.Fatalf("stdout = %q, want %q", got, want)
+		want := "adp version 1.2.3\ncommit: abc123\nbuilt: 2026-06-08T00:00:00Z\ngo: "
+		if got := stdout.String(); !strings.Contains(got, want) {
+			t.Fatalf("stdout = %q, want to contain %q", got, want)
 		}
 	})
 }
@@ -181,8 +181,8 @@ func TestTopLevelVersionFlagPrintsVersionBeforeInit(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0", code)
 		}
-		if got, want := stdout.String(), "adp dev\n"; got != want {
-			t.Fatalf("stdout = %q, want %q", got, want)
+		if got, want := stdout.String(), "adp version dev\n"; !strings.HasPrefix(got, want) {
+			t.Fatalf("stdout = %q, want prefix %q", got, want)
 		}
 	})
 }

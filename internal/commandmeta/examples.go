@@ -32,6 +32,10 @@ var commandHelpExamples = map[string][]string{
 		"adp run codex --workspace game-a --take --owner codex-main --lease 4h",
 		"adp run claude --workspace game-a --task task-20260611-0001 --keep-runtime",
 	},
+	"version": {
+		"adp version",
+		"adp version --format json",
+	},
 }
 
 var subcommandHelpExamples = map[string]map[string][]string{
