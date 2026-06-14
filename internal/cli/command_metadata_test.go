@@ -16,9 +16,22 @@ func TestCommandMetadataMatchesDispatch(t *testing.T) {
 	t.Parallel()
 
 	app := NewApp(Dependencies{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	// Filter out command aliases to get only primary commands
+	aliases := map[string]bool{
+		"ws": true,
+		"t":  true,
+		"s":  true,
+		"e":  true,
+		"rt": true,
+		"p":  true,
+	}
+
 	got := make([]string, 0, len(app.commandHandlers()))
 	for command := range app.commandHandlers() {
-		got = append(got, command)
+		if !aliases[command] {
+			got = append(got, command)
+		}
 	}
 	sort.Strings(got)
 

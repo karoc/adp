@@ -181,7 +181,7 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 }
 
 func (a *App) commandHandlers() map[string]commandHandler {
-	return map[string]commandHandler{
+	handlers := map[string]commandHandler{
 		"init":       a.init,
 		"quickstart": a.quickstart,
 		"doctor":     a.doctor,
@@ -200,6 +200,24 @@ func (a *App) commandHandlers() map[string]commandHandler {
 		"progress":   a.progress,
 		"run":        a.run,
 	}
+
+	// Add command aliases for convenience
+	aliases := map[string]string{
+		"ws": "workspace",
+		"t":  "tasks",
+		"s":  "sessions",
+		"e":  "events",
+		"rt": "runtime",
+		"p":  "phase",
+	}
+
+	for alias, target := range aliases {
+		if handler, ok := handlers[target]; ok {
+			handlers[alias] = handler
+		}
+	}
+
+	return handlers
 }
 
 func (a *App) fail(err error) int {
@@ -230,12 +248,27 @@ func (a *App) failWithHint(err error, args []string) int {
 }
 
 func (a *App) availableCommandNames() []string {
-	handlers := a.commandHandlers()
-	names := make([]string, 0, len(handlers))
-	for name := range handlers {
-		names = append(names, name)
+	// Return only primary command names (not aliases) for spelling suggestions
+	primaryCommands := []string{
+		"init",
+		"quickstart",
+		"doctor",
+		"version",
+		"workspace",
+		"enter",
+		"env",
+		"shell-hook",
+		"completion",
+		"events",
+		"sessions",
+		"runtime",
+		"tasks",
+		"plan",
+		"phase",
+		"progress",
+		"run",
 	}
-	return names
+	return primaryCommands
 }
 
 func extractCommandName(errorMsg string) string {
