@@ -1,6 +1,6 @@
 # Comparable Tools Boundary Note
 
-Simplified Chinese: [comparable-tools.zh-CN.md](comparable-tools.zh-CN.md)
+简体中文：[comparable-tools.zh-CN.md](comparable-tools.zh-CN.md)
 
 This note keeps ADP polishing grounded in adjacent tools without expanding
 the MVP scope. It records product-shape signals only; it is not a feature

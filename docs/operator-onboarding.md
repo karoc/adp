@@ -1,6 +1,6 @@
 # Operator Onboarding
 
-Simplified Chinese: [operator-onboarding.zh-CN.md](operator-onboarding.zh-CN.md)
+简体中文：[operator-onboarding.zh-CN.md](operator-onboarding.zh-CN.md)
 
 **⏱️ Expected Time: 15-20 minutes for first-time setup**
 

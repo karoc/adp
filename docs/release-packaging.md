@@ -1,6 +1,6 @@
 # Release Packaging
 
-Simplified Chinese: [release-packaging.zh-CN.md](release-packaging.zh-CN.md)
+简体中文：[release-packaging.zh-CN.md](release-packaging.zh-CN.md)
 
 This note defines the early preview packaging path for ADP as a terminal-first, local-first Go CLI. It keeps release artifacts aligned with the local runtime model and does not introduce hosted services, dashboards, cloud sync, or SaaS deployment assumptions.
 

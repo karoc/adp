@@ -1,6 +1,6 @@
 # Real Agent Compatibility Boundary
 
-Simplified Chinese: [real-agent-compatibility.zh-CN.md](real-agent-compatibility.zh-CN.md)
+简体中文：[real-agent-compatibility.zh-CN.md](real-agent-compatibility.zh-CN.md)
 
 This document defines what ADP guarantees when launching real external agent CLIs and what remains an operator-owned compatibility check. It intentionally records ADP's adapter contract rather than external CLI details that may change outside this repository.
 

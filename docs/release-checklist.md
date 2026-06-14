@@ -1,6 +1,6 @@
 # Release Checklist
 
-Simplified Chinese: [release-checklist.zh-CN.md](release-checklist.zh-CN.md)
+简体中文：[release-checklist.zh-CN.md](release-checklist.zh-CN.md)
 
 This checklist defines the local release gate for ADP. It keeps release validation aligned with the project boundary: ADP is a terminal-first, local-first Agent Runtime Environment and Agent Workspace Manager.
 

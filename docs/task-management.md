@@ -1,6 +1,6 @@
 # Task Management
 
-Simplified Chinese: [task-management.zh-CN.md](task-management.zh-CN.md)
+简体中文：[task-management.zh-CN.md](task-management.zh-CN.md)
 
 ADP's Task and Progress Manager is the local source of truth for workspace-scoped planning and execution state. It keeps project planning outside the real project root, then lets terminal users and agents inspect the same task list before choosing the next work item.
 

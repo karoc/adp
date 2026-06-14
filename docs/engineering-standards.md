@@ -1,6 +1,6 @@
 # Engineering Standards
 
-Simplified Chinese: [engineering-standards.zh-CN.md](engineering-standards.zh-CN.md)
+简体中文：[engineering-standards.zh-CN.md](engineering-standards.zh-CN.md)
 
 This document defines repository-wide engineering rules for ADP contributors and automation agents.
 

@@ -1,6 +1,6 @@
 # Install And Bootstrap
 
-Simplified Chinese: [install.zh-CN.md](install.zh-CN.md)
+简体中文：[install.zh-CN.md](install.zh-CN.md)
 
 This document describes local installation and first-run bootstrap for ADP. ADP is a terminal-first, local-first runtime manager; installation is a local CLI workflow and does not require a hosted service. For a single operator-facing walkthrough, see [operator-onboarding.md](operator-onboarding.md).
 

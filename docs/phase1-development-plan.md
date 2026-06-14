@@ -4,7 +4,7 @@ Historical source: local `mvp.md` input. That file is intentionally ignored and 
 
 Date: 2026-06-08
 
-Simplified Chinese: [phase1-development-plan.zh-CN.md](phase1-development-plan.zh-CN.md)
+简体中文：[phase1-development-plan.zh-CN.md](phase1-development-plan.zh-CN.md)
 
 This document turns the ADP MVP into the current Phase 1 implementation plan and operating roadmap. It records the product boundary, architecture, module ownership, multi-agent split points, and validation gates that must remain true as implementation continues.
 

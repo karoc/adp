@@ -1,6 +1,6 @@
 # ADP Workshop: Hands-On Learning Guide
 
-Simplified Chinese: [workshop.zh-CN.md](workshop.zh-CN.md)
+简体中文：[workshop.zh-CN.md](workshop.zh-CN.md)
 
 **⏱️ Total Time: 30 minutes**
 

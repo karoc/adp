@@ -1,6 +1,6 @@
 # Release Evidence
 
-Simplified Chinese: [release-evidence.zh-CN.md](release-evidence.zh-CN.md)
+简体中文：[release-evidence.zh-CN.md](release-evidence.zh-CN.md)
 
 This template records the local evidence needed before publishing an ADP preview artifact. It is a release note companion, not a hosted release system, cloud ledger, SaaS workflow, provider credential check, or replacement for the local phase gate.
 

@@ -2,7 +2,7 @@
 
 > Frequently Asked Questions about Agent Development Platform
 
-Simplified Chinese: [faq.zh-CN.md](faq.zh-CN.md)
+简体中文：[faq.zh-CN.md](faq.zh-CN.md)
 
 This FAQ covers conceptual questions about ADP's architecture, usage decisions, and integration scenarios. For error resolution and diagnostic procedures, see the [Troubleshooting Guide](troubleshooting.md).
 

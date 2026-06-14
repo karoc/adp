@@ -1,6 +1,6 @@
 # Session Resume Plan
 
-Simplified Chinese: [session-restore.zh-CN.md](session-restore.zh-CN.md)
+简体中文：[session-restore.zh-CN.md](session-restore.zh-CN.md)
 
 ADP session resume planning is a read-only CLI aid for reconstructing how a local agent run was started and how another local run could continue the same ADP work context. It helps an operator review a previous session, inspect task and phase state, and decide whether to start a new run with the same or a different agent.
 

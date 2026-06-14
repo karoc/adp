@@ -1,5 +1,7 @@
 # Web Application Example
 
+简体中文：[README.zh-CN.md](README.zh-CN.md)
+
 > Learn full-stack development patterns with backend and frontend agent specialization for Go REST API and React applications.
 
 ## What You'll Learn

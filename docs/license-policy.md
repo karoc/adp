@@ -1,6 +1,6 @@
 # License Policy
 
-Simplified Chinese: [license-policy.zh-CN.md](license-policy.zh-CN.md)
+简体中文：[license-policy.zh-CN.md](license-policy.zh-CN.md)
 
 This document explains ADP's licensing and contribution policy for operators and contributors. It is operational guidance, not a replacement for the authoritative license text in [../LICENSE](../LICENSE).
 

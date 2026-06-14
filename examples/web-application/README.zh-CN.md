@@ -1,5 +1,7 @@
 # Web 应用示例
 
+English: [README.md](README.md)
+
 > 通过 backend 和 frontend agent 专业化学习 Go REST API 和 React 应用的全栈开发模式。
 
 ## 你将学到

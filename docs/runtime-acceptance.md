@@ -1,6 +1,6 @@
 # Runtime Acceptance
 
-Simplified Chinese: [runtime-acceptance.zh-CN.md](runtime-acceptance.zh-CN.md)
+简体中文：[runtime-acceptance.zh-CN.md](runtime-acceptance.zh-CN.md)
 
 This document defines the local runtime smoke acceptance path for ADP. The goal is to verify that the terminal-first, local-first runtime manager can build an isolated workspace overlay, launch agent commands from that overlay, record local runtime history, and clean up ADP-owned runtime directories without polluting the real project root.
 

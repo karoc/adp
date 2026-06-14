@@ -1,6 +1,6 @@
 # Release Troubleshooting
 
-Simplified Chinese: [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)
+简体中文：[release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)
 
 This note is the operator triage path for preview release failures. It keeps failure handling local-first and terminal-first; it does not add hosted orchestration, dashboards, cloud sync, SaaS release tracking, automatic Git execution, provider-native resume, or default real Codex/Claude gates.
 

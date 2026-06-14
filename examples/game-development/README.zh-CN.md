@@ -1,5 +1,7 @@
 # 游戏开发示例
 
+English: [README.md](README.md)
+
 > 通过专业化的游戏玩法和图形工程 agent 学习游戏开发的 agent 编排模式。
 
 ## 你将学到

@@ -1,5 +1,7 @@
 # Game Development Example
 
+简体中文：[README.zh-CN.md](README.zh-CN.md)
+
 > Learn agent orchestration patterns for game development with specialized agents for gameplay and graphics engineering.
 
 ## What You'll Learn

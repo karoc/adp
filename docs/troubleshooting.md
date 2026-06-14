@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Simplified Chinese: [troubleshooting.zh-CN.md](troubleshooting.zh-CN.md)
+简体中文：[troubleshooting.zh-CN.md](troubleshooting.zh-CN.md)
 
 This guide helps you diagnose and resolve common ADP issues. Issues are organized by error message or symptom for easy search.
 

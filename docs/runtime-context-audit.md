@@ -1,6 +1,6 @@
 # Runtime Context Audit
 
-Simplified Chinese: [runtime-context-audit.zh-CN.md](runtime-context-audit.zh-CN.md)
+简体中文：[runtime-context-audit.zh-CN.md](runtime-context-audit.zh-CN.md)
 
 This document audits the context ADP makes visible when it launches an agent. It is scoped to existing terminal-first, local-first runtime behavior: ADP prepares a local runtime overlay, launches a local external command, records local evidence, and keeps authoritative workspace and planning state outside the real project root.
 
