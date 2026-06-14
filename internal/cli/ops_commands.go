@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/karoc/adp/internal/events"
+	"github.com/karoc/adp/internal/output"
 	adpresume "github.com/karoc/adp/internal/resume"
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/sessions"
@@ -495,15 +496,35 @@ func (a *App) runtimePrune(ctx context.Context, args []string) error {
 		return errors.New("runtime pruner is not configured")
 	}
 
+	// Show progress indicator for prune operation (skip for JSON output)
+	var spinner *output.Spinner
+	if opts.format != outputFormatJSON {
+		message := "Scanning runtime directories..."
+		if opts.dryRun {
+			message = "Scanning runtime directories (dry run)..."
+		}
+		spinner = output.NewSpinner(a.stderr, message)
+		spinner.Start()
+	}
+
 	results, err := a.deps.PruneRuntimes(ctx, runtime.PruneRequest{
 		Layout:      a.deps.Layout,
 		OlderThan:   opts.olderThan,
 		IncludeKept: opts.includeKept,
 		DryRun:      opts.dryRun,
 	})
+
 	if err != nil {
+		if spinner != nil {
+			spinner.Fail("")
+		}
 		return err
 	}
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
 	if opts.format == outputFormatJSON {
 		return writePlanningJSON(a.stdout, runtimePruneOutput(opts, results))
 	}

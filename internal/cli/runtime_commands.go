@@ -12,6 +12,7 @@ import (
 	"github.com/karoc/adp/internal/events"
 	"github.com/karoc/adp/internal/gitenv"
 	"github.com/karoc/adp/internal/gitstate"
+	"github.com/karoc/adp/internal/output"
 	"github.com/karoc/adp/internal/runner"
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/schema"
@@ -133,13 +134,20 @@ func (a *App) run(ctx context.Context, args []string) error {
 	if err := adapter.Validate(ctx, adapterCtx); err != nil {
 		return err
 	}
+
+	// Show progress for runtime setup
+	spinner := output.NewSpinner(a.stderr, "Building runtime environment...")
+	spinner.Start()
+
 	rendered, err := adapter.Render(ctx, adapterCtx)
 	if err != nil {
+		spinner.Fail("")
 		return err
 	}
 
 	started := time.Now()
 	if a.deps.BuildRuntime == nil {
+		spinner.Fail("")
 		return errors.New("runtime builder is not configured")
 	}
 	handle, err := a.deps.BuildRuntime(ctx, runtime.BuildRequest{
@@ -153,9 +161,12 @@ func (a *App) run(ctx context.Context, args []string) error {
 		Keep:         opts.keep,
 	})
 	if err != nil {
+		spinner.Fail("")
 		return err
 	}
 	defer a.cleanupRuntime(ctx, *handle)
+
+	spinner.Success("Runtime ready")
 
 	a.logEvent(ctx, events.Event{
 		Timestamp:   started,
