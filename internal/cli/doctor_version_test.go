@@ -63,7 +63,7 @@ func TestDoctorCommandReturnsTwoWhenRuntimeParentDiagnosticsFail(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	for _, want := range []string{"game-a", "[错误]", workspace.DiagnosticCodeRuntimeParentProjectRoot, "/srv/game-a"} {
+	for _, want := range []string{"game-a", "[错误 error]", workspace.DiagnosticCodeRuntimeParentProjectRoot, "/srv/game-a"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("doctor output missing %q: %q", want, stdout.String())
 		}
@@ -97,7 +97,7 @@ func TestDoctorCommandKeepsZeroForWarningDiagnostics(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	for _, want := range []string{"game-a", "[警告]", workspace.DiagnosticCodeAgentProfileAmbiguous, "/tmp/adp-home/workspaces/game-a/profiles/senior.{md,yaml,yml,json}"} {
+	for _, want := range []string{"game-a", "[警告 warning]", workspace.DiagnosticCodeAgentProfileAmbiguous, "/tmp/adp-home/workspaces/game-a/profiles/senior.{md,yaml,yml,json}"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("doctor output missing %q: %q", want, stdout.String())
 		}

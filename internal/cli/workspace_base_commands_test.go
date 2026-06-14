@@ -183,7 +183,7 @@ func TestWorkspaceDoctorCommandVerboseShowsInfoDiagnostics(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "[信息]", workspace.DiagnosticCodeGitRootDetected, "/srv/game-a"} {
+	for _, want := range []string{"game-a", "[信息 info]", workspace.DiagnosticCodeGitRootDetected, "/srv/game-a"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("verbose doctor output missing %q: %q", want, output)
 		}
@@ -284,7 +284,7 @@ func TestWorkspaceDoctorCommandReturnsTwoWhenDiagnosticsHaveErrors(t *testing.T)
 		t.Fatal("DiagnoseAll was not called")
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "[错误]", workspace.DiagnosticCodeProjectRootMissing, "/srv/game-a"} {
+	for _, want := range []string{"game-a", "[错误 error]", workspace.DiagnosticCodeProjectRootMissing, "/srv/game-a"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("doctor output missing %q: %q", want, output)
 		}
@@ -316,7 +316,7 @@ func TestWorkspaceDoctorCommandKeepsZeroForWarningDiagnostics(t *testing.T) {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "[警告]", workspace.DiagnosticCodeAgentCommandArguments, "/tmp/adp-home/workspaces/game-a/workspace.yaml"} {
+	for _, want := range []string{"game-a", "[警告 warning]", workspace.DiagnosticCodeAgentCommandArguments, "/tmp/adp-home/workspaces/game-a/workspace.yaml"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("workspace doctor output missing %q: %q", want, output)
 		}
@@ -351,7 +351,7 @@ func TestWorkspaceDoctorCommandReturnsTwoWhenNamedRuntimeParentDiagnosticsFail(t
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "[错误]", workspace.DiagnosticCodeRuntimeParentInsideProjectRoot, "/srv/game-a/.adp-runtime-parent"} {
+	for _, want := range []string{"game-a", "[错误 error]", workspace.DiagnosticCodeRuntimeParentInsideProjectRoot, "/srv/game-a/.adp-runtime-parent"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("workspace doctor output missing %q: %q", want, output)
 		}

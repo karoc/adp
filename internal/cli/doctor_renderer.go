@@ -150,11 +150,11 @@ func (r *DoctorTextRenderer) filterDiagnostics(diagnostics []workspace.Diagnosti
 func (r *DoctorTextRenderer) getLevelLabel(level workspace.DiagnosticLevel) string {
 	switch level {
 	case workspace.DiagnosticLevelError:
-		return output.Error("[错误]")
+		return output.Error("[错误 error]")
 	case workspace.DiagnosticLevelWarning:
-		return output.Warning("[警告]")
+		return output.Warning("[警告 warning]")
 	case workspace.DiagnosticLevelInfo:
-		return output.Colorize(output.ColorBlue, "[信息]")
+		return output.Colorize(output.ColorBlue, "[信息 info]")
 	default:
 		return "[未知]"
 	}
