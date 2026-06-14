@@ -10,6 +10,7 @@ import (
 	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/commandmeta"
 	"github.com/karoc/adp/internal/events"
+	"github.com/karoc/adp/internal/output"
 	"github.com/karoc/adp/internal/paths"
 	"github.com/karoc/adp/internal/runner"
 	"github.com/karoc/adp/internal/runtime"
@@ -202,15 +203,15 @@ func (a *App) commandHandlers() map[string]commandHandler {
 }
 
 func (a *App) fail(err error) int {
-	fmt.Fprintf(a.stderr, "adp: %v\n", err)
+	fmt.Fprintf(a.stderr, "%s: %v\n", output.Error("adp"), err)
 	return 1
 }
 
 func (a *App) failWithHint(err error, args []string) int {
-	fmt.Fprintf(a.stderr, "adp: %v\n", err)
+	fmt.Fprintf(a.stderr, "%s: %v\n", output.Error("adp"), err)
 	if shouldShowHelpHint(err) {
 		hint := helpHint(args)
-		fmt.Fprintf(a.stderr, "try: %s\n", hint)
+		fmt.Fprintf(a.stderr, "try: %s\n", output.Command(hint))
 	}
 	return 1
 }

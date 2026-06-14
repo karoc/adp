@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/karoc/adp/internal/output"
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
@@ -67,7 +68,12 @@ func (a *App) tasksAdd(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "task %s added\n", task.ID)
+	fmt.Fprintf(a.stdout, "%s\n", output.Successf("task %s added", task.ID))
+	fmt.Fprintln(a.stdout)
+	fmt.Fprintln(a.stdout, "Next steps:")
+	fmt.Fprintf(a.stdout, "  View task:   %s\n", output.Command(fmt.Sprintf("adp tasks show %s", task.ID)))
+	fmt.Fprintf(a.stdout, "  Claim task:  %s\n", output.Command(fmt.Sprintf("adp tasks claim %s --owner <name> --lease 4h", task.ID)))
+	fmt.Fprintf(a.stdout, "  Start work:  %s\n", output.Command("adp run <agent> --take --owner <name>"))
 	return nil
 }
 

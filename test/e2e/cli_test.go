@@ -139,7 +139,7 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 	if !strings.Contains(renamedOut, "name: game-renamed") || !strings.Contains(renamedOut, "project_root: "+projectRoot) {
 		t.Fatalf("renamed workspace show missing details: %q", renamedOut)
 	}
-	runADP(t, adpBin, repoRoot, env, "workspace", "remove", "game-renamed")
+	runADP(t, adpBin, repoRoot, env, "workspace", "remove", "game-renamed", "--yes")
 	removedList := runADP(t, adpBin, repoRoot, env, "workspace", "list")
 	if strings.Contains(removedList, "game-renamed") {
 		t.Fatalf("removed workspace still listed: %q", removedList)

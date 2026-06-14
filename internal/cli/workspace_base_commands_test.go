@@ -73,10 +73,10 @@ func TestWorkspaceShowCommandPrintsDetails(t *testing.T) {
 }
 
 func TestWorkspaceRemoveCommandCallsStore(t *testing.T) {
-	store := &fakeStore{}
+	store := &fakeStore{cfg: testConfig()}
 	var stdout bytes.Buffer
 
-	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "remove", "game-a"})
+	code := NewApp(Dependencies{WorkspaceStore: store}, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{"workspace", "remove", "game-a", "--yes"})
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)

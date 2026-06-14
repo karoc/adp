@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
+	"github.com/karoc/adp/internal/output"
 	"github.com/karoc/adp/internal/schema"
 	"github.com/karoc/adp/internal/workspace"
 )
@@ -66,19 +68,39 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 		if _, err := a.deps.WorkspaceStore.Add(ctx, name, projectRoot); err != nil {
 			return err
 		}
-		fmt.Fprintf(a.stdout, "workspace %q added\n", name)
+		fmt.Fprintf(a.stdout, "%s\n", output.Successf("workspace %q added", name))
+		fmt.Fprintln(a.stdout)
+		fmt.Fprintln(a.stdout, "Next steps:")
+		fmt.Fprintf(a.stdout, "  Quick start:  %s\n", output.Command(fmt.Sprintf("adp quickstart %s", name)))
+		fmt.Fprintf(a.stdout, "  Check setup:  %s\n", output.Command(fmt.Sprintf("adp workspace doctor %s", name)))
+		fmt.Fprintf(a.stdout, "  List tasks:   %s\n", output.Command(fmt.Sprintf("adp tasks list --workspace %s", name)))
 	case "list":
 		return a.workspaceList(ctx, args[1:])
 	case "show":
 		return a.workspaceShow(ctx, args[1:])
 	case "remove":
-		if len(args) != 2 {
-			return errors.New("usage: adp workspace remove <name>")
-		}
-		if err := a.deps.WorkspaceStore.Remove(ctx, args[1]); err != nil {
+		opts, err := parseWorkspaceRemoveArgs(args[1:])
+		if err != nil {
 			return err
 		}
-		fmt.Fprintf(a.stdout, "workspace %q removed\n", args[1])
+
+		// Get workspace info before removal for confirmation message
+		cfg, _, err := a.deps.WorkspaceStore.Get(ctx, opts.name)
+		if err != nil {
+			return err
+		}
+
+		// Confirm dangerous operation
+		operation := fmt.Sprintf("Remove workspace %q?", opts.name)
+		details := fmt.Sprintf("This will delete the workspace configuration but not project files.\nProject root: %s", cfg.Project.Root)
+		if err := a.confirmDangerous(operation, details, opts.yes); err != nil {
+			return err
+		}
+
+		if err := a.deps.WorkspaceStore.Remove(ctx, opts.name); err != nil {
+			return err
+		}
+		fmt.Fprintf(a.stdout, "%s\n", output.Successf("workspace %q removed", opts.name))
 	case "rename":
 		if len(args) != 3 {
 			return errors.New("usage: adp workspace rename <old-name> <new-name>")
@@ -86,7 +108,7 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 		if _, err := a.deps.WorkspaceStore.Rename(ctx, args[1], args[2]); err != nil {
 			return err
 		}
-		fmt.Fprintf(a.stdout, "workspace %q renamed to %q\n", args[1], args[2])
+		fmt.Fprintf(a.stdout, "%s\n", output.Successf("workspace %q renamed to %q", args[1], args[2]))
 	case "doctor":
 		return a.doctor(ctx, args[1:])
 	default:
@@ -285,4 +307,36 @@ func visibleDiagnostics(diagnostics []workspace.Diagnostic, verbose bool) []work
 		out = append(out, diagnostic)
 	}
 	return out
+}
+
+type workspaceRemoveOptions struct {
+	name string
+	yes  bool
+}
+
+func parseWorkspaceRemoveArgs(args []string) (workspaceRemoveOptions, error) {
+	var opts workspaceRemoveOptions
+	var name string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--yes" || arg == "-y":
+			opts.yes = true
+		case !strings.HasPrefix(arg, "-"):
+			if name != "" {
+				return opts, errors.New("usage: adp workspace remove <name> [--yes]")
+			}
+			name = arg
+		default:
+			return opts, fmt.Errorf("unknown option %q", arg)
+		}
+	}
+
+	if name == "" {
+		return opts, errors.New("usage: adp workspace remove <name> [--yes]")
+	}
+
+	opts.name = name
+	return opts, nil
 }

@@ -46,7 +46,7 @@ run_fake_workspace_lifecycle_checks() {
   assert_contains "$workspace_values" "game-lifecycle-b" "workspace values after rename"
   assert_not_contains "$workspace_values" "game-lifecycle-a" "workspace values after rename"
 
-  output=$(run_adp "$REPO_ROOT" workspace remove game-lifecycle-b)
+  output=$(run_adp "$REPO_ROOT" workspace remove game-lifecycle-b --yes)
   assert_contains "$output" 'workspace "game-lifecycle-b" removed' "workspace remove output"
   assert_absent_path "$new_workspace_dir"
 
