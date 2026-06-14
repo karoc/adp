@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ADP Workshop Agent - Fake agent for hands-on learning
+# Simulates a real agent (codex/claude) without requiring LLM provider setup
+
+# Display startup banner
+echo "╔════════════════════════════════════════════════╗"
+echo "║    ADP Workshop Agent - Learning Simulator     ║"
+echo "╚════════════════════════════════════════════════╝"
+echo ""
+
+# Show current environment
+echo "📍 Agent Environment:"
+echo "   Working Directory: $(pwd)"
+echo "   Task ID: ${ADP_TASK_ID:-[not set]}"
+echo "   Session ID: ${ADP_SESSION_ID:-[not set]}"
+echo "   Workspace: ${ADP_WORKSPACE:-[not set]}"
+echo "   Owner: ${ADP_OWNER:-[not set]}"
+echo ""
+
+# Verify runtime overlay structure
+echo "🔍 Runtime Overlay Validation:"
+if [ -z "${ADP_RUNTIME_ROOT:-}" ]; then
+    echo "   ❌ ERROR: ADP_RUNTIME_ROOT not set"
+    exit 1
+fi
+
+if [ "$(pwd)" != "$ADP_RUNTIME_ROOT" ]; then
+    echo "   ❌ ERROR: Working directory mismatch"
+    echo "      Expected: $ADP_RUNTIME_ROOT"
+    echo "      Actual:   $(pwd)"
+    exit 1
+fi
+
+if [ ! -f "$ADP_RUNTIME_ROOT/AGENTS.md" ]; then
+    echo "   ❌ ERROR: AGENTS.md not found in runtime"
+    exit 1
+fi
+
+if [ ! -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml" ]; then
+    echo "   ❌ ERROR: .adp-runtime.yaml not found in runtime"
+    exit 1
+fi
+
+echo "   ✅ Runtime root verified: $ADP_RUNTIME_ROOT"
+echo "   ✅ AGENTS.md present"
+echo "   ✅ Runtime metadata present"
+echo ""
+
+# Simulate work based on task context
+echo "⚙️  Simulating Agent Work:"
+
+# Check if we have a task description to simulate
+if [ -f "$ADP_RUNTIME_ROOT/.adp-runtime.yaml" ]; then
+    TASK_DESC=$(grep -A 1 "task:" "$ADP_RUNTIME_ROOT/.adp-runtime.yaml" | tail -n1 | sed 's/^[[:space:]]*//' || echo "Generic task")
+    echo "   Task: $TASK_DESC"
+fi
+
+# Simulate processing steps
+STEPS=("Analyzing codebase" "Planning changes" "Implementing solution" "Running tests" "Finalizing work")
+for i in "${!STEPS[@]}"; do
+    echo -n "   [$(($i + 1))/${#STEPS[@]}] ${STEPS[$i]}..."
+    sleep 0.5
+    echo " ✓"
+done
+
+echo ""
+echo "✨ Workshop Agent Complete"
+echo ""
+
+# Show helpful context for learning
+echo "💡 What Happened:"
+echo "   • ADP created a runtime overlay at: $ADP_RUNTIME_ROOT"
+echo "   • Task ${ADP_TASK_ID:-unknown} was atomically claimed"
+echo "   • This agent ran in isolated environment"
+echo "   • Session ${ADP_SESSION_ID:-unknown} recorded the execution"
+echo "   • Use 'adp sessions show ${ADP_SESSION_ID:-SESSION_ID}' to inspect this run"
+echo ""
+
+exit 0

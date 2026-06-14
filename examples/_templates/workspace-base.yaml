@@ -1,0 +1,37 @@
+# ADP Workspace Base Template
+#
+# This is a foundation configuration that provides common settings
+# for all examples. Individual examples extend this template and
+# add domain-specific configuration.
+#
+# Usage in examples:
+#   extends: ../_templates/workspace-base.yaml
+
+version: 1
+
+# Memory settings - enable persistent context
+memory:
+  enabled: true
+
+# Coding standards
+rules:
+  coding_style: strict
+  prefer_readability: true
+  max_function_lines: 50
+
+# MCP integration - enable by default
+mcp:
+  enabled: true
+  config: mcp/config.yaml
+
+# Default agents configuration
+# Examples can override with domain-specific agents
+agents:
+  codex:
+    enabled: true
+    profile: codex
+    command: codex
+  claude:
+    enabled: true
+    profile: claude
+    command: claude

@@ -1,0 +1,10 @@
+# MCP Configuration for Game Development
+
+version: 1
+
+servers:
+  filesystem:
+    enabled: true
+    notes:
+      - "File reading and manipulation"
+      - "Restricted to project directory"

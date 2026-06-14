@@ -1,0 +1,43 @@
+# Game Development Example Workspace Configuration
+#
+# This workspace demonstrates agent orchestration for game development,
+# with specialized agents for gameplay and graphics programming.
+
+version: 1
+
+workspace:
+  name: game-dev
+
+project:
+  root: ./project
+
+memory:
+  enabled: true
+  shared: memory/game-context.md
+
+prompts:
+  gameplay: prompts/gameplay-engineer.md
+  graphics: prompts/graphics-engineer.md
+
+rules:
+  coding_style: strict
+  prefer_readability: true
+  max_function_lines: 50
+  test_coverage: required
+
+mcp:
+  enabled: true
+  config: mcp/config.yaml
+
+agents:
+  gameplay-dev:
+    enabled: true
+    profile: gameplay-dev
+    command: codex
+    focus: "Game logic, physics, AI, and gameplay mechanics"
+
+  graphics-dev:
+    enabled: true
+    profile: graphics-dev
+    command: codex
+    focus: "Rendering, shaders, performance optimization"

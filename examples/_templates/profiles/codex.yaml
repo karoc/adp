@@ -1,0 +1,7 @@
+profile: default
+command: codex
+notes:
+  - Use AGENTS.md as primary runtime instruction
+  - Consult tasks.yaml for current work items
+  - Focus on implementation and code quality
+  - Write tests for new features

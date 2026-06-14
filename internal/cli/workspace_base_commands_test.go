@@ -124,7 +124,7 @@ func TestWorkspaceDoctorCommandPrintsNamedReport(t *testing.T) {
 		t.Fatalf("Diagnose called with %q", store.diagnoseName)
 	}
 	output := stdout.String()
-	if !strings.Contains(output, "game-a") || !strings.Contains(output, "ok") || !strings.Contains(output, "no issues") {
+	if !strings.Contains(output, "game-a") || !strings.Contains(output, "✓") || !strings.Contains(output, "健康") {
 		t.Fatalf("doctor output missing healthy report: %q", output)
 	}
 }
@@ -150,7 +150,7 @@ func TestWorkspaceDoctorCommandHidesInfoDiagnosticsByDefault(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "ok", "no issues"} {
+	for _, want := range []string{"game-a", "✓", "健康"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("doctor output missing %q: %q", want, output)
 		}
@@ -183,7 +183,7 @@ func TestWorkspaceDoctorCommandVerboseShowsInfoDiagnostics(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "info", workspace.DiagnosticCodeGitRootDetected, "/srv/game-a"} {
+	for _, want := range []string{"game-a", "[信息]", workspace.DiagnosticCodeGitRootDetected, "/srv/game-a"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("verbose doctor output missing %q: %q", want, output)
 		}
@@ -284,7 +284,7 @@ func TestWorkspaceDoctorCommandReturnsTwoWhenDiagnosticsHaveErrors(t *testing.T)
 		t.Fatal("DiagnoseAll was not called")
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "error", workspace.DiagnosticCodeProjectRootMissing, "/srv/game-a"} {
+	for _, want := range []string{"game-a", "[错误]", workspace.DiagnosticCodeProjectRootMissing, "/srv/game-a"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("doctor output missing %q: %q", want, output)
 		}
@@ -316,7 +316,7 @@ func TestWorkspaceDoctorCommandKeepsZeroForWarningDiagnostics(t *testing.T) {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "warning", workspace.DiagnosticCodeAgentCommandArguments, "/tmp/adp-home/workspaces/game-a/workspace.yaml"} {
+	for _, want := range []string{"game-a", "[警告]", workspace.DiagnosticCodeAgentCommandArguments, "/tmp/adp-home/workspaces/game-a/workspace.yaml"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("workspace doctor output missing %q: %q", want, output)
 		}
@@ -351,7 +351,7 @@ func TestWorkspaceDoctorCommandReturnsTwoWhenNamedRuntimeParentDiagnosticsFail(t
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "error", workspace.DiagnosticCodeRuntimeParentInsideProjectRoot, "/srv/game-a/.adp-runtime-parent"} {
+	for _, want := range []string{"game-a", "[错误]", workspace.DiagnosticCodeRuntimeParentInsideProjectRoot, "/srv/game-a/.adp-runtime-parent"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("workspace doctor output missing %q: %q", want, output)
 		}

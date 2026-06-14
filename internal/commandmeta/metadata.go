@@ -13,6 +13,28 @@ type Command struct {
 	Usage       []string
 	Subcommands []Value
 	Options     []Value
+	SeeAlso     []string // Related commands for cross-referencing
+}
+
+// Command relationships for "See also" cross-references
+// Key format: "command" for root commands, "command.subcommand" for subcommands
+var commandRelationships = map[string][]string{
+	// P0: High confusion command pairs
+	"doctor":       {"workspace doctor", "plan doctor"},
+	"run":          {"tasks", "events", "sessions"},
+}
+
+var subcommandRelationships = map[string][]string{
+	// P0: Task workflow confusion
+	"tasks.take":  {"run --take", "tasks next", "tasks renew"},
+	"tasks.claim": {"tasks take", "tasks renew"},
+
+	// P0: Workspace diagnostics
+	"workspace.doctor": {"doctor", "plan doctor"},
+
+	// P0: Session restoration confusion
+	"sessions.restore-plan": {"sessions resume-plan", "run"},
+	"sessions.resume-plan":  {"sessions restore-plan", "run --take"},
 }
 
 var rootCommands = []Command{
@@ -421,6 +443,7 @@ func CommandHelp(name string) (string, bool) {
 	writeValuesSection(&out, "Subcommands", command.Subcommands)
 	writeValuesSection(&out, "Options", command.Options)
 	writeExamplesSection(&out, examplesForCommand(command.Name))
+	writeSeeAlsoSection(&out, name, "")
 	return out.String(), true
 }
 
@@ -447,9 +470,7 @@ func SubcommandHelp(commandName, subcommand string) (string, bool) {
 	out.WriteString("\n\nUsage:\n")
 	writeUsageLines(&out, usage)
 	writeExamplesSection(&out, examplesForSubcommand(command.Name, subcommand))
-	out.WriteString("\nSee also:\n  adp ")
-	out.WriteString(command.Name)
-	out.WriteString(" --help\n")
+	writeSeeAlsoSection(&out, command.Name, subcommand)
 	return out.String(), true
 }
 
@@ -560,4 +581,47 @@ func valueDescription(values []Value, name string) string {
 		}
 	}
 	return ""
+}
+
+// writeSeeAlsoSection writes the "See also" cross-reference section
+func writeSeeAlsoSection(out *strings.Builder, commandName, subcommand string) {
+	var related []string
+
+	if subcommand != "" {
+		// Subcommand help: check subcommand relationships first
+		key := commandName + "." + subcommand
+		if refs, ok := subcommandRelationships[key]; ok {
+			related = append(related, refs...)
+		}
+		// Always include parent command
+		related = append(related, commandName+" --help")
+	} else {
+		// Root command help: check command relationships
+		if refs, ok := commandRelationships[commandName]; ok {
+			related = append(related, refs...)
+		}
+	}
+
+	if len(related) == 0 {
+		return
+	}
+
+	out.WriteString("\nSee also:\n")
+	for _, ref := range related {
+		out.WriteString("  adp ")
+		// Check if ref already contains flags (like --take, --help)
+		if strings.Contains(ref, "--") {
+			// Already has flags, use as-is
+			out.WriteString(ref)
+		} else if strings.Contains(ref, " ") {
+			// Multi-word reference like "workspace doctor", add --help
+			out.WriteString(ref)
+			out.WriteString(" --help")
+		} else {
+			// Single command name, add --help
+			out.WriteString(ref)
+			out.WriteString(" --help")
+		}
+		out.WriteByte('\n')
+	}
 }

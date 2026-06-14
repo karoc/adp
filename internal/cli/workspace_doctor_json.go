@@ -40,10 +40,18 @@ type workspaceGitContextJSON struct {
 }
 
 type workspaceDiagnosticJSON struct {
-	Level   string `json:"level"`
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Path    string `json:"path,omitempty"`
+	Level      string                         `json:"level"`
+	Code       string                         `json:"code"`
+	Message    string                         `json:"message"`
+	Path       string                         `json:"path,omitempty"`
+	Suggestion *workspaceSuggestionJSON       `json:"suggestion,omitempty"`
+}
+
+type workspaceSuggestionJSON struct {
+	Reason   string   `json:"reason,omitempty"`
+	Commands []string `json:"commands,omitempty"`
+	DocLink  string   `json:"doc_link,omitempty"`
+	Notes    []string `json:"notes,omitempty"`
 }
 
 func workspaceDoctorOutput(reports []workspace.DiagnosticReport) workspaceDoctorJSONOutput {
@@ -65,12 +73,21 @@ func workspaceDoctorOutput(reports []workspace.DiagnosticReport) workspaceDoctor
 			out.HasErrors = true
 		}
 		for _, diagnostic := range report.Diagnostics {
-			reportOut.Diagnostics = append(reportOut.Diagnostics, workspaceDiagnosticJSON{
+			diagJSON := workspaceDiagnosticJSON{
 				Level:   string(diagnostic.Level),
 				Code:    diagnostic.Code,
 				Message: diagnostic.Message,
 				Path:    diagnostic.Path,
-			})
+			}
+			if diagnostic.Suggestion != nil {
+				diagJSON.Suggestion = &workspaceSuggestionJSON{
+					Reason:   diagnostic.Suggestion.Reason,
+					Commands: diagnostic.Suggestion.Commands,
+					DocLink:  diagnostic.Suggestion.DocLink,
+					Notes:    diagnostic.Suggestion.Notes,
+				}
+			}
+			reportOut.Diagnostics = append(reportOut.Diagnostics, diagJSON)
 		}
 		out.Reports = append(out.Reports, reportOut)
 	}

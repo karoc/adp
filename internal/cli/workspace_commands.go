@@ -251,31 +251,25 @@ func (a *App) workspaceDoctorReports(reports []workspace.DiagnosticReport, opts 
 		return a.workspaceDoctorJSON(reports)
 	}
 
-	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(writer, "WORKSPACE\tLEVEL\tCODE\tMESSAGE\tPATH")
+	// 使用新的渲染器
+	renderer := &DoctorTextRenderer{
+		writer:  a.stdout,
+		verbose: opts.verbose,
+	}
+
+	if err := renderer.Render(reports); err != nil {
+		return err
+	}
+
+	// 检查是否有错误
 	hasErrors := false
 	for _, report := range reports {
 		if report.HasErrors() {
 			hasErrors = true
-		}
-		diagnostics := visibleDiagnostics(report.Diagnostics, opts.verbose)
-		if len(diagnostics) == 0 {
-			fmt.Fprintf(writer, "%s\tok\t-\tno issues\t%s\n", valueOrDash(report.Workspace), valueOrDash(report.WorkspaceDir))
-			continue
-		}
-		for _, diagnostic := range diagnostics {
-			fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n",
-				valueOrDash(report.Workspace),
-				diagnostic.Level,
-				valueOrDash(diagnostic.Code),
-				valueOrDash(diagnostic.Message),
-				valueOrDash(diagnostic.Path),
-			)
+			break
 		}
 	}
-	if err := writer.Flush(); err != nil {
-		return err
-	}
+
 	if hasErrors {
 		return processExitError{code: 2}
 	}

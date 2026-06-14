@@ -1,0 +1,131 @@
+tasks:
+  - id: T1
+    title: "Implement health check endpoint"
+    description: |
+      Create GET /api/health endpoint for server health monitoring.
+
+      Requirements:
+      - Return server status, timestamp, service name
+      - Return 200 OK when healthy
+      - Add test coverage
+    assignee: backend-dev
+    priority: high
+    status: completed
+
+  - id: T2
+    title: "Implement users list endpoint"
+    description: |
+      Create GET /api/users endpoint to retrieve user list.
+
+      Requirements:
+      - Return array of users with id, username, email
+      - Include count field
+      - Add test coverage
+    assignee: backend-dev
+    priority: high
+    status: completed
+
+  - id: T3
+    title: "Implement login endpoint"
+    description: |
+      Create POST /api/auth/login for user authentication.
+
+      Requirements:
+      - Accept username and password in request body
+      - Return JWT token (or demo token)
+      - Handle validation errors
+      - Return appropriate HTTP status codes
+      - Add test coverage for success and failure cases
+    assignee: backend-dev
+    priority: high
+    status: completed
+
+  - id: T4
+    title: "Create API client module"
+    description: |
+      Build frontend API client for backend communication.
+
+      Requirements:
+      - Create api.js with methods for all endpoints
+      - Handle fetch errors and network issues
+      - Use environment variable for API base URL
+      - Add tests for API client methods
+    assignee: frontend-dev
+    priority: high
+    depends_on: [T1, T2, T3]
+
+  - id: T5
+    title: "Build login form component"
+    description: |
+      Create React login form component.
+
+      Requirements:
+      - Username and password inputs
+      - Form validation
+      - Loading state during API call
+      - Error message display
+      - Success handling (store token)
+      - Responsive design
+    assignee: frontend-dev
+    priority: high
+    depends_on: [T4]
+
+  - id: T6
+    title: "Build users list component"
+    description: |
+      Create React component to display user list.
+
+      Requirements:
+      - Fetch button to load users
+      - Loading state
+      - Display users in formatted list
+      - Handle empty state
+      - Error handling
+    assignee: frontend-dev
+    priority: medium
+    depends_on: [T4]
+
+  - id: T7
+    title: "Add pagination to users endpoint"
+    description: |
+      Extend /api/users to support pagination.
+
+      Requirements:
+      - Accept page and page_size query parameters
+      - Return pagination metadata (total, current_page, total_pages)
+      - Maintain backward compatibility (optional parameters)
+      - Update API contract documentation
+    assignee: backend-dev
+    priority: medium
+
+  - id: T8
+    title: "Add user search UI"
+    description: |
+      Add search functionality to users list.
+
+      Requirements:
+      - Search input field
+      - Filter users by username or email
+      - Real-time search (debounced)
+      - Clear search button
+    assignee: frontend-dev
+    priority: low
+    depends_on: [T6]
+
+  - id: T9
+    title: "Integration testing"
+    description: |
+      End-to-end testing of backend + frontend.
+
+      This is a collaborative task requiring both agents:
+      - backend-dev: Ensure API is running and stable
+      - frontend-dev: Test all UI flows against real API
+
+      Test scenarios:
+      - Health check displays correctly
+      - Login flow works end-to-end
+      - Users list loads and displays
+      - Error handling works across stack
+    assignee: both
+    priority: high
+    depends_on: [T5, T6]

@@ -1,0 +1,8 @@
+profile: architect
+command: architect
+notes:
+  - Design system architecture and component interactions
+  - Define interfaces and contracts between components
+  - Ensure architectural patterns are followed
+  - Plan for scalability and performance
+  - Document architectural decisions

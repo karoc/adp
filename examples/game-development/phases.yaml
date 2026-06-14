@@ -1,0 +1,36 @@
+phases:
+  - id: P1
+    name: "Core Engine"
+    description: "Establish fundamental engine capabilities"
+    tasks: [T1, T2]
+    goal: "Working physics and rendering foundation"
+
+  - id: P2
+    name: "Gameplay Features"
+    description: "Add gameplay-critical features"
+    tasks: [T3, T4]
+    depends_on: [P1]
+    goal: "Collision detection and visual content"
+
+  - id: P3
+    name: "Polish & Effects"
+    description: "Visual effects and polish"
+    tasks: [T5]
+    depends_on: [P2]
+    goal: "Particle effects and visual feedback"
+
+milestones:
+  - name: "Tech Demo"
+    phase: P2
+    criteria:
+      - "Physics simulation with collision"
+      - "Sprite rendering working"
+      - "60 FPS maintained"
+
+  - name: "Release Candidate"
+    phase: P3
+    criteria:
+      - "All core features complete"
+      - "Visual effects implemented"
+      - "Performance targets met"
+      - "All tests passing"

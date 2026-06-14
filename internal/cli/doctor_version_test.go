@@ -31,7 +31,7 @@ func TestDoctorCommandDelegatesToWorkspaceDiagnostics(t *testing.T) {
 	if store.diagnoseName != "game-a" {
 		t.Fatalf("Diagnose called with %q", store.diagnoseName)
 	}
-	if output := stdout.String(); !strings.Contains(output, "game-a") || !strings.Contains(output, "ok") {
+	if output := stdout.String(); !strings.Contains(output, "game-a") || !strings.Contains(output, "✓") || !strings.Contains(output, "健康") {
 		t.Fatalf("doctor output missing healthy report: %q", output)
 	}
 }
@@ -63,7 +63,7 @@ func TestDoctorCommandReturnsTwoWhenRuntimeParentDiagnosticsFail(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	for _, want := range []string{"game-a", "error", workspace.DiagnosticCodeRuntimeParentProjectRoot, "/srv/game-a"} {
+	for _, want := range []string{"game-a", "[错误]", workspace.DiagnosticCodeRuntimeParentProjectRoot, "/srv/game-a"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("doctor output missing %q: %q", want, stdout.String())
 		}
@@ -97,7 +97,7 @@ func TestDoctorCommandKeepsZeroForWarningDiagnostics(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	for _, want := range []string{"game-a", "warning", workspace.DiagnosticCodeAgentProfileAmbiguous, "/tmp/adp-home/workspaces/game-a/profiles/senior.{md,yaml,yml,json}"} {
+	for _, want := range []string{"game-a", "[警告]", workspace.DiagnosticCodeAgentProfileAmbiguous, "/tmp/adp-home/workspaces/game-a/profiles/senior.{md,yaml,yml,json}"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("doctor output missing %q: %q", want, stdout.String())
 		}

@@ -52,7 +52,7 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 		t.Fatalf("workspace show missing details: %q", showOut)
 	}
 	doctorOut := runADP(t, adpBin, repoRoot, env, "workspace", "doctor", "game-a")
-	if !strings.Contains(doctorOut, "game-a") || !strings.Contains(doctorOut, "ok") || !strings.Contains(doctorOut, "no issues") {
+	if !strings.Contains(doctorOut, "game-a") || !strings.Contains(doctorOut, "✓") || !strings.Contains(doctorOut, "健康") {
 		t.Fatalf("workspace doctor missing healthy report: %q", doctorOut)
 	}
 	if strings.Contains(doctorOut, "workspace.git.root.detected") {

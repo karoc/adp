@@ -1,0 +1,16 @@
+# MCP Configuration for Web Application
+
+version: 1
+
+servers:
+  filesystem:
+    enabled: true
+    notes:
+      - "File reading and manipulation"
+      - "Restricted to project directory"
+
+  http:
+    enabled: false
+    notes:
+      - "Enable for testing external API integrations"
+      - "Configure rate limits if needed"

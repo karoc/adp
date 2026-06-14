@@ -1,0 +1,28 @@
+# MCP Server Configuration Template
+#
+# This template provides common MCP server configurations
+# for examples. Individual examples can extend or override.
+
+version: 1
+
+servers:
+  # GitHub integration (if available)
+  github:
+    enabled: false
+    notes:
+      - "Enable for projects with GitHub integration"
+      - "Requires GITHUB_TOKEN in environment"
+
+  # File system operations
+  filesystem:
+    enabled: true
+    notes:
+      - "Provides file reading and manipulation"
+      - "Restricted to project directory"
+
+  # HTTP/API client (if needed)
+  http:
+    enabled: false
+    notes:
+      - "Enable for projects making external API calls"
+      - "Configure rate limits and timeouts"

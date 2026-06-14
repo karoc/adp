@@ -1,0 +1,46 @@
+# Web Application Workspace Configuration
+#
+# This workspace demonstrates full-stack web development with
+# backend and frontend agent specialization.
+
+version: 1
+
+workspace:
+  name: web-app
+
+project:
+  root: ./project
+
+memory:
+  enabled: true
+  shared: memory/api-contracts.md
+
+prompts:
+  backend: prompts/backend-engineer.md
+  frontend: prompts/frontend-engineer.md
+
+rules:
+  coding_style: strict
+  prefer_readability: true
+  max_function_lines: 50
+  test_coverage: required
+  api_contract_first: true
+
+mcp:
+  enabled: true
+  config: mcp/config.yaml
+
+agents:
+  backend-dev:
+    enabled: true
+    profile: backend-dev
+    command: codex
+    focus: "REST API, data models, authentication, server logic"
+    working_dir: "./project/backend"
+
+  frontend-dev:
+    enabled: true
+    profile: frontend-dev
+    command: codex
+    focus: "React components, UI/UX, API integration"
+    working_dir: "./project/frontend"

@@ -1,0 +1,67 @@
+tasks:
+  - id: T1
+    title: "Implement gravity physics"
+    description: |
+      Add gravity acceleration to the physics engine.
+
+      Requirements:
+      - Apply constant downward acceleration (9.81 m/s²)
+      - Update velocity each physics timestep
+      - Add tests for gravity behavior
+    assignee: gameplay-dev
+    priority: high
+
+  - id: T2
+    title: "Optimize render loop"
+    description: |
+      Reduce computational overhead in the rendering pipeline.
+
+      Goals:
+      - Profile current rendering performance
+      - Identify bottlenecks
+      - Implement frame time tracking
+      - Target: maintain 60 FPS with 100+ objects
+    assignee: graphics-dev
+    priority: medium
+
+  - id: T3
+    title: "Add collision detection"
+    description: |
+      Implement basic AABB collision detection.
+
+      Requirements:
+      - Axis-aligned bounding box collision
+      - Broad phase using spatial partitioning
+      - Handle collision response (bounce/slide)
+      - Add tests for collision scenarios
+    assignee: gameplay-dev
+    priority: high
+    depends_on: [T1]
+
+  - id: T4
+    title: "Add sprite rendering"
+    description: |
+      Extend renderer to support sprite drawing.
+
+      Requirements:
+      - Load image assets
+      - Support sprite batching
+      - Handle transparency
+      - Add sprite rotation and scaling
+    assignee: graphics-dev
+    priority: medium
+    depends_on: [T2]
+
+  - id: T5
+    title: "Implement particle system"
+    description: |
+      Create a particle system for visual effects.
+
+      This is a collaborative task requiring both agents:
+      - gameplay-dev: Particle physics and lifecycle
+      - graphics-dev: Particle rendering and effects
+
+      Coordinate through AGENTS.md collaboration pattern.
+    assignee: both
+    priority: low
+    depends_on: [T3, T4]

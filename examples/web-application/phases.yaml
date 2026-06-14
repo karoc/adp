@@ -1,0 +1,45 @@
+phases:
+  - id: P1
+    name: "API Foundation"
+    description: "Build core backend API endpoints"
+    tasks: [T1, T2, T3]
+    goal: "Stable backend API with test coverage"
+    milestones:
+      - "All endpoints return correct responses"
+      - "Test coverage > 80%"
+      - "API documentation complete"
+
+  - id: P2
+    name: "Frontend Integration"
+    description: "Build React UI and integrate with backend"
+    tasks: [T4, T5, T6]
+    depends_on: [P1]
+    goal: "Working web application with core features"
+    milestones:
+      - "API client tested and working"
+      - "Login flow complete"
+      - "Users list displays correctly"
+      - "Responsive on mobile and desktop"
+
+  - id: P3
+    name: "Feature Enhancement"
+    description: "Add pagination, search, and advanced features"
+    tasks: [T7, T8]
+    depends_on: [P2]
+    goal: "Enhanced user experience"
+    milestones:
+      - "Pagination working on backend and frontend"
+      - "Search performs efficiently"
+      - "UX polished"
+
+  - id: P4
+    name: "Integration & Deployment"
+    description: "End-to-end testing and deployment preparation"
+    tasks: [T9]
+    depends_on: [P2]
+    goal: "Production-ready application"
+    milestones:
+      - "All integration tests passing"
+      - "No console errors"
+      - "Performance acceptable"
+      - "Documentation complete"

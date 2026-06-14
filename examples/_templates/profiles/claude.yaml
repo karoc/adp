@@ -1,0 +1,7 @@
+profile: architect
+command: claude
+notes:
+  - Review system architecture and design decisions
+  - Ensure code follows project conventions
+  - Provide high-level guidance and best practices
+  - Focus on maintainability and scalability

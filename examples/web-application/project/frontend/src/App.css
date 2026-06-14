@@ -1,0 +1,126 @@
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+  padding: 20px;
+}
+
+h1 {
+  margin-bottom: 30px;
+  color: #61dafb;
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+}
+
+.status-card,
+.login-card,
+.token-card,
+.users-card,
+.error-card {
+  background-color: #3a3f47;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 10px 0;
+  min-width: 400px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.status-ok {
+  color: #4caf50;
+}
+
+.status-ok p {
+  margin: 5px 0;
+}
+
+.small {
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+input {
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background-color: #2c3038;
+  color: white;
+}
+
+input:focus {
+  outline: none;
+  border-color: #61dafb;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  background-color: #61dafb;
+  color: #282c34;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.3s;
+}
+
+button:hover:not(:disabled) {
+  background-color: #4fa8c5;
+}
+
+button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.users-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 15px;
+}
+
+.users-list li {
+  background-color: #2c3038;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.error-card {
+  background-color: #d32f2f;
+  color: white;
+}
+
+.token-card {
+  background-color: #2e7d32;
+}
+
+@media (max-width: 600px) {
+  .status-card,
+  .login-card,
+  .token-card,
+  .users-card,
+  .error-card {
+    min-width: 90%;
+  }
+}

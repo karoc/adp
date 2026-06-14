@@ -228,3 +228,185 @@ func usageOption(field string) string {
 	}
 	return ""
 }
+
+func TestSeeAlsoSection(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		command    string
+		subcommand string
+		wantRefs   []string
+	}{
+		{
+			name:       "tasks take subcommand",
+			command:    "tasks",
+			subcommand: "take",
+			wantRefs:   []string{"run --take", "tasks next --help", "tasks renew --help", "tasks --help"},
+		},
+		{
+			name:       "tasks claim subcommand",
+			command:    "tasks",
+			subcommand: "claim",
+			wantRefs:   []string{"tasks take --help", "tasks renew --help", "tasks --help"},
+		},
+		{
+			name:       "doctor root command",
+			command:    "doctor",
+			subcommand: "",
+			wantRefs:   []string{"workspace doctor --help", "plan doctor --help"},
+		},
+		{
+			name:       "workspace doctor subcommand",
+			command:    "workspace",
+			subcommand: "doctor",
+			wantRefs:   []string{"doctor --help", "plan doctor --help", "workspace --help"},
+		},
+		{
+			name:       "sessions restore-plan subcommand",
+			command:    "sessions",
+			subcommand: "restore-plan",
+			wantRefs:   []string{"sessions resume-plan --help", "run --help", "sessions --help"},
+		},
+		{
+			name:       "sessions resume-plan subcommand",
+			command:    "sessions",
+			subcommand: "resume-plan",
+			wantRefs:   []string{"sessions restore-plan --help", "run --take", "sessions --help"},
+		},
+		{
+			name:       "run root command",
+			command:    "run",
+			subcommand: "",
+			wantRefs:   []string{"tasks --help", "events --help", "sessions --help"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf strings.Builder
+			writeSeeAlsoSection(&buf, tt.command, tt.subcommand)
+			output := buf.String()
+
+			if len(tt.wantRefs) == 0 {
+				if output != "" {
+					t.Errorf("expected no see-also section, got:\n%s", output)
+				}
+				return
+			}
+
+			if !strings.Contains(output, "See also:") {
+				t.Errorf("see-also section missing header:\n%s", output)
+			}
+
+			for _, ref := range tt.wantRefs {
+				if !strings.Contains(output, "adp "+ref) {
+					t.Errorf("see-also section missing reference %q:\n%s", ref, output)
+				}
+			}
+		})
+	}
+}
+
+func TestRelationshipIntegrity(t *testing.T) {
+	t.Parallel()
+
+	// Build map of all valid commands and subcommands
+	allCommands := map[string]bool{}
+	for _, cmd := range rootCommands {
+		allCommands[cmd.Name] = true
+		for _, sub := range cmd.Subcommands {
+			allCommands[cmd.Name+"."+sub.Name] = true
+		}
+	}
+
+	// Check root command relationships
+	for cmd, refs := range commandRelationships {
+		if !allCommands[cmd] {
+			t.Errorf("commandRelationships references non-existent command %q", cmd)
+		}
+		for _, ref := range refs {
+			// Extract command name from reference (e.g., "workspace doctor" -> "workspace")
+			parts := strings.Fields(ref)
+			if len(parts) == 0 {
+				t.Errorf("command %q has empty reference", cmd)
+				continue
+			}
+			refCmd := parts[0]
+			// Check if it's a valid root command or subcommand reference
+			if len(parts) >= 2 && parts[1] != "--help" {
+				// It's a subcommand reference like "workspace doctor"
+				refKey := refCmd + "." + parts[1]
+				if !allCommands[refKey] {
+					t.Errorf("command %q references non-existent subcommand %q", cmd, refKey)
+				}
+			} else if !allCommands[refCmd] {
+				t.Errorf("command %q references non-existent command %q", cmd, refCmd)
+			}
+		}
+	}
+
+	// Check subcommand relationships
+	for subcmd, refs := range subcommandRelationships {
+		if !allCommands[subcmd] {
+			t.Errorf("subcommandRelationships references non-existent subcommand %q", subcmd)
+		}
+		for _, ref := range refs {
+			parts := strings.Fields(ref)
+			if len(parts) == 0 {
+				t.Errorf("subcommand %q has empty reference", subcmd)
+				continue
+			}
+			refCmd := parts[0]
+			// Check if it's a valid root command or subcommand reference
+			if len(parts) >= 2 && parts[1] != "--help" && parts[1] != "--take" {
+				// It's a subcommand reference
+				refKey := refCmd + "." + parts[1]
+				if !allCommands[refKey] {
+					t.Errorf("subcommand %q references non-existent subcommand %q", subcmd, refKey)
+				}
+			} else if !allCommands[refCmd] {
+				t.Errorf("subcommand %q references non-existent command %q", subcmd, refCmd)
+			}
+		}
+	}
+}
+
+func TestP0CommandsHaveSeeAlso(t *testing.T) {
+	t.Parallel()
+
+	p0Cases := []struct {
+		command    string
+		subcommand string
+	}{
+		{command: "tasks", subcommand: "take"},
+		{command: "tasks", subcommand: "claim"},
+		{command: "doctor", subcommand: ""},
+		{command: "workspace", subcommand: "doctor"},
+		{command: "sessions", subcommand: "restore-plan"},
+		{command: "sessions", subcommand: "resume-plan"},
+		{command: "run", subcommand: ""},
+	}
+
+	for _, tc := range p0Cases {
+		var help string
+		var ok bool
+
+		if tc.subcommand != "" {
+			help, ok = SubcommandHelp(tc.command, tc.subcommand)
+			if !ok {
+				t.Fatalf("SubcommandHelp(%s, %s) returned false", tc.command, tc.subcommand)
+			}
+		} else {
+			help, ok = CommandHelp(tc.command)
+			if !ok {
+				t.Fatalf("CommandHelp(%s) returned false", tc.command)
+			}
+		}
+
+		if !strings.Contains(help, "See also:") {
+			t.Errorf("P0 command %s %s missing 'See also:' section:\n%s",
+				tc.command, tc.subcommand, help)
+		}
+	}
+}
