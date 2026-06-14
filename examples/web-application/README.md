@@ -14,7 +14,7 @@
 ## Prerequisites
 
 - **ADP installed**: Run `adp version` to verify
-- **Go 1.21+**: Required for backend API
+- **Go 1.24+**: Required for backend API
 - **Node.js 16+**: Required for React frontend
 - **4 minutes**: Time budget from setup to running
 
@@ -293,7 +293,7 @@ All checks should pass ✓
 ## Troubleshooting
 
 **Setup fails?**
-- Verify Go 1.21+: `go version`
+- Verify Go 1.24+: `go version`
 - Verify Node.js 16+: `node --version`
 - Check ports 8080 and 3000 are available
 

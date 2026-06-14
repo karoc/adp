@@ -14,7 +14,7 @@ English: [README.md](README.md)
 ## 前置条件
 
 - **已安装 ADP**：运行 `adp version` 验证
-- **Go 1.21+**：Backend API 所需
+- **Go 1.24+**：Backend API 所需
 - **Node.js 16+**：React frontend 所需
 - **4 分钟**：从设置到运行的时间预算
 
@@ -294,7 +294,7 @@ adp workspace doctor web-app
 ## 故障排除
 
 **设置失败？**
-- 验证 Go 1.21+：`go version`
+- 验证 Go 1.24+：`go version`
 - 验证 Node.js 16+：`node --version`
 - 检查端口 8080 和 3000 可用
 

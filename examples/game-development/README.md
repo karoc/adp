@@ -14,7 +14,7 @@
 ## Prerequisites
 
 - **ADP installed**: Run `adp version` to verify
-- **Go 1.21+**: Required for building the example game engine
+- **Go 1.24+**: Required for building the example game engine
 - **5 minutes**: Time budget from setup to running agents
 
 ## Quick Start
@@ -215,7 +215,7 @@ All checks should pass ✓
 ## Troubleshooting
 
 **Setup fails?**
-- Verify Go 1.21+ installed: `go version`
+- Verify Go 1.24+ installed: `go version`
 - Check ADP installed: `adp version`
 - Ensure project builds: `cd project && go build`
 

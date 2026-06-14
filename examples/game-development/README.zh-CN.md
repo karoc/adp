@@ -14,7 +14,7 @@ English: [README.md](README.md)
 ## 前置条件
 
 - **已安装 ADP**：运行 `adp version` 验证
-- **Go 1.21+**：构建示例游戏引擎所需
+- **Go 1.24+**：构建示例游戏引擎所需
 - **5 分钟**：从设置到运行 agent 的时间预算
 
 ## 快速开始
@@ -216,7 +216,7 @@ adp workspace doctor game-dev
 ## 故障排除
 
 **设置失败？**
-- 验证已安装 Go 1.21+：`go version`
+- 验证已安装 Go 1.24+：`go version`
 - 检查已安装 ADP：`adp version`
 - 确保项目可构建：`cd project && go build`
 

@@ -6,7 +6,7 @@ This document describes local installation and first-run bootstrap for ADP. ADP 
 
 ## Prerequisites
 
-- Go installed locally.
+- Go 1.24+ installed locally.
 - A POSIX shell environment for the repository scripts.
 - A local project directory with an absolute path.
 - Optional external agent CLIs, such as Codex or Claude, only when you are ready to run real agents. The default smoke path uses fake agents and does not require them.

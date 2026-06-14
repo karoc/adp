@@ -6,7 +6,7 @@ English: [install.md](install.md)
 
 ## 前置要求
 
-- 本机已安装 Go。
+- 本机已安装 Go 1.24+。
 - 用于运行仓库脚本的 POSIX shell 环境。
 - 一个具有绝对路径的本地项目目录。
 - 可选的外部 Agent CLI，例如 Codex 或 Claude。只有准备运行真实 Agent 时才需要它们；默认 smoke 路径使用 fake agent，不依赖真实外部 CLI。

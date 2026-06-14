@@ -14,9 +14,11 @@ ADP keeps AI agent configuration outside the project directory, then builds a te
 
 ### Step 1: Install ADP
 
+**Prerequisites**: Go 1.24+ installed ([download](https://go.dev/dl/))
+
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/adp.git
+git clone https://github.com/karoc/adp.git
 cd adp
 
 # Build the binary
