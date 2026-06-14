@@ -209,11 +209,45 @@ func (a *App) fail(err error) int {
 
 func (a *App) failWithHint(err error, args []string) int {
 	fmt.Fprintf(a.stderr, "%s: %v\n", output.Error("adp"), err)
+
+	// Show spelling suggestions for unknown commands
+	if err != nil && strings.HasPrefix(err.Error(), "unknown command ") {
+		commandName := extractCommandName(err.Error())
+		if commandName != "" {
+			availableCommands := a.availableCommandNames()
+			suggestions := findSimilarCommands(commandName, availableCommands, 3, 3)
+			if len(suggestions) > 0 {
+				fmt.Fprint(a.stderr, formatDidYouMean(commandName, suggestions))
+			}
+		}
+	}
+
 	if shouldShowHelpHint(err) {
 		hint := helpHint(args)
-		fmt.Fprintf(a.stderr, "try: %s\n", output.Command(hint))
+		fmt.Fprintf(a.stderr, "\ntry: %s\n", output.Command(hint))
 	}
 	return 1
+}
+
+func (a *App) availableCommandNames() []string {
+	handlers := a.commandHandlers()
+	names := make([]string, 0, len(handlers))
+	for name := range handlers {
+		names = append(names, name)
+	}
+	return names
+}
+
+func extractCommandName(errorMsg string) string {
+	// Extract command name from "unknown command \"name\""
+	prefix := "unknown command "
+	if !strings.HasPrefix(errorMsg, prefix) {
+		return ""
+	}
+	rest := errorMsg[len(prefix):]
+	// Remove quotes
+	rest = strings.Trim(rest, "\"'")
+	return rest
 }
 
 func shouldShowHelpHint(err error) bool {
