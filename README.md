@@ -1,6 +1,6 @@
 # ADP
 
-Simplified Chinese: [README.zh-CN.md](README.zh-CN.md)
+简体中文：[README.zh-CN.md](README.zh-CN.md)
 
 ADP, short for Agent Development Platform, is an Agent Runtime Environment and Agent Workspace Manager for terminal-first AI agent workflows.
 
