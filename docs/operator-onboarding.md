@@ -2,7 +2,17 @@
 
 Simplified Chinese: [operator-onboarding.zh-CN.md](operator-onboarding.zh-CN.md)
 
+**⏱️ Expected Time: 15-20 minutes for first-time setup**
+
 This guide is the concrete first-run path for a new ADP operator. It stays terminal-first and local-first: no Web UI, dashboard, SaaS tracker, cloud sync, hosted orchestration, automatic Git workflow, or real provider CLI is required for the default rehearsal.
+
+**What you will learn:**
+- ✅ How to install and initialize ADP
+- ✅ How to create and configure workspaces
+- ✅ How to diagnose configuration issues
+- ✅ How to create and manage tasks
+- ✅ How to run agents with task pickup
+- ✅ How to inspect events, sessions, and progress
 
 For installation details, see [install.md](install.md). For a reusable workspace configuration example, see `examples/basic-workspace`.
 
@@ -74,6 +84,12 @@ Use the same nesting pattern for other groups: `adp_local <command> --help` and 
 
 Expected result: each command exits successfully and prints local help or version text with copyable examples for first-use commands. If this fails, fix the selected command path before creating any ADP state.
 
+**✓ Checkpoint:** If help commands fail:
+- Check the binary path is correct: `ls -la /path/to/adp`
+- Verify binary is executable: `chmod +x /path/to/adp`
+- Test version command first: `adp_local version`
+- See [Troubleshooting Guide](troubleshooting.md) for more help
+
 ## ID Prefix Matching
 
 ADP supports convenient prefix matching for task and session IDs. Instead of typing the full ID, you can use any unique prefix:
@@ -108,6 +124,8 @@ Tips:
 
 ## Isolated First Run
 
+**⏱️ Expected Time: 10-15 minutes**
+
 ### Quick Start with Quickstart Command (Recommended)
 
 The fastest way to get started is using the `quickstart` command, which automates the initialization and workspace setup:
@@ -138,7 +156,15 @@ The `quickstart` command will:
 
 After quickstart completes, you can skip directly to adding tasks and running agents (see "Add Tasks and Run Agents" below).
 
+**✓ Checkpoint:** If quickstart fails:
+- Check `$ADP_HOME` is set and writable: `echo $ADP_HOME && ls -ld $ADP_HOME`
+- Verify project root exists: `ls -ld /path/to/project`
+- Run diagnostics: `adp_local doctor --verbose`
+- See [Troubleshooting Guide](troubleshooting.md) for common issues
+
 ### Manual Setup (Alternative)
+
+**⏱️ Expected Time: 5-10 minutes**
 
 If you prefer manual control or need to understand each step, use the detailed setup below.
 
@@ -174,7 +200,15 @@ adp_local doctor game-a
 adp_local version
 ```
 
+**✓ Checkpoint:** If init or workspace add fails:
+- Check `$ADP_HOME` is writable: `touch $ADP_HOME/test && rm $ADP_HOME/test`
+- Verify project path is absolute and exists: `realpath "${ADP_ONBOARDING_ROOT}/project"`
+- Run workspace diagnostics: `adp_local workspace doctor game-a --verbose`
+- Check for error messages in output
+
 ### Add Tasks and Run Agents
+
+**⏱️ Expected Time: 5 minutes**
 
 Whether you used `quickstart` or manual setup, continue with task management and agent runs:
 
@@ -223,6 +257,13 @@ adp_local runtime prune --older-than 24h --dry-run
 ROOT_LEAKS="$(find "${ADP_ONBOARDING_ROOT}/project" -maxdepth 2 \( -name AGENTS.md -o -name CLAUDE.md -o -name .codex -o -name .claude -o -name .adp-runtime.yaml -o -name planning -o -name tasks.yaml -o -name phases.yaml -o -name progress.jsonl \) -print)"
 test -z "$ROOT_LEAKS"
 ```
+
+**✓ Checkpoint:** If task/agent commands fail:
+- Check fake codex is executable: `which codex && codex --help 2>/dev/null || echo "fake codex ok"`
+- Verify `$ADP_RUNTIME_DIR` is set and writable: `echo $ADP_RUNTIME_DIR && mkdir -p $ADP_RUNTIME_DIR`
+- Check task was created: `adp_local tasks list --workspace game-a`
+- Review events for errors: `adp_local events list --workspace game-a --limit 10`
+- If project root leaks check fails, see [Troubleshooting Guide](troubleshooting.md)
 
 Expected result: the block exits successfully, the fake provider prints the runtime working directory, JSON commands print parseable local state, and the last command succeeds without printing project-root leaks. ADP state is under temporary `$ADP_HOME`, runtime overlays are under temporary `$ADP_RUNTIME_DIR`, and the provider command is the fake local `codex` script.
 

@@ -2,7 +2,17 @@
 
 English: [operator-onboarding.md](operator-onboarding.md)
 
+**⏱️ 预期时间：首次设置需要 15-20 分钟**
+
 本文档是给新 ADP operator 的具体首次运行路径。它保持 terminal-first 和 local-first：默认演练不需要 Web UI、dashboard、SaaS tracker、cloud sync、hosted orchestration、automatic Git workflow 或真实 provider CLI。
+
+**你将学到：**
+- ✅ 如何安装和初始化 ADP
+- ✅ 如何创建和配置工作区
+- ✅ 如何诊断配置问题
+- ✅ 如何创建和管理任务
+- ✅ 如何运行 agent 并领取任务
+- ✅ 如何检查事件、会话和进度
 
 安装细节见 [install.zh-CN.md](install.zh-CN.md)。可复用的 workspace 配置示例见 `examples/basic-workspace`。
 
@@ -74,6 +84,12 @@ adp_local runtime prune --help
 
 预期结果：每条命令成功退出，并打印本地 help 或 version 文本，首用命令会带有可复制示例。如果这里失败，先修复选定的命令路径，再创建任何 ADP 状态。
 
+**✓ 检查点：** 如果 help 命令失败：
+- 检查二进制路径是否正确：`ls -la /path/to/adp`
+- 验证二进制可执行：`chmod +x /path/to/adp`
+- 先测试 version 命令：`adp_local version`
+- 查看[故障排查指南](troubleshooting.zh-CN.md)获取更多帮助
+
 ## ID 前缀匹配
 
 ADP 支持方便的 task 和 session ID 前缀匹配。无需输入完整 ID，你可以使用任何唯一前缀：
@@ -107,6 +123,8 @@ adp tasks show task-20
 
 ## 隔离首次运行
 
+**⏱️ 预期时间：10-15 分钟**
+
 ### 使用 Quickstart 命令快速开始（推荐）
 
 最快速的入门方式是使用 `quickstart` 命令，它会自动完成初始化和 workspace 设置：
@@ -137,7 +155,15 @@ adp_local quickstart \
 
 quickstart 完成后，你可以直接跳到添加任务和运行 Agent（见下面"添加任务并运行 Agent"）。
 
+**✓ 检查点：** 如果 quickstart 失败：
+- 检查 `$ADP_HOME` 已设置且可写：`echo $ADP_HOME && ls -ld $ADP_HOME`
+- 验证项目根目录存在：`ls -ld /path/to/project`
+- 运行诊断：`adp_local doctor --verbose`
+- 查看[故障排查指南](troubleshooting.zh-CN.md)了解常见问题
+
 ### 手动设置（备选方案）
+
+**⏱️ 预期时间：5-10 分钟**
 
 如果你更喜欢手动控制或需要理解每一步，使用下面的详细设置。
 
@@ -173,7 +199,15 @@ adp_local doctor game-a
 adp_local version
 ```
 
+**✓ 检查点：** 如果 init 或 workspace add 失败：
+- 检查 `$ADP_HOME` 可写：`touch $ADP_HOME/test && rm $ADP_HOME/test`
+- 验证项目路径是绝对路径且存在：`realpath "${ADP_ONBOARDING_ROOT}/project"`
+- 运行工作区诊断：`adp_local workspace doctor game-a --verbose`
+- 检查输出中的错误消息
+
 ### 添加任务并运行 Agent
+
+**⏱️ 预期时间：5 分钟**
 
 无论使用 `quickstart` 还是手动设置，都继续进行任务管理和 Agent 运行：
 
@@ -223,7 +257,14 @@ ROOT_LEAKS="$(find "${ADP_ONBOARDING_ROOT}/project" -maxdepth 2 \( -name AGENTS.
 test -z "$ROOT_LEAKS"
 ```
 
-预期结果：整个命令块成功退出，fake provider 打印 runtime 工作目录，JSON 命令打印可解析的本地状态，最后一条命令成功且不会打印 project-root 泄漏项。ADP 状态位于临时 `$ADP_HOME`，runtime overlay 位于临时 `$ADP_RUNTIME_DIR`，provider 命令是本地 fake `codex` 脚本。
+**✓ 检查点：** 如果任务/agent 命令失败：
+- 检查 fake codex 可执行：`which codex && codex --help 2>/dev/null || echo "fake codex ok"`
+- 验证 `$ADP_RUNTIME_DIR` 已设置且可写：`echo $ADP_RUNTIME_DIR && mkdir -p $ADP_RUNTIME_DIR`
+- 检查任务已创建：`adp_local tasks list --workspace game-a`
+- 查看事件中的错误：`adp_local events list --workspace game-a --limit 10`
+- 如果项目根目录泄漏检查失败，查看[故障排查指南](troubleshooting.zh-CN.md)
+
+预期结果：整个命令块成功退出，fake provider 打印 runtime 工作目录，JSON 命令打印可解析的本地状态，最后一条命令成功且不会打印 project-root 泄漏项。ADP 状态位于临时 `$ADP_HOME`，runtime overlay 位于临时 `$ADP_RUNTIME_DIR`，provider 命令是本地 fake `codex` 脚本.
 
 可见工作流是：
 

@@ -6,9 +6,35 @@ ADP, short for Agent Development Platform, is an Agent Runtime Environment and A
 
 ADP keeps AI agent configuration outside the project directory, then builds a temporary runtime overlay when an agent starts. The agent sees generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/`, while the real project directory stays clean.
 
-## Current MVP
+---
 
-Implemented Phase 1 foundations. If you are trying ADP for the first time, start with [Quick Start](#quick-start); the list below is the command reference snapshot.
+## 🚀 5-Minute Quick Experience
+
+**New to ADP?** Get started in 5 minutes with the interactive quickstart:
+
+```bash
+# One command to set up everything
+adp quickstart
+
+# Or non-interactive mode for automation
+adp quickstart --non-interactive \
+  --workspace-name my-project \
+  --project-root /path/to/project \
+  --memory --mcp
+```
+
+**What happens:**
+1. ✓ Initialize ADP home directory (`~/.adp`)
+2. ✓ Create your first workspace with recommended settings
+3. ✓ Run diagnostics to verify everything works
+
+**Next steps:** See [🚀 Quick Start](#quick-start) below or try the [guided walkthrough](docs/operator-onboarding.md).
+
+---
+
+## ⚙️ Current MVP
+
+Implemented Phase 1 foundations. If you are trying ADP for the first time, start with [🚀 Quick Start](#quick-start); the list below is the command reference snapshot.
 
 - `adp init`
 - `adp workspace add <name> <project-root>`
@@ -52,7 +78,7 @@ Implemented Phase 1 foundations. If you are trying ADP for the first time, start
 
 Command discovery stays inside the CLI. Use `adp --help` for the root command list, `adp <command> --help` for a command group such as `adp tasks --help`, and `adp <command> <subcommand> --help` for a leaf command such as `adp tasks take --help`. If you are using `ADP_BIN`, `adp_local`, or a packaged binary name, substitute that command name in the same pattern. Leaf help may point back to parent help with `See also:`; if a build prints a friendly `try:` hint, treat it as a pointer to the same help surface, not as an automatic action or state change.
 
-### ID Prefix Matching
+## 💡 ID Prefix Matching
 
 Task and session IDs support prefix matching for convenience. Commands that accept task IDs or session IDs will match the shortest unique prefix:
 
@@ -83,7 +109,7 @@ adp tasks show task-20
 
 Prefix matching works across all task and session commands, including `tasks show`, `tasks claim`, `tasks renew`, `tasks release`, `tasks done`, `tasks block`, `sessions show`, `sessions restore-plan`, `sessions resume-plan`, `events list --task`, `events list --session`, and `run --task`.
 
-## Quick Start
+## 🚀 Quick Start
 
 **New users**: Use the interactive quickstart command to set up ADP in one step:
 
@@ -191,7 +217,7 @@ Useful environment variables:
 
 When `--workspace` and `ADP_WORKSPACE` are omitted, `adp run` tries to match the current directory to a registered project root.
 
-## Runtime Model
+## 🏗️ Runtime Model
 
 `adp run` builds a temporary runtime root that looks like the project root:
 
@@ -257,7 +283,7 @@ P3 provides a local phase ledger for project planning and execution progress man
 
 The repository includes `examples/basic-workspace` as a copyable local workspace configuration with Codex and Claude profiles, base prompts, shared memory, and MCP settings. Replace its `project.root` before running it against a local project. It is intended as a terminal-first reference for how ADP keeps agent configuration outside the real project tree.
 
-## Development
+## 🔧 Development
 
 Use the aggregate validation gate before handoff:
 
@@ -287,7 +313,7 @@ Agent execution standards, including multi-agent coordination rules and project 
 
 Contribution, security, and licensing policy entry points are [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [docs/license-policy.md](docs/license-policy.md).
 
-## License
+## 📄 License
 
 ADP is source-available for noncommercial learning, research, evaluation, and open collaboration under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
