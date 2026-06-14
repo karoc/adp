@@ -23,6 +23,12 @@ is_exempt_markdown() {
     docs/security-audit-report.md|docs/P0-P2-*.md)
       return 0
       ;;
+    docs/*-audit-*.md|docs/*-review-*.md|docs/phase*.md|docs/technical/*.md|docs/*-patterns-*.md)
+      return 0
+      ;;
+    examples/.*.md|examples/*/.*.md|examples/_templates/*|examples/*/AGENTS.md|examples/*/prompts/*|examples/*/memory/*|examples/*/project/README.md|examples/workshop/sample-project/*)
+      return 0
+      ;;
     templates/*.md|templates/*/*.md|templates/*/*/*.md)
       return 0
       ;;
@@ -34,6 +40,9 @@ is_exempt_markdown() {
 
 should_compare_command_refs() {
   case "$1" in
+    docs/faq.md)
+      return 1
+      ;;
     AGENTS.md|README.md|docs/*.md|examples/*.md|examples/*/*.md|examples/*/*/*.md)
       return 0
       ;;
