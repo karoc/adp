@@ -69,7 +69,7 @@ func (r *DoctorTextRenderer) renderReport(report workspace.DiagnosticReport) err
 			}
 		}
 	} else {
-		fmt.Fprintf(r.writer, "✓ 工作区 '%s' 健康 (ok)\n", report.Workspace)
+		fmt.Fprintf(r.writer, "✓ 工作区 '%s' 健康 (ok) - no issues\n", report.Workspace)
 	}
 
 	return nil
