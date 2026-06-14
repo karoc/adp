@@ -61,7 +61,7 @@ func (r *DoctorTextRenderer) renderReport(report workspace.DiagnosticReport) err
 		}
 	} else if len(filteredDiagnostics) > 0 {
 		// 只有 info 级别诊断（仅在 verbose 模式下）
-		fmt.Fprintf(r.writer, "✓ 工作区 '%s' 健康\n", report.Workspace)
+		fmt.Fprintf(r.writer, "✓ 工作区 '%s' 健康 (ok)\n", report.Workspace)
 		fmt.Fprintln(r.writer)
 		for _, diag := range filteredDiagnostics {
 			if err := r.renderDiagnostic(diag, report); err != nil {
@@ -69,7 +69,7 @@ func (r *DoctorTextRenderer) renderReport(report workspace.DiagnosticReport) err
 			}
 		}
 	} else {
-		fmt.Fprintf(r.writer, "✓ 工作区 '%s' 健康\n", report.Workspace)
+		fmt.Fprintf(r.writer, "✓ 工作区 '%s' 健康 (ok)\n", report.Workspace)
 	}
 
 	return nil

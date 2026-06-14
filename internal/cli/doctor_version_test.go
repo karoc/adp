@@ -31,7 +31,7 @@ func TestDoctorCommandDelegatesToWorkspaceDiagnostics(t *testing.T) {
 	if store.diagnoseName != "game-a" {
 		t.Fatalf("Diagnose called with %q", store.diagnoseName)
 	}
-	if output := stdout.String(); !strings.Contains(output, "game-a") || !strings.Contains(output, "✓") || !strings.Contains(output, "健康") {
+	if output := stdout.String(); !strings.Contains(output, "game-a") || !strings.Contains(output, "✓") || !strings.Contains(output, "ok") {
 		t.Fatalf("doctor output missing healthy report: %q", output)
 	}
 }

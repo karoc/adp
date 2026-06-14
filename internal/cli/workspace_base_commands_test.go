@@ -124,7 +124,7 @@ func TestWorkspaceDoctorCommandPrintsNamedReport(t *testing.T) {
 		t.Fatalf("Diagnose called with %q", store.diagnoseName)
 	}
 	output := stdout.String()
-	if !strings.Contains(output, "game-a") || !strings.Contains(output, "✓") || !strings.Contains(output, "健康") {
+	if !strings.Contains(output, "game-a") || !strings.Contains(output, "✓") || !strings.Contains(output, "ok") {
 		t.Fatalf("doctor output missing healthy report: %q", output)
 	}
 }
@@ -150,7 +150,7 @@ func TestWorkspaceDoctorCommandHidesInfoDiagnosticsByDefault(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
 	output := stdout.String()
-	for _, want := range []string{"game-a", "✓", "健康"} {
+	for _, want := range []string{"game-a", "✓", "ok"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("doctor output missing %q: %q", want, output)
 		}
