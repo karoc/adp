@@ -10,7 +10,25 @@ ADP keeps AI agent configuration outside the project directory, then builds a te
 
 ## 🚀 5-Minute Quick Experience
 
-**New to ADP?** Get started in 5 minutes with the interactive quickstart:
+**New to ADP?** Get started in 5 minutes:
+
+### Step 1: Install ADP
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/adp.git
+cd adp
+
+# Build the binary
+go build -o adp ./cmd/adp
+
+# Add to your PATH (or use ./adp directly)
+export PATH="$PWD:$PATH"
+```
+
+**For detailed installation options**, see [Installation Guide](docs/install.md).
+
+### Step 2: Run Quickstart
 
 ```bash
 # One command to set up everything
