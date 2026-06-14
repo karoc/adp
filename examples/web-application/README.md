@@ -21,7 +21,7 @@
 ## Quick Start
 
 ```bash
-# Clone the repository (if not already)
+# Navigate to this example
 cd examples/web-application
 
 # One-command setup

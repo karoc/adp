@@ -20,7 +20,7 @@ English: [README.md](README.md)
 ## 快速开始
 
 ```bash
-# 克隆仓库（如果尚未克隆）
+# 导航到此示例目录
 cd examples/game-development
 
 # 一键设置
