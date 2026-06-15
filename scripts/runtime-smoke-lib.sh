@@ -36,6 +36,19 @@ assert_not_contains() {
   esac
 }
 
+# Validate that a version output line matches a semantic version
+# (e.g. "adp version 1.0.0"). This avoids binding smoke assertions to a
+# specific version string, so bumping the version no longer breaks CI.
+assert_semver_version() {
+  local output="$1"
+  local label="$2"
+
+  if ! printf '%s\n' "$output" | grep -Eq 'version [0-9]+\.[0-9]+\.[0-9]+'; then
+    printf '%s\n' "$output" >&2
+    fail "$label missing semantic version (expected 'version X.Y.Z')"
+  fi
+}
+
 with_dangerous_git_env() (
   local boundary_root="$1"
   shift

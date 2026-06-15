@@ -60,6 +60,7 @@ type runtimePruneOptions struct {
 	includeKept bool
 	dryRun      bool
 	format      outputFormat
+	yes         bool
 }
 
 type completionValuesOptions struct {
@@ -482,6 +483,8 @@ func parseRuntimePruneArgs(args []string) (runtimePruneOptions, error) {
 			opts.includeKept = true
 		case "--dry-run":
 			opts.dryRun = true
+		case "--yes", "-y":
+			opts.yes = true
 		case "--format":
 			value, next, err := requireValue(args, i, arg)
 			if err != nil {

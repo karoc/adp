@@ -496,6 +496,15 @@ func (a *App) runtimePrune(ctx context.Context, args []string) error {
 		return errors.New("runtime pruner is not configured")
 	}
 
+	// Confirm dangerous operation when including kept runtimes (unless dry-run)
+	if opts.includeKept && !opts.dryRun {
+		operation := "Remove kept runtime directories?"
+		details := "This will delete runtime directories marked as 'keep', which may contain\nimportant agent session state. This operation cannot be undone."
+		if err := a.confirmDangerous(operation, details, opts.yes); err != nil {
+			return err
+		}
+	}
+
 	// Show progress indicator for prune operation (skip for JSON output)
 	var spinner *output.Spinner
 	if opts.format != outputFormatJSON {

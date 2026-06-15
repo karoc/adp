@@ -239,6 +239,10 @@ try: adp workspace doctor %s`, cmdNotFoundErr.Command, cmdNotFoundErr.Command, o
 	if exitCode != 0 {
 		return processExitError{code: exitCode}
 	}
+	fmt.Fprintf(a.stderr, "\n%s\n", output.Successf("agent run completed (exit 0)"))
+	fmt.Fprintln(a.stderr, "Next steps:")
+	fmt.Fprintf(a.stderr, "  View session: %s\n", output.Command(fmt.Sprintf("adp sessions show %s", handle.SessionID)))
+	fmt.Fprintf(a.stderr, "  List tasks:   %s\n", output.Command(fmt.Sprintf("adp tasks list --workspace %s", cfg.Workspace.Name)))
 	return nil
 }
 
@@ -397,7 +401,7 @@ func (a *App) logEvent(ctx context.Context, event events.Event) {
 		return
 	}
 	if err := a.deps.EventLogger.Log(ctx, event); err != nil {
-		fmt.Fprintf(a.stderr, "warning: failed to write event log: %v\n", err)
+		fmt.Fprintf(a.stderr, "%s\n", output.Warning(fmt.Sprintf("warning: failed to write event log: %v", err)))
 	}
 }
 
@@ -406,7 +410,7 @@ func (a *App) cleanupRuntime(ctx context.Context, handle runtime.Handle) {
 		return
 	}
 	if err := a.deps.CleanupRuntime(ctx, handle); err != nil {
-		fmt.Fprintf(a.stderr, "warning: failed to clean runtime: %v\n", err)
+		fmt.Fprintf(a.stderr, "%s\n", output.Warning(fmt.Sprintf("warning: failed to clean runtime: %v", err)))
 	}
 }
 

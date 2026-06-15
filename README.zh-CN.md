@@ -6,6 +6,16 @@ ADP 是 Agent Development Platform 的缩写。它是面向 terminal-first AI Ag
 
 ADP 把 AI Agent 配置保存在项目目录之外，并在 Agent 启动时构建临时 runtime overlay。Agent 可以看到 `AGENTS.md`、`CLAUDE.md`、`.codex/`、`.claude/` 等生成文件，但真实项目目录保持干净。
 
+**✨ 核心特性**
+
+- 🖥️ **Terminal 优先** — 单一 CLI，无需守护进程，无需编辑器插件
+- 🧩 **项目干净** — Agent 配置在仓库之外，运行时是一次性 overlay
+- 🤖 **多 Agent** — 内置 Codex 和 Claude 适配器
+- 📋 **可观测** — JSONL 事件日志、会话历史、工作区诊断
+- 🌐 **双语** — 完整的 English / 简体中文 文档和 CLI 输出
+
+📖 **从这里开始** — [安装](docs/install.zh-CN.md) · [Operator 入门](docs/operator-onboarding.zh-CN.md) · [故障排查](docs/troubleshooting.zh-CN.md) · [FAQ](docs/faq.zh-CN.md)
+
 ---
 
 ## 🚀 5 分钟快速体验

@@ -127,7 +127,7 @@ func TestRunCodexAndClaudeWithRuntimeOverlay(t *testing.T) {
 		t.Fatalf("runtime prune dry-run missing kept runtime: %q", pruneDryRunOut)
 	}
 	assertRuntimeEntries(t, runtimeDir, 1)
-	pruneOut := runADP(t, adpBin, repoRoot, env, "runtime", "prune", "--older-than", "0s", "--include-kept")
+	pruneOut := runADP(t, adpBin, repoRoot, env, "runtime", "prune", "--older-than", "0s", "--include-kept", "--yes")
 	if !strings.Contains(pruneOut, "removed") || !strings.Contains(pruneOut, runtimeRoot) {
 		t.Fatalf("runtime prune missing removed runtime: %q", pruneOut)
 	}

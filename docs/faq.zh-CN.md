@@ -1029,6 +1029,47 @@ adp sessions list --workspace game-a --task task-20260614-0001
 adp progress report --workspace game-a --format json
 ```
 
+**完整交接示例：**
+
+```bash
+# === 操作员 Alice（实现） ===
+adp run codex --workspace game-a --take --owner alice --lease 2h
+# 处理 task-20260614-0001
+# 会话：session-20260614T120000-abc123
+
+# Alice 完成实现，释放以供审查
+adp tasks release --workspace game-a task-20260614-0001 --owner alice
+
+# === 操作员 Bob（审查者） ===
+# 预览可用工作
+adp tasks next --workspace game-a
+# task-20260614-0001: "修复认证 bug"，状态：pending
+
+# 审查上下文
+adp sessions show session-20260614T120000-abc123
+adp tasks show task-20260614-0001
+
+# 认领并用 Claude 审查
+adp run claude --workspace game-a --task task-20260614-0001 \
+  --owner bob --lease 1h --profile reviewer
+
+# 完成审查
+adp tasks done task-20260614-0001
+```
+
+**跨智能体上下文传递：**
+
+ADP 通过以下方式提供交接上下文：
+- 任务描述和状态
+- 会话事件历史
+- 进度报告
+- 阶段状态（如果使用阶段门禁）
+
+但**不会**传递：
+- 提供商原生的对话历史
+- Codex/Claude 内部状态
+- 交互式会话句柄
+
 **另见：**
 - [会话恢复规划](session-restore.zh-CN.md)
 - [Q20：会话恢复和继续如何工作？](#q20-会话恢复和继续如何工作)
@@ -1110,7 +1151,7 @@ jobs:
           # 安装 ADP
           curl -L https://github.com/example/adp/releases/latest/adp -o /usr/local/bin/adp
           chmod +x /usr/local/bin/adp
-          
+
           # 设置隔离状态
           echo "ADP_HOME=${RUNNER_TEMP}/adp-home" >> $GITHUB_ENV
           echo "ADP_RUNTIME_DIR=${RUNNER_TEMP}/adp-runtime" >> $GITHUB_ENV
@@ -1319,6 +1360,69 @@ cat ~/.adp/workspaces/game-a/planning/tasks.yaml
 tail -f ~/.adp/logs/events.jsonl | jq .
 ```
 
+**示例：VS Code 任务集成**
+
+```json
+// .vscode/tasks.json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ADP: Run Codex",
+      "type": "shell",
+      "command": "adp run codex --workspace game-a --take --owner vscode --lease 2h",
+      "problemMatcher": []
+    },
+    {
+      "label": "ADP: Show Tasks",
+      "type": "shell",
+      "command": "adp tasks list --workspace game-a --format json | jq '.tasks'",
+      "problemMatcher": []
+    }
+  ]
+}
+```
+
+**示例：外部任务跟踪器同步**
+
+```bash
+#!/bin/bash
+# 将 ADP 任务同步到外部跟踪器（例如 Jira、Linear）
+
+WORKSPACE="game-a"
+TASKS=$(adp tasks list --workspace "$WORKSPACE" --format json)
+
+echo "$TASKS" | jq -r '.tasks[] | select(.status == "completed")' | while read -r task; do
+  TASK_ID=$(echo "$task" | jq -r '.id')
+  TITLE=$(echo "$task" | jq -r '.title')
+
+  # 同步到外部跟踪器
+  curl -X POST https://tracker.example.com/api/tasks \
+    -H "Content-Type: application/json" \
+    -d "{\"title\": \"$TITLE\", \"external_id\": \"$TASK_ID\"}"
+done
+```
+
+**示例：IDE 扩展（概念性）**
+
+```typescript
+// 读取 ADP 状态的 VS Code 扩展
+import * as fs from 'fs';
+import * as yaml from 'js-yaml';
+
+function getWorkspaces(): string[] {
+  const adpHome = process.env.ADP_HOME || `${process.env.HOME}/.adp`;
+  const workspacesDir = `${adpHome}/workspaces`;
+  return fs.readdirSync(workspacesDir);
+}
+
+function getTasks(workspace: string): Task[] {
+  const tasksPath = `${process.env.ADP_HOME}/workspaces/${workspace}/planning/tasks.yaml`;
+  const tasksYaml = fs.readFileSync(tasksPath, 'utf8');
+  return yaml.load(tasksYaml).tasks;
+}
+```
+
 **另见：**
 - [README：补全](../README.zh-CN.md#运行时模型)
 - [Q19：ADP 如何与 Git 工作流配合？](#q19-adp-如何与-git-工作流配合)
@@ -1396,6 +1500,29 @@ adp phase commit --workspace game-a
 adp phase push --workspace game-a
 adp tasks done task-001
 ```
+
+**选项 2：智能体驱动的 Git（智能体自主性）**
+
+```bash
+# 在 AGENTS.md 中给智能体 Git 指令
+adp run codex --workspace game-a --task task-001 -- \
+  "修复 bug 后，用消息 'Fix: Auth bug' 提交更改"
+
+# 智能体运行：git -C $ADP_PROJECT_ROOT commit -m "Fix: Auth bug"
+# 智能体运行：git -C $ADP_PROJECT_ROOT push
+
+# 你记录证据
+adp phase commit --workspace game-a
+adp phase push --workspace game-a
+adp tasks done task-001
+```
+
+**Git 安全考虑：**
+
+- 运行时覆盖层通过符号链接看到项目文件，因此文件修改会影响真实项目
+- 如果获得权限，智能体可以运行 Git 命令
+- ADP 不阻止破坏性 Git 操作（git reset --hard、git clean -f）
+- 在智能体运行前使用 `adp workspace doctor` 检查 Git 状态
 
 **另见：**
 - [README：运行时模型 - Git 元数据](../README.zh-CN.md#运行时模型)
@@ -1681,6 +1808,43 @@ ADP 保持终端优先的简洁性。插件系统增加复杂性。如果你有�
 - 打开 GitHub issue 描述用例
 - 向社区贡献 shell 脚本模式
 - 构建读取 ADP 状态文件的外部工具
+
+**示例外部工具：**
+
+```python
+#!/usr/bin/env python3
+# adp-notifier.py - 监视已完成的任务并通知
+
+import json
+import time
+import subprocess
+
+def get_tasks(workspace):
+    result = subprocess.run(
+        ['adp', 'tasks', 'list', '--workspace', workspace, '--format', 'json'],
+        capture_output=True, text=True
+    )
+    return json.loads(result.stdout)['tasks']
+
+def notify(task):
+    print(f"任务完成：{task['title']}")
+    # 发送到 Slack、邮件等
+
+def main():
+    workspace = 'game-a'
+    seen_completed = set()
+
+    while True:
+        tasks = get_tasks(workspace)
+        for task in tasks:
+            if task['status'] == 'completed' and task['id'] not in seen_completed:
+                notify(task)
+                seen_completed.add(task['id'])
+        time.sleep(30)
+
+if __name__ == '__main__':
+    main()
+```
 
 **另见：**
 - [Q18：如何与现有工具集成？](#q18-如何将-adp-与现有工具ide任务跟踪器集成)

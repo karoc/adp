@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/karoc/adp/internal/output"
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
 
@@ -50,7 +51,12 @@ func (a *App) phaseAdd(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "phase %s added\n", phase.ID)
+	fmt.Fprintf(a.stdout, "%s\n", output.Successf("phase %s added", phase.ID))
+	fmt.Fprintln(a.stdout)
+	fmt.Fprintln(a.stdout, "Next steps:")
+	fmt.Fprintf(a.stdout, "  Show phase:     %s\n", output.Command(fmt.Sprintf("adp phase show %s", phase.ID)))
+	fmt.Fprintf(a.stdout, "  Start phase:    %s\n", output.Command(fmt.Sprintf("adp phase start %s", phase.ID)))
+	fmt.Fprintf(a.stdout, "  Add a task:     %s\n", output.Command("adp tasks add --phase "+phase.ID+" \"<task title>\""))
 	return nil
 }
 

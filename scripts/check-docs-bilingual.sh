@@ -23,7 +23,7 @@ is_exempt_markdown() {
     docs/security-audit-report.md|docs/P0-P2-*.md)
       return 0
       ;;
-    docs/*-audit-*.md|docs/*-review-*.md|docs/phase*.md|docs/technical/*.md|docs/*-patterns-*.md)
+    docs/*-audit-*.md|docs/*-review-*.md|docs/phase*.md|docs/technical/*.md|docs/*-patterns-*.md|docs/*-fixes-*.md|docs/*-roadmap-*.md|docs/*-progress*.md)
       return 0
       ;;
     examples/.*.md|examples/*/.*.md|examples/_templates/*|examples/*/AGENTS.md|examples/*/prompts/*|examples/*/memory/*|examples/*/project/README.md|examples/workshop/sample-project/*)
@@ -40,9 +40,6 @@ is_exempt_markdown() {
 
 should_compare_command_refs() {
   case "$1" in
-    docs/faq.md)
-      return 1
-      ;;
     AGENTS.md|README.md|docs/*.md|examples/*.md|examples/*/*.md|examples/*/*/*.md)
       return 0
       ;;
@@ -68,6 +65,8 @@ extract_command_refs() {
     in_code {
       line = $0
       sub(/^[[:space:]]+/, "", line)
+      # 移除行内注释（#之后的内容）保留命令部分
+      sub(/[[:space:]]*#.*$/, "", line)
       if (is_command_ref(line)) {
         print line
       }
@@ -78,6 +77,8 @@ extract_command_refs() {
       text = $0
       while (match(text, /`[^`]+`/)) {
         span = substr(text, RSTART + 1, RLENGTH - 2)
+        # 移除行内注释
+        sub(/[[:space:]]*#.*$/, "", span)
         if (is_command_ref(span)) {
           print span
         }

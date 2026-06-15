@@ -25,7 +25,7 @@ EOF
   esac
   assert_runtime_entries "$runtime_dir" 2
 
-  prune_output=$(run_adp "$REPO_ROOT" runtime prune --older-than 0s --include-kept)
+  prune_output=$(run_adp "$REPO_ROOT" runtime prune --older-than 0s --include-kept --yes)
   assert_contains "$prune_output" "removed" "runtime prune output"
   assert_contains "$prune_output" "$runtime_root" "runtime prune output"
   case "$prune_output" in

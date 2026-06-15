@@ -285,6 +285,8 @@ If the trial fails, keep the temporary root in place and inspect the last failed
 
 ## Move To Durable Local Use
 
+**⏱️ Expected Time: 3-5 minutes**
+
 After the isolated rehearsal passes, choose durable local paths:
 
 ```bash
@@ -297,9 +299,18 @@ adp_local workspace doctor game-a
 
 Expected result: the durable workspace is registered under `${HOME}/.adp`, the project root remains free of ADP-generated files, and doctor output has no error-level diagnostics. Keep `$ADP_RUNTIME_DIR` outside project roots and outside directories that contain project roots. `adp doctor` and `adp workspace doctor` report unsafe runtime parents before real runs.
 
+**✓ Checkpoint:** If durable setup encounters issues:
+- Verify `$ADP_HOME` is set to a permanent location: `echo $ADP_HOME`
+- Check directory is writable: `mkdir -p $ADP_HOME && touch $ADP_HOME/test && rm $ADP_HOME/test`
+- Confirm project path is absolute: `realpath /absolute/path/to/project`
+- Run workspace doctor to catch unsafe runtime parent: `adp_local workspace doctor game-a --verbose`
+- If doctor reports errors, see [Troubleshooting Guide](troubleshooting.md)
+
 Use `examples/basic-workspace` when you need a copyable configuration reference with Codex and Claude profiles, base prompts, shared memory, and MCP settings. Copy it into the ADP home workspace configuration area, then update `project.root` before use. It is not required for the minimal smoke path above.
 
 ## Real Providers
+
+**⏱️ Expected Time: 5-10 minutes (command availability check) or 15-20 minutes (full interactive acceptance)**
 
 Real Codex and Claude runs are opt-in operator checks. The default onboarding rehearsal above remains provider-free. Provider credentials, quota, model access, network behavior, and external CLI versions are operator environment concerns, not ADP quality guarantees.
 
@@ -326,3 +337,11 @@ adp_local run claude --workspace game-a -- <claude-args>
 ```
 
 Arguments after `--` are provider-specific. ADP forwards them but does not define their safety, model availability, quota use, network behavior, authentication state, or interactive session quality. Keep any operator acceptance notes non-sensitive and do not record credentials, tokens, account identifiers, private prompts, or sensitive model output. For the full compatibility procedure, see [real-agent-compatibility.md](real-agent-compatibility.md).
+
+**✓ Checkpoint:** If real provider runs fail:
+- Check the external CLI is installed: `which codex` or `which claude`
+- Test the external CLI directly: `codex --version` or `claude --version`
+- Verify authentication is configured (provider-specific, see their docs)
+- Check network connectivity if the provider requires internet access
+- Review events for specific error messages: `adp_local events list --workspace game-a --limit 10`
+- For "agent command not found" errors, see [Troubleshooting Guide](troubleshooting.md)

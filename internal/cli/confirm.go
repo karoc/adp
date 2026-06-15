@@ -3,11 +3,16 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/karoc/adp/internal/output"
 )
+
+// stdinReader is the reader used for interactive confirmation prompts.
+// It defaults to os.Stdin but can be overridden in tests.
+var stdinReader io.Reader = os.Stdin
 
 // confirmDangerous prompts the user to confirm a dangerous operation.
 // If yesFlag is true, confirmation is skipped (for --yes/-y flag).
@@ -30,9 +35,9 @@ func (a *App) confirmDangerous(operation, details string, yesFlag bool) error {
 	}
 	fmt.Fprintf(a.stderr, "\nContinue? [y/N] ")
 
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(stdinReader)
 	response, err := reader.ReadString('\n')
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return err
 	}
 

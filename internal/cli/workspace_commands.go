@@ -58,10 +58,10 @@ func (a *App) workspace(ctx context.Context, args []string) error {
 
 		// Check for name conflict first
 		if existing, _, err := a.deps.WorkspaceStore.Get(ctx, name); err == nil {
-			fmt.Fprintf(a.stderr, "adp: workspace %q already exists\n", name)
+			fmt.Fprintf(a.stderr, "%s\n", output.Error(fmt.Sprintf("adp: workspace %q already exists", name)))
 			fmt.Fprintf(a.stderr, "  current project root: %s\n", existing.Project.Root)
 			fmt.Fprintf(a.stderr, "\nUse a different name or remove the existing workspace with:\n")
-			fmt.Fprintf(a.stderr, "  adp workspace remove %s\n", name)
+			fmt.Fprintf(a.stderr, "  %s\n", output.Command(fmt.Sprintf("adp workspace remove %s", name)))
 			return processExitError{code: 1}
 		}
 

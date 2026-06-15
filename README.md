@@ -6,6 +6,16 @@ ADP, short for Agent Development Platform, is an Agent Runtime Environment and A
 
 ADP keeps AI agent configuration outside the project directory, then builds a temporary runtime overlay when an agent starts. The agent sees generated files such as `AGENTS.md`, `CLAUDE.md`, `.codex/`, and `.claude/`, while the real project directory stays clean.
 
+**✨ Key features**
+
+- 🖥️ **Terminal-first** — one CLI, no daemon, no editor plugin required
+- 🧩 **Clean projects** — agent config lives outside the repo; the runtime is a disposable overlay
+- 🤖 **Multi-agent** — Codex and Claude adapters built in
+- 📋 **Observable** — JSONL event log, session history, and workspace diagnostics
+- 🌐 **Bilingual** — full English / 简体中文 documentation and CLI output
+
+📖 **Start here** — [Installation](docs/install.md) · [Operator Onboarding](docs/operator-onboarding.md) · [Troubleshooting](docs/troubleshooting.md) · [FAQ](docs/faq.md)
+
 ---
 
 ## 🚀 5-Minute Quick Experience

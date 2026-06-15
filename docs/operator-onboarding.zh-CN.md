@@ -284,6 +284,8 @@ test -z "$ROOT_LEAKS"
 
 ## 切换到持久本地使用
 
+**⏱️ 预期时间：3-5 分钟**
+
 隔离演练通过后，再选择持久本地路径：
 
 ```bash
@@ -296,9 +298,18 @@ adp_local workspace doctor game-a
 
 预期结果：持久 workspace 注册到 `${HOME}/.adp` 下，project root 仍然没有 ADP 生成文件，doctor 输出没有 error-level diagnostics。保持 `$ADP_RUNTIME_DIR` 位于 project root 之外，也不要放在包含 project root 的目录下。`adp doctor` 和 `adp workspace doctor` 会在真实运行前报告不安全的 runtime parent。
 
+**✓ 检查点：** 如果持久设置遇到问题：
+- 验证 `$ADP_HOME` 设置为永久位置：`echo $ADP_HOME`
+- 检查目录可写：`mkdir -p $ADP_HOME && touch $ADP_HOME/test && rm $ADP_HOME/test`
+- 确认项目路径是绝对路径：`realpath /absolute/path/to/project`
+- 运行 workspace doctor 捕获不安全的运行时父目录：`adp_local workspace doctor game-a --verbose`
+- 如果 doctor 报告错误，参见[故障排查指南](troubleshooting.zh-CN.md)
+
 当你需要一份可复制的配置参考时，再使用 `examples/basic-workspace`。它包含 Codex 和 Claude profile、base prompt、shared memory 与 MCP 设置。复制到 ADP home 的 workspace 配置区域后，先更新 `project.root` 再使用。上面的最小 smoke 路径不依赖这个示例。
 
 ## 真实 Provider
+
+**⏱️ 预期时间：5-10 分钟（命令可用性检查）或 15-20 分钟（完整交互式验收）**
 
 真实 Codex 和 Claude 运行属于 opt-in operator check。上面的默认 onboarding 演练仍然保持 provider-free。Provider credentials、quota、model access、network behavior 和外部 CLI versions 都属于 operator environment concerns，不是 ADP quality guarantees。
 
@@ -325,3 +336,11 @@ adp_local run claude --workspace game-a -- <claude-args>
 ```
 
 `--` 之后的参数由 provider 定义。ADP 会透传这些参数，但不定义其安全性、模型可用性、quota 使用、网络行为、认证状态或交互式 session 质量。Operator acceptance notes 应保持非敏感，不要记录凭据、token、账号标识、私有 prompt 或敏感模型输出。完整兼容性流程见 [real-agent-compatibility.zh-CN.md](real-agent-compatibility.zh-CN.md)。
+
+**✓ 检查点：** 如果真实 provider 运行失败：
+- 检查外部 CLI 已安装：`which codex` 或 `which claude`
+- 测试外部 CLI 直接运行：`codex --version` 或 `claude --version`
+- 验证认证已配置（provider 特定，参见其文档）
+- 检查网络连接（如果 provider 需要互联网访问）
+- 查看事件中的具体错误消息：`adp_local events list --workspace game-a --limit 10`
+- 对于 "agent command not found" 错误，参见[故障排查指南](troubleshooting.zh-CN.md)

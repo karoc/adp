@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/karoc/adp/internal/output"
 )
 
 // quickstart implements the interactive onboarding command.
@@ -97,7 +99,9 @@ func (a *App) quickstartNonInteractive(ctx context.Context, opts QuickstartOptio
 	}
 
 	fmt.Fprintf(a.stdout, "✓ Workspace %q created\n", opts.WorkspaceName)
-	fmt.Fprintln(a.stdout, "✓ Setup complete!")
+
+	// Show next steps
+	a.showNextSteps(opts.WorkspaceName)
 
 	return nil
 }
@@ -254,7 +258,7 @@ func (a *App) promptForPath(label, defaultValue string, validate func(string) er
 		// Validate input
 		if validate != nil {
 			if err := validate(input); err != nil {
-				fmt.Fprintf(a.stderr, "Error: %v\n", err)
+				fmt.Fprintf(a.stderr, "%s\n", output.Error(fmt.Sprintf("Error: %v", err)))
 				continue
 			}
 		}
@@ -343,7 +347,7 @@ func (a *App) interactiveCreateWorkspace(ctx context.Context, opts QuickstartOpt
 			fmt.Fprintln(a.stdout, "\nRunning diagnostics...")
 			if err := a.doctor(ctx, []string{workspaceName}); err != nil {
 				// Don't fail the quickstart if diagnostics fail
-				fmt.Fprintf(a.stderr, "Warning: diagnostics failed: %v\n", err)
+				fmt.Fprintf(a.stderr, "%s\n", output.Warning(fmt.Sprintf("Warning: diagnostics failed: %v", err)))
 			}
 		}
 	}
@@ -379,7 +383,7 @@ func (a *App) promptForWorkspaceName(defaultValue string) (string, error) {
 
 		// Validate name
 		if err := validateWorkspaceName(name); err != nil {
-			fmt.Fprintf(a.stderr, "Error: %v\n", err)
+			fmt.Fprintf(a.stderr, "%s\n", output.Error(fmt.Sprintf("Error: %v", err)))
 			continue
 		}
 
@@ -447,13 +451,13 @@ func (a *App) promptForProjectRoot(defaultValue string) (string, error) {
 		// Expand ~ in path
 		expanded, err := expandPath(input)
 		if err != nil {
-			fmt.Fprintf(a.stderr, "Error: invalid path: %v\n", err)
+			fmt.Fprintf(a.stderr, "%s\n", output.Error(fmt.Sprintf("Error: invalid path: %v", err)))
 			continue
 		}
 
 		// Validate path
 		if err := validateProjectRoot(expanded); err != nil {
-			fmt.Fprintf(a.stderr, "Error: %v\n", err)
+			fmt.Fprintf(a.stderr, "%s\n", output.Error(fmt.Sprintf("Error: %v", err)))
 
 			// Ask if user wants to create the directory
 			create, err := a.promptYesNo("Create directory?", false)
@@ -463,7 +467,7 @@ func (a *App) promptForProjectRoot(defaultValue string) (string, error) {
 
 			if create {
 				if err := os.MkdirAll(expanded, 0755); err != nil {
-					fmt.Fprintf(a.stderr, "Error: failed to create directory: %v\n", err)
+					fmt.Fprintf(a.stderr, "%s\n", output.Error(fmt.Sprintf("Error: failed to create directory: %v", err)))
 					continue
 				}
 				fmt.Fprintf(a.stdout, "✓ Created directory %s\n", expanded)
@@ -529,10 +533,11 @@ func (a *App) promptYesNo(question string, defaultYes bool) (bool, error) {
 // showNextSteps displays helpful next steps after quickstart.
 func (a *App) showNextSteps(workspaceName string) {
 	fmt.Fprintln(a.stdout, "\n"+strings.Repeat("─", 50))
-	fmt.Fprintln(a.stdout, "✓ Setup complete!")
+	fmt.Fprintln(a.stdout, output.Successf("✓ Setup complete!"))
 	fmt.Fprintln(a.stdout, "\nNext steps:")
-	fmt.Fprintf(a.stdout, "  - Start an agent:    adp run codex --workspace %s\n", workspaceName)
-	fmt.Fprintf(a.stdout, "  - Add a task:        adp tasks add --workspace %s \"First task\"\n", workspaceName)
-	fmt.Fprintln(a.stdout, "  - See all commands:  adp --help")
+	fmt.Fprintf(a.stdout, "  Start an agent:      %s\n", output.Command(fmt.Sprintf("adp run codex --workspace %s", workspaceName)))
+	fmt.Fprintf(a.stdout, "  Add a task:          %s\n", output.Command(fmt.Sprintf("adp tasks add --workspace %s \"First task\"", workspaceName)))
+	fmt.Fprintf(a.stdout, "  Read operator guide:  %s\n", output.Command("cat docs/operator-onboarding.md"))
+	fmt.Fprintf(a.stdout, "  See all commands:    %s\n", output.Command("adp --help"))
 	fmt.Fprintln(a.stdout, strings.Repeat("─", 50))
 }
