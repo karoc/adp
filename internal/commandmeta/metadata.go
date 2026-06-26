@@ -20,8 +20,8 @@ type Command struct {
 // Key format: "command" for root commands, "command.subcommand" for subcommands
 var commandRelationships = map[string][]string{
 	// P0: High confusion command pairs
-	"doctor":       {"workspace doctor", "plan doctor"},
-	"run":          {"tasks", "events", "sessions"},
+	"doctor": {"workspace doctor", "plan doctor"},
+	"run":    {"tasks", "events", "sessions"},
 }
 
 var subcommandRelationships = map[string][]string{
@@ -171,14 +171,16 @@ var rootCommands = []Command{
 	{
 		Name:        "runtime",
 		Description: "manage ADP runtime directories",
-		Usage:       []string{"adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--format <text|json>]"},
+		Usage:       []string{"adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--yes] [--format <text|json>]"},
 		Subcommands: describedValues(valueDescriptions{"prune": "delete stale ADP-owned runtimes"}, "prune"),
 		Options: describedValues(valueDescriptions{
 			"--older-than":   "minimum runtime age",
 			"--include-kept": "include kept runtimes",
 			"--dry-run":      "print candidates without deleting",
+			"--yes":          "skip confirmation prompts",
+			"-y":             "skip confirmation prompts",
 			"--format":       "output format",
-		}, "--older-than", "--include-kept", "--dry-run", "--format"),
+		}, "--older-than", "--include-kept", "--dry-run", "--yes", "-y", "--format"),
 	},
 	{
 		Name:        "tasks",
@@ -469,6 +471,7 @@ func SubcommandHelp(commandName, subcommand string) (string, bool) {
 	}
 	out.WriteString("\n\nUsage:\n")
 	writeUsageLines(&out, usage)
+	writeValuesSection(&out, "Options", optionsForUsage(usage, command.Options))
 	writeExamplesSection(&out, examplesForSubcommand(command.Name, subcommand))
 	writeSeeAlsoSection(&out, command.Name, subcommand)
 	return out.String(), true

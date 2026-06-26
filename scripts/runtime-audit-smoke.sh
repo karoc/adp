@@ -94,6 +94,7 @@ assert_help "sessions help resume note" "resume-plan - print read-only cross-too
 assert_help "sessions resume-plan help" "adp sessions resume-plan <session-id>" sessions resume-plan --help
 assert_help "runtime help" "adp runtime prune" runtime --help
 assert_help "runtime prune help" "adp runtime prune" runtime prune --help
+assert_help "runtime prune help confirmation bypass" "--yes - skip confirmation prompts" runtime prune --help
 assert_help "tasks help" "adp tasks next" tasks --help
 assert_help "tasks help take" "adp tasks take" tasks --help
 assert_help "tasks help board description" "manage the local workspace task board" tasks --help

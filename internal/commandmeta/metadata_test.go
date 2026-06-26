@@ -148,6 +148,24 @@ func TestHelpIncludesCopyableExamples(t *testing.T) {
 	}
 }
 
+func TestRuntimePruneHelpDocumentsConfirmationBypass(t *testing.T) {
+	t.Parallel()
+
+	help, ok := SubcommandHelp("runtime", "prune")
+	if !ok {
+		t.Fatal("SubcommandHelp(runtime, prune) returned false")
+	}
+	for _, want := range []string{
+		"adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--yes] [--format <text|json>]",
+		"--yes - skip confirmation prompts",
+		"-y - skip confirmation prompts",
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("runtime prune help missing %q:\n%s", want, help)
+		}
+	}
+}
+
 func TestFirstUseHelpIncludesCopyableExamples(t *testing.T) {
 	t.Parallel()
 

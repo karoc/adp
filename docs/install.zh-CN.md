@@ -260,7 +260,7 @@ adp runtime prune --older-than 24h --dry-run --format json
 adp runtime prune --older-than 24h
 ```
 
-`runtime prune` 只删除包含当前版本 ADP runtime manifest，且 `runtime_root` 与待删除目录一致的目录。不兼容、格式错误、外部系统生成或自相矛盾的 manifest 会被跳过。删除前先使用 `--dry-run`；本地工具需要可解析的候选项和 action 细节时加上 `--format json`。
+`runtime prune` 只删除包含当前版本 ADP runtime manifest，且 `runtime_root` 与待删除目录一致的目录。不兼容、格式错误、外部系统生成或自相矛盾的 manifest 会被跳过。删除前先使用 `--dry-run`；本地工具需要可解析的候选项和 action 细节时加上 `--format json`。通过 `--include-kept` 删除 kept runtime 需要确认；只有 operator 已审阅 dry-run 输出，并明确需要非交互删除时，才使用 `--yes` 或 `-y`。
 
 ## 确定性 Bootstrap Smoke
 

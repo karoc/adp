@@ -84,7 +84,7 @@ adp quickstart --non-interactive \
 - `adp sessions show <session-id> [--format <text|json>]`
 - `adp sessions restore-plan <session-id> [--format <text|json>]`
 - `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]`
-- `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--format <text|json>]`
+- `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--yes] [--format <text|json>]`
 - `adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>`
 - `adp tasks list/next/take/stale/show/update/claim/renew/release/done/block`
 - `adp plan preview [--workspace <name>] --file <path|-> [--format <text|json>]`
@@ -301,7 +301,7 @@ Git diagnostics 保持只读。Doctor 命令可以检查 topology 和 status，�
 
 `adp version` 和 `adp --version` 会输出 CLI build identity。打包 binary 可以在构建时注入 version、commit 和 build-date；开发构建默认回退为 `dev`。
 
-`adp runtime prune [--format <text|json>]` 会清理 `$ADP_RUNTIME_DIR` 下过期的 ADP runtime 目录。只有包含当前版本且结构自洽的 `.adp-runtime.yaml`，其中 `generated_by: adp` 且 `runtime_root` 与目录一致的 runtime 才会进入 prune 候选；默认保留 `keep: true` 的 runtime，除非传入 `--include-kept`；`--dry-run` 只报告候选项，不删除。JSON 输出包含请求的 age、dry-run 和 include-kept 标志、result count，以及每个 runtime 的 action。
+`adp runtime prune [--format <text|json>]` 会清理 `$ADP_RUNTIME_DIR` 下过期的 ADP runtime 目录。只有包含当前版本且结构自洽的 `.adp-runtime.yaml`，其中 `generated_by: adp` 且 `runtime_root` 与目录一致的 runtime 才会进入 prune 候选；默认保留 `keep: true` 的 runtime，除非传入 `--include-kept`；删除 kept runtime 需要确认，只有在先审阅过 `--dry-run` 后，才用 `--yes` 或 `-y` 表示显式的非交互删除。`--dry-run` 只报告候选项，不删除。JSON 输出包含请求的 age、dry-run 和 include-kept 标志、result count，以及每个 runtime 的 action。
 
 `adp tasks` 和 `adp progress` 管理 `$ADP_HOME/workspaces/<workspace>/planning` 下的 workspace-scoped 规划和执行进度。只读 task、phase 和 progress 视图支持 `--format json`，方便本地工具和子 Agent 获取机器可读 planning snapshot；task objects 会通过 `claim_state` 以及存在时的 `owner`、`claimed_at` 和 `lease_expires_at` 暴露看板可见性。`adp phase status` 会输出紧凑的 gate snapshot，包含当前 open phase、下一个 planned phase、是否可以启动下一阶段，以及下一步必需动作。`adp plan doctor` 会对 task、phase、progress log、lock 和 phase gate 一致性做只读本地 diagnostics；存在 error-level diagnostics 时返回退出码 `2`。权威状态仍保存在 `$ADP_HOME` 下，task 或 phase 变更仍然必须通过显式命令完成。使用 `adp tasks next --format json` 预览看板；当 worker 只需要从看板原子领取一项、但不启动 Agent 时，使用 `adp tasks take --owner <owner>`；当任务领取和 runtime 启动需要处在同一个命令边界时，使用 `adp run <agent> --take --owner <owner>`。长时间执行的 worker 可以用 `adp tasks renew` 续租；中断后的过期 lease 可通过只读 `adp tasks stale` 查看，然后只在 ADP ownership rules 允许后，通过显式 `adp tasks take` 或 `adp tasks claim` 接管。`adp run <agent> --task <task-id>` 和 `adp run <agent> --take ...` 会把本地任务状态绑定到 runtime 环境变量、生成的 adapter instructions、events 和 sessions，同时不会把 planning 文件写入真实项目根目录。详见 [docs/task-management.zh-CN.md](docs/task-management.zh-CN.md)。
 
