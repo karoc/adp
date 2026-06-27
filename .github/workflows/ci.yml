@@ -11,8 +11,18 @@ permissions:
 
 jobs:
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # POSIX (ubuntu-latest) is the blocking primary gate. Windows is a
+    # secondary, best-effort portability target: it runs as a non-blocking
+    # sentinel so Windows regressions surface early without stalling the
+    # primary development flow. Once the Windows leg is consistently green,
+    # drop continue-on-error to promote it to a blocking gate.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
 
     steps:
       - name: Checkout
@@ -25,4 +35,5 @@ jobs:
           cache: true
 
       - name: Run aggregate local gate
+        shell: bash
         run: scripts/check-all.sh
