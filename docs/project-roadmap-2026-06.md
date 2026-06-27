@@ -1,5 +1,13 @@
 # ADP Project Roadmap - June 2026
 
+> **Status update (2026-06-27): Archived roadmap snapshot.** This roadmap was
+> written before the later P24-P65 work, v1.0.0 release hardening, and the
+> 2026-06-27 Windows portability fixes. The ADP ledger is now authoritative:
+> workspace `adp` has no planned, ready, in-progress, blocked, or stale work.
+> Treat the unchecked items below as historical planning context, not current
+> backlog. Optional future work should be reintroduced through a new ADP phase
+> and task plan.
+
 **Document Date**: 2026-06-15  
 **Project Status**: Phase 4 Complete, CI Stable  
 **Current Quality**: 4.9/5 (Documentation & Usability)  

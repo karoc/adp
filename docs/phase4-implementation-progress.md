@@ -1,5 +1,10 @@
 # Phase 4: Documentation Excellence - Implementation Progress Report
 
+> **Status update (2026-06-27): Historical progress snapshot.** This document
+> intentionally preserves the mid-implementation 4/5 status from 2026-06-14.
+> Phase 4 later completed; use `docs/phase4-completion-report.md` and
+> `docs/phase4-completion-report.zh-CN.md` for the final accepted state.
+
 **Date**: 2026-06-14  
 **Team**: phase4-implementation  
 **Status**: 🚀 4/5 Tasks Completed (80%)  

@@ -1,5 +1,13 @@
 # ADP 易用性改进计划
 
+> **Status update (2026-06-27): Archived execution plan.** This plan is a
+> historical design record for the P0-P2 usability work. The ADP planning
+> ledger is now authoritative: workspace `adp` has 62 completed phases, 170
+> completed tasks, no ready/in-progress/blocked tasks, and no planned phase
+> remains. Do not treat the unchecked or future-looking task text below as
+> current backlog. Use this document only as historical context when auditing
+> how the usability improvements were designed.
+
 基于易用性测试报告（usability-test-report.md），本计划列出所有改进项，按优先级组织，并设计支持多agent并行推进的实施方案。
 
 ---
