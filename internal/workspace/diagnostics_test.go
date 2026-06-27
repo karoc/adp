@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -87,7 +88,11 @@ func TestRegistryDiagnoseReportsAgentCommandReadinessIssues(t *testing.T) {
 
 	assertDiagnostic(t, report, DiagnosticCodeAgentCommandArguments, DiagnosticLevelWarning, layout.WorkspaceConfig("game-a"))
 	assertDiagnostic(t, report, DiagnosticCodeAgentCommandMissing, DiagnosticLevelWarning, filepath.Join(projectRoot, "bin", "missing-claude"))
-	assertDiagnostic(t, report, DiagnosticCodeAgentCommandNotExecutable, DiagnosticLevelWarning, notExecutable)
+	// Unix permission bits are not preserved on Windows, so the
+	// not-executable diagnostic only fires on POSIX.
+	if runtime.GOOS != "windows" {
+		assertDiagnostic(t, report, DiagnosticCodeAgentCommandNotExecutable, DiagnosticLevelWarning, notExecutable)
+	}
 	assertDiagnostic(t, report, DiagnosticCodeAgentUnknown, DiagnosticLevelWarning, layout.WorkspaceConfig("game-a"))
 	assertDiagnosticMessageContains(t, report, DiagnosticCodeAgentCommandArguments, "local ADP launch-wiring diagnostic")
 	assertDiagnosticMessageContains(t, report, DiagnosticCodeAgentCommandMissing, "does not validate provider credentials")

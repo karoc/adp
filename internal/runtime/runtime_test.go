@@ -17,6 +17,7 @@ import (
 )
 
 func TestBuildCreatesRuntimeHandleEnvAndOverlay(t *testing.T) {
+	requireSymlinks(t)
 	projectRoot := t.TempDir()
 	initGitRepo(t, projectRoot)
 	writeFile(t, filepath.Join(projectRoot, ".gitignore"), []byte("dist\n"))
@@ -495,4 +496,20 @@ func safeSessionSuffix(name string) string {
 		}
 	}
 	return clean
+}
+
+// requireSymlinks probes whether the current platform can create symlinks
+// and skips the test if not. On Windows without developer mode or admin
+// privileges, os.Symlink fails with a privilege error.
+func requireSymlinks(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target")
+	if err := os.WriteFile(target, []byte("probe"), 0644); err != nil {
+		t.Fatalf("write symlink probe target: %v", err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks not available on this platform: %v", err)
+	}
 }

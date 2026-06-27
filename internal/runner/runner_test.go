@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -15,7 +16,7 @@ func TestRunSuccessPassesStreamsEnvAndCWD(t *testing.T) {
 
 	runtimeRoot := t.TempDir()
 	spec := adapters.LaunchSpec{
-		Command: "/bin/sh",
+		Command: testShell(t),
 		Args: []string{"-c", `
 printf 'cwd=%s\n' "$(pwd)"
 printf 'env=%s\n' "$ADP_RUNNER_TEST"
@@ -72,7 +73,7 @@ func TestRunRemovesRepositoryDirectiveGitEnv(t *testing.T) {
 	t.Setenv("GIT_SSH_COMMAND", "ssh -i /tmp/key")
 
 	spec := adapters.LaunchSpec{
-		Command: "/bin/sh",
+		Command: testShell(t),
 		Args: []string{"-c", `
 for name in GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_DIR GIT_INDEX_FILE GIT_NAMESPACE GIT_OBJECT_DIRECTORY GIT_WORK_TREE; do
   eval "value=\${$name+x}"
@@ -108,7 +109,7 @@ func TestRunReturnsFailedExitCodeWithoutError(t *testing.T) {
 	t.Parallel()
 
 	result, err := Run(context.Background(), adapters.LaunchSpec{
-		Command: "/bin/sh",
+		Command: testShell(t),
 		Args:    []string{"-c", "exit 37"},
 	}, Streams{})
 	if err != nil {
@@ -129,4 +130,18 @@ func TestRunRejectsEmptyCommand(t *testing.T) {
 	if result != nil {
 		t.Fatalf("result = %#v, want nil", result)
 	}
+}
+
+// testShell finds a POSIX-compatible shell for runner tests. It tries sh
+// first, then bash, and skips the test if neither is available. This
+// replaces the previous hardcoded /bin/sh which does not exist on Windows.
+func testShell(t *testing.T) string {
+	t.Helper()
+	for _, name := range []string{"sh", "bash"} {
+		if path, err := exec.LookPath(name); err == nil {
+			return path
+		}
+	}
+	t.Skip("no POSIX shell available (sh or bash required for runner tests)")
+	return ""
 }

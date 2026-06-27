@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -103,7 +104,9 @@ func checkAgentCommandPath(report *DiagnosticReport, projectRoot string, agentNa
 		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandStatFailed, fmt.Sprintf("configured command for agent %q could not be inspected: %v.%s", agentName, err, agentDiagnosticBoundary), path)
 		return
 	}
-	if info.IsDir() || info.Mode().Perm()&0o111 == 0 {
+	// On Windows, Unix permission bits are not preserved by os.Stat, so the
+	// 0o111 executability check is unreliable. Directories are still caught.
+	if info.IsDir() || (runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0) {
 		report.add(DiagnosticLevelWarning, DiagnosticCodeAgentCommandNotExecutable, fmt.Sprintf("configured command for agent %q is not an executable file.%s", agentName, agentDiagnosticBoundary), path)
 	}
 }
@@ -112,7 +115,9 @@ func commandPathForInspection(projectRoot string, command string) (string, bool)
 	if filepath.IsAbs(command) {
 		return filepath.Clean(command), true
 	}
-	if strings.ContainsRune(command, os.PathSeparator) {
+	// Accept both / and \ as path separators so that commands like
+	// "bin/missing-claude" resolve correctly on every platform.
+	if strings.ContainsAny(command, `/\`) {
 		return filepath.Join(projectRoot, filepath.Clean(command)), true
 	}
 	return "", false

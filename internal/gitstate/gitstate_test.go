@@ -64,6 +64,11 @@ func TestInspectDetectsSubdirectoryDirtyStateAndSanitizesGitEnv(t *testing.T) {
 }
 
 func TestDiscoverRootUsesRootInspectionOnly(t *testing.T) {
+	// This test writes a POSIX shell script as a fake git binary. On Windows
+	// without a POSIX shell in PATH, the shebang cannot be executed.
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available; fake-git shell script requires POSIX shell")
+	}
 	binDir := t.TempDir()
 	projectRoot := t.TempDir()
 	gitRoot := filepath.Join(t.TempDir(), "repo")

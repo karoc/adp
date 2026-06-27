@@ -6,6 +6,7 @@ REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 . "$SCRIPT_DIR/runtime-smoke-lib.sh"
 . "$SCRIPT_DIR/smoke-git-tripwire-lib.sh"
 . "$SCRIPT_DIR/runtime-audit-smoke-helpers.sh"
+. "$SCRIPT_DIR/smoke-helpers.sh"
 
 if ! command -v go >/dev/null 2>&1; then
   fail "Go is required to build cmd/adp"

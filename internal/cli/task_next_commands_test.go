@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -51,7 +52,7 @@ func TestTasksNextCommandPrintsPrioritizedWork(t *testing.T) {
 
 	payload := decodeJSONObject(t, jsonOut.Bytes())
 	assertJSONStringField(t, payload, "workspace", "game-a")
-	assertJSONStringField(t, payload, "planning_source", "/tmp/adp-home/workspaces/game-a/planning/tasks.yaml")
+	assertJSONStringField(t, payload, "planning_source", filepath.FromSlash("/tmp/adp-home/workspaces/game-a/planning/tasks.yaml"))
 	if _, ok := payload["generated_at"].(string); !ok {
 		t.Fatalf("generated_at = %#v, want string", payload["generated_at"])
 	}

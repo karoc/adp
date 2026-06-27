@@ -308,6 +308,7 @@ run_adp() {
 }
 
 . "$SCRIPT_DIR/smoke-git-tripwire-lib.sh"
+. "$SCRIPT_DIR/smoke-helpers.sh"
 
 for cmd in go git tar awk; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -315,7 +316,7 @@ for cmd in go git tar awk; do
   fi
 done
 
-TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/adp-release-artifact-smoke.XXXXXX")
+TMP_ROOT=$(smoke_native_tmpdir "${TMPDIR:-/tmp}/adp-release-artifact-smoke.XXXXXX")
 SOURCE_ROOT="$TMP_ROOT/source"
 SOURCE_ARCHIVE_ROOT="$TMP_ROOT/source-archive"
 DIST_DIR="$TMP_ROOT/dist"

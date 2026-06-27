@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -245,7 +246,7 @@ func TestExpandPath(t *testing.T) {
 			name: "tilde with path",
 			path: "~/test",
 			check: func(result string) bool {
-				return strings.HasSuffix(result, "/test") && !strings.HasPrefix(result, "~")
+				return strings.HasSuffix(filepath.ToSlash(result), "/test") && !strings.HasPrefix(result, "~")
 			},
 		},
 	}

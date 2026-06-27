@@ -119,7 +119,8 @@ fi
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 . "$SCRIPT_DIR/runtime-context-smoke-lib.sh"
-TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/adp-runtime-context-smoke.XXXXXX")
+. "$SCRIPT_DIR/smoke-helpers.sh"
+TMP_ROOT=$(smoke_native_tmpdir "${TMPDIR:-/tmp}/adp-runtime-context-smoke.XXXXXX")
 ADP_BIN="$TMP_ROOT/adp"
 
 cleanup() {

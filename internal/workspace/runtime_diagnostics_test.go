@@ -21,7 +21,13 @@ func TestRegistryDiagnoseReportsFilesystemRootRuntimeParent(t *testing.T) {
 		t.Fatalf("Diagnose() error = %v", err)
 	}
 
-	assertDiagnostic(t, report, DiagnosticCodeRuntimeParentRoot, DiagnosticLevelError, string(os.PathSeparator))
+	// filepath.Abs resolves the separator to a platform-specific root path
+	// (e.g. "/" on POSIX, "C:\" on Windows).
+	expectedRoot, err := filepath.Abs(string(os.PathSeparator))
+	if err != nil {
+		t.Fatalf("filepath.Abs separator: %v", err)
+	}
+	assertDiagnostic(t, report, DiagnosticCodeRuntimeParentRoot, DiagnosticLevelError, filepath.Clean(expectedRoot))
 	if !report.HasErrors() {
 		t.Fatal("HasErrors() = false, want true")
 	}

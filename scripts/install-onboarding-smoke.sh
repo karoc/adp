@@ -5,6 +5,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 
 . "$SCRIPT_DIR/install-onboarding-smoke-lib.sh"
+. "$SCRIPT_DIR/smoke-helpers.sh"
 
 for cmd in bash go git; do
   if ! command -v "$cmd" >/dev/null 2>&1; then

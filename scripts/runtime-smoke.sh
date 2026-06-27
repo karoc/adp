@@ -28,6 +28,7 @@ USAGE
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 . "$SCRIPT_DIR/runtime-smoke-lib.sh"
+. "$SCRIPT_DIR/smoke-helpers.sh"
 . "$SCRIPT_DIR/runtime-smoke-diagnostics.sh"
 . "$SCRIPT_DIR/runtime-smoke-lifecycle.sh"
 . "$SCRIPT_DIR/runtime-smoke-session.sh"

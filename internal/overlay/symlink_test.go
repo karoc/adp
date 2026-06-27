@@ -12,6 +12,7 @@ import (
 )
 
 func TestSymlinkBackendMaterializeWritesGeneratedFilesAndLinksProjectChildren(t *testing.T) {
+	requireSymlinks(t)
 	projectRoot := t.TempDir()
 	writeProjectFile(t, projectRoot, "go.mod", []byte("module example\n"))
 	if err := os.Mkdir(filepath.Join(projectRoot, "internal"), 0755); err != nil {
@@ -47,6 +48,7 @@ func TestSymlinkBackendMaterializeWritesGeneratedFilesAndLinksProjectChildren(t 
 }
 
 func TestSymlinkBackendGeneratedReservedPathsWinOverProjectConflicts(t *testing.T) {
+	requireSymlinks(t)
 	projectRoot := t.TempDir()
 	writeProjectFile(t, projectRoot, "AGENTS.md", []byte("real agents\n"))
 	writeProjectFile(t, projectRoot, filepath.Join(".codex", "config.toml"), []byte("real codex\n"))
@@ -76,6 +78,7 @@ func TestSymlinkBackendGeneratedReservedPathsWinOverProjectConflicts(t *testing.
 }
 
 func TestSymlinkBackendMergesGeneratedDirectoriesWithProjectChildren(t *testing.T) {
+	requireSymlinks(t)
 	projectRoot := t.TempDir()
 	writeProjectFile(t, projectRoot, filepath.Join(".claude", "settings.json"), []byte("project settings\n"))
 	writeProjectFile(t, projectRoot, filepath.Join(".claude", "settings.local.json"), []byte("project local settings\n"))
@@ -102,6 +105,7 @@ func TestSymlinkBackendMergesGeneratedDirectoriesWithProjectChildren(t *testing.
 }
 
 func TestSymlinkBackendSkipsRepositoryGitMetadata(t *testing.T) {
+	requireSymlinks(t)
 	projectRoot := t.TempDir()
 	if err := os.Mkdir(filepath.Join(projectRoot, ".git"), 0755); err != nil {
 		t.Fatal(err)
@@ -135,6 +139,7 @@ func TestSymlinkBackendSkipsRepositoryGitMetadata(t *testing.T) {
 }
 
 func TestSymlinkBackendSkipsRepositoryGitFile(t *testing.T) {
+	requireSymlinks(t)
 	projectRoot := t.TempDir()
 	writeProjectFile(t, projectRoot, ".git", []byte("gitdir: /tmp/worktree-git\n"))
 	writeProjectFile(t, projectRoot, "go.mod", []byte("module example\n"))
@@ -157,6 +162,7 @@ func TestSymlinkBackendSkipsRepositoryGitFile(t *testing.T) {
 }
 
 func TestSymlinkBackendRejectsUnsafeGeneratedFilePaths(t *testing.T) {
+	requireSymlinks(t)
 	projectRoot := t.TempDir()
 	runtimeParent := t.TempDir()
 	unsafePaths := []string{
@@ -310,4 +316,20 @@ func safeTestName(name string) string {
 		}
 	}
 	return clean
+}
+
+// requireSymlinks probes whether the current platform can create symlinks
+// and skips the test if not. On Windows without developer mode or admin
+// privileges, os.Symlink fails with a privilege error.
+func requireSymlinks(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target")
+	if err := os.WriteFile(target, []byte("probe"), 0644); err != nil {
+		t.Fatalf("write symlink probe target: %v", err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks not available on this platform: %v", err)
+	}
 }

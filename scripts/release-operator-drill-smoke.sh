@@ -206,6 +206,7 @@ run_adp() {
 }
 
 . "$SCRIPT_DIR/smoke-git-tripwire-lib.sh"
+. "$SCRIPT_DIR/smoke-helpers.sh"
 
 for cmd in go git install bash; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -213,7 +214,7 @@ for cmd in go git install bash; do
   fi
 done
 
-TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/adp-release-operator-drill.XXXXXX")
+TMP_ROOT=$(smoke_native_tmpdir "${TMPDIR:-/tmp}/adp-release-operator-drill.XXXXXX")
 SOURCE_ROOT="$TMP_ROOT/source"
 DIST_DIR="$TMP_ROOT/dist"
 INSTALL_BIN="$TMP_ROOT/install-bin"

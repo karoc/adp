@@ -145,9 +145,9 @@ func TestRenderMissingFilesUsesReadableDefaults(t *testing.T) {
 
 	agents := generatedText(t, result, "AGENTS.md")
 	for _, want := range []string{
-		`Configured file "prompts/missing.md" is missing; using default content.`,
-		`Configured file "memory/missing.md" is missing; using default content.`,
-		`Configured file "mcp/missing.yaml" is missing; using default content.`,
+		`Configured file "` + filepath.FromSlash("prompts/missing.md") + `" is missing; using default content.`,
+		`Configured file "` + filepath.FromSlash("memory/missing.md") + `" is missing; using default content.`,
+		`Configured file "` + filepath.FromSlash("mcp/missing.yaml") + `" is missing; using default content.`,
 		`No profile file was found for profile "missing-profile"`,
 	} {
 		if !strings.Contains(agents, want) {

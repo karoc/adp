@@ -130,6 +130,7 @@ run_adp() {
 }
 
 . "$SCRIPT_DIR/smoke-git-tripwire-lib.sh"
+. "$SCRIPT_DIR/smoke-helpers.sh"
 
 if ! command -v go >/dev/null 2>&1; then
   fail "Go is required to build cmd/adp"
@@ -139,7 +140,7 @@ if ! command -v git >/dev/null 2>&1; then
   fail "Git is required for release rehearsal smoke"
 fi
 
-TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/adp-release-rehearsal.XXXXXX")
+TMP_ROOT=$(smoke_native_tmpdir "${TMPDIR:-/tmp}/adp-release-rehearsal.XXXXXX")
 CHECKOUT_ROOT="$TMP_ROOT/source"
 ADP_BIN="$CHECKOUT_ROOT/dist/adp"
 PROJECT_ROOT="$TMP_ROOT/project"

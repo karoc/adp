@@ -47,6 +47,15 @@ func TestRegistryAddSuccess(t *testing.T) {
 	registry, layout := newTestRegistry(t)
 	projectRoot := createProject(t)
 	parentDir := filepath.Dir(projectRoot)
+
+	// Restore CWD via defer so it happens before t.TempDir cleanup.
+	// On Windows, leaving the CWD inside a temp dir prevents its removal.
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get cwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
 	if err := os.Chdir(parentDir); err != nil {
 		t.Fatalf("chdir project parent: %v", err)
 	}
