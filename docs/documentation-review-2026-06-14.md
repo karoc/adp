@@ -1,5 +1,10 @@
 # Documentation Review Report
 
+> **Status update (2026-06-27): Archived review.** This document records the
+> systematic documentation review from 2026-06-14. The suggested improvements
+> at the end have been addressed in later phases or remain as optional future
+> work; they are not current backlog.
+
 **Date**: 2026-06-14  
 **Scope**: Systematic review of all user-facing documentation  
 **Trigger**: User feedback on README usability issues
