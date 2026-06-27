@@ -1,5 +1,12 @@
 # ADP Phase 1 Development Plan
 
+> **Status update (2026-06-27): Archived baseline plan.** This document is the
+> original Phase 1 implementation plan and roadmap for the MVP era. ADP has
+> since completed the usability, documentation, release, and portability work
+> that followed this baseline. The active planning ledger is now authoritative;
+> do not treat the checklist text below as current backlog without verifying it
+> against the ledger and current release state.
+
 Historical source: local `mvp.md` input. That file is intentionally ignored and is not a maintained repository document.
 
 Date: 2026-06-08
