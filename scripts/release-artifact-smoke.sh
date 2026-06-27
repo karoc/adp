@@ -420,6 +420,7 @@ if [ -z "$TASK_ID" ]; then
   fail "could not parse task id from: $output"
 fi
 reset_git_tripwire
+smoke_require_symlinks
 output=$(run_adp "$TMP_ROOT" run codex --workspace game-a --task "$TASK_ID" -- --artifact-smoke)
 assert_contains "$output" "fake-codex" "fake codex output"
 output=$(run_adp "$TMP_ROOT" events list --workspace game-a --task "$TASK_ID" --limit 2)

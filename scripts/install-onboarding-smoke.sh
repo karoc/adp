@@ -168,6 +168,7 @@ assert_file "$PROGRESS_FILE"
 assert_project_root_clean
 
 info "running task-bound fake codex from the installed binary"
+smoke_require_symlinks
 reset_git_tripwire
 output=$(run_adp "$TMP_ROOT" run codex --workspace onboarding-a --task "$TASK_ID" -- --install-onboarding)
 assert_contains "$output" "fake-codex" "fake codex output"

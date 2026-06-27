@@ -47,3 +47,21 @@ assert_contains() {
       ;;
   esac
 }
+
+# smoke_require_symlinks checks whether the current platform can create
+# symlinks. If not, it prints a skip message and exits 0 so that
+# scripts/check-all.sh continues. On Windows without developer mode or
+# admin privileges, symlink creation fails with a privilege error.
+smoke_require_symlinks() {
+  local _dir
+  _dir=$(mktemp -d "${TMPDIR:-/tmp}/adp-symlink-probe.XXXXXX")
+  local _target="$_dir/target"
+  local _link="$_dir/link"
+  printf 'probe\n' > "$_target"
+  if ! ln -s "$_target" "$_link" 2>/dev/null; then
+    rm -rf "$_dir"
+    printf '[smoke] symlinks not available on this platform; skipping runtime overlay tests\n'
+    exit 0
+  fi
+  rm -rf "$_dir"
+}

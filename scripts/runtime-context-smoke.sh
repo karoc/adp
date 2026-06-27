@@ -273,6 +273,7 @@ assert_absent_project_artifacts "$PROJECT_ROOT"
 assert_absent_project_artifacts "$PROJECT_GIT_ROOT"
 
 info "running fake Codex and verifying generated context"
+smoke_require_symlinks
 output=$(with_dangerous_git_env "$TMP_ROOT/git-boundary-env" run_adp "$REPO_ROOT" run codex --workspace context-a --task "$TASK_ID" -- --context-codex)
 assert_contains "$output" "fake-codex" "codex output"
 assert_contains "$output" "--context-codex" "codex output"

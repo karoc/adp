@@ -274,6 +274,7 @@ assert_contains "$output" "owner: -" "tasks show released output"
 assert_contains "$output" "status: ready" "tasks show released output"
 
 info "checking run --take bridge"
+smoke_require_symlinks
 export ADP_EXPECT_TASK_ID="$task_id"
 phases_before=$(cat "$PHASES_FILE"); progress_events_before=$(line_count "$PROGRESS_FILE")
 events_before=0; [ -f "$EVENTS_FILE" ] && events_before=$(line_count "$EVENTS_FILE")

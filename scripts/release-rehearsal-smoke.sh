@@ -204,6 +204,7 @@ output=$(run_adp "$CHECKOUT_ROOT" workspace doctor game-a --format json)
 assert_contains "$output" '"code": "workspace.git.root.detected"' "workspace doctor json output"
 output=$(run_adp "$CHECKOUT_ROOT" env game-a --cd)
 assert_contains "$output" "ADP_RUNTIME_ROOT" "env output"
+smoke_require_symlinks
 output=$(run_adp "$CHECKOUT_ROOT" run codex --workspace game-a -- --rehearsal)
 assert_contains "$output" "fake-codex" "fake codex output"
 output=$(run_adp "$CHECKOUT_ROOT" sessions list --workspace game-a --agent codex)

@@ -193,6 +193,7 @@ run_fake_smoke() (
   assert_contains "$zsh_completion_output" "completion values statuses" "zsh completion output"
 
   info "fake smoke: run codex and claude through runtime overlays"
+  smoke_require_symlinks
   codex_output=$(with_dangerous_git_env "$smoke_root/git-boundary-env" run_adp "$REPO_ROOT" run codex --workspace game-a --task "$task_id" -- --probe codex-payload)
   assert_contains "$codex_output" "fake-codex" "codex run output"
   assert_contains "$codex_output" "--probe codex-payload" "codex run output"

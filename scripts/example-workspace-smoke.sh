@@ -252,6 +252,7 @@ assert_symlink "$runtime_root/main.go"
 assert_absent_project_artifacts "$PROJECT_ROOT"
 
 info "running fake codex through copied workspace"
+smoke_require_symlinks
 codex_output=$(run_adp "$REPO_ROOT" run codex --workspace game-a -- --example-smoke)
 assert_contains "$codex_output" "fake-codex" "codex run output"
 assert_contains "$codex_output" "--example-smoke" "codex run output"

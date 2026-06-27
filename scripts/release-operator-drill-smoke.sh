@@ -306,6 +306,7 @@ if [ -z "$TASK_ID" ]; then
   fail "could not parse task id from: $output"
 fi
 reset_git_tripwire
+smoke_require_symlinks
 output=$(run_adp "$TMP_ROOT" run codex --workspace operator-a --task "$TASK_ID" -- --operator-drill)
 assert_contains "$output" "fake-codex" "fake codex output"
 output=$(run_adp "$TMP_ROOT" phase accept --workspace operator-a p-operator --command "scripts/check-all.sh" --command "scripts/release-operator-drill-smoke.sh" --result passed --notes "operator drill smoke")

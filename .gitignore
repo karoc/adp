@@ -5,3 +5,6 @@ bin/
 /build/
 /dist/
 /adp
+
+# Local test reports (not repo content)
+reports/
