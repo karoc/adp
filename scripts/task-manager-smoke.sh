@@ -106,8 +106,7 @@ assert_file "$PHASES_FILE"
 assert_file "$PROGRESS_FILE"
 
 info "checking phase gate status read-only output"
-tasks_before=$(cat "$TASKS_FILE")
-phases_before=$(cat "$PHASES_FILE")
+tasks_before=$(cat "$TASKS_FILE"); phases_before=$(cat "$PHASES_FILE")
 progress_before=$(cat "$PROGRESS_FILE")
 runtime_dirs_before=$(runtime_dirs_state)
 project_root_before=$(project_root_state)
@@ -140,8 +139,7 @@ assert_text_unchanged "$git_before" "$(git_state)" "phase status" "Git state"
 assert_project_root_clean
 
 info "checking planning doctor read-only output"
-tasks_before=$(cat "$TASKS_FILE")
-phases_before=$(cat "$PHASES_FILE")
+tasks_before=$(cat "$TASKS_FILE"); phases_before=$(cat "$PHASES_FILE")
 progress_before=$(cat "$PROGRESS_FILE")
 runtime_dirs_before=$(runtime_dirs_state)
 project_root_before=$(project_root_state)
@@ -207,8 +205,7 @@ printf '%s\n' \
   > "$BROKEN_PHASES_FILE"
 printf '%s\n' '{"type":"task_created","task_id":"task-broken"}' > "$BROKEN_PROGRESS_FILE"
 
-broken_tasks_before=$(cat "$BROKEN_TASKS_FILE")
-broken_phases_before=$(cat "$BROKEN_PHASES_FILE")
+broken_tasks_before=$(cat "$BROKEN_TASKS_FILE"); broken_phases_before=$(cat "$BROKEN_PHASES_FILE")
 broken_progress_before=$(cat "$BROKEN_PROGRESS_FILE")
 runtime_dirs_before=$(runtime_dirs_state)
 project_root_before=$(project_root_state)
