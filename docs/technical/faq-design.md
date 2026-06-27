@@ -1,5 +1,10 @@
 # FAQ Design Document
 
+> **Status update (2026-06-27): Archived design.** This document is the Phase 4
+> FAQ design. The FAQ has been implemented and bilingual sync completed (see
+> `docs/faq.md`, `docs/faq.zh-CN.md`). The `- [ ]` acceptance criteria at the
+> end are draft-template format, not current backlog.
+
 ## 1. Executive Summary
 
 This document defines the question classification system, content structure, and answer patterns for the ADP FAQ documentation. The FAQ serves as a conceptual bridge between README and technical guides, focusing on "why" and "when" questions rather than "how to fix" errors.

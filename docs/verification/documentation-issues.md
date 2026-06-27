@@ -1,5 +1,8 @@
 # 文档错误和改进清单
 
+> **状态更新（2026-06-27）：已归档。** 本清单记录 P0-P2 验证期间发现的文档问题。
+> 末尾的 `- [ ]` 清单项是模板格式，相关改进已在后续阶段完成。
+
 **生成日期**: 2026-06-13  
 **验证脚本**: `scripts/usability-docs-verification.sh`  
 **验证报告**: `docs/verification/documentation-verification.md`
