@@ -100,3 +100,48 @@ func TestLoggerAppendsJSONLinesAndSanitizesEnvFields(t *testing.T) {
 		t.Fatalf("logs dir was not created: info=%#v err=%v", info, err)
 	}
 }
+
+func TestLoggerCreatesEventsFileWithOwnerOnlyPermission(t *testing.T) {
+	t.Parallel()
+
+	layout := paths.New(t.TempDir(), t.TempDir())
+	logger := NewLogger(layout)
+
+	if err := logger.Log(context.Background(), Event{Type: "run_started", Workspace: "game-a"}); err != nil {
+		t.Fatalf("Log returned error: %v", err)
+	}
+
+	info, err := os.Stat(layout.EventsFile)
+	if err != nil {
+		t.Fatalf("stat events file: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("events file permission = %o, want 600", perm)
+	}
+}
+
+func TestLoggerTightensPreexistingLoosePermission(t *testing.T) {
+	t.Parallel()
+
+	layout := paths.New(t.TempDir(), t.TempDir())
+	if err := os.MkdirAll(layout.LogsDir, 0o755); err != nil {
+		t.Fatalf("mkdir logs dir: %v", err)
+	}
+	// Simulate a log written by an older build with a world-readable mode.
+	if err := os.WriteFile(layout.EventsFile, []byte("{\"type\":\"old\"}\n"), 0o644); err != nil {
+		t.Fatalf("seed legacy log: %v", err)
+	}
+
+	logger := NewLogger(layout)
+	if err := logger.Log(context.Background(), Event{Type: "run_started", Workspace: "game-a"}); err != nil {
+		t.Fatalf("Log returned error: %v", err)
+	}
+
+	info, err := os.Stat(layout.EventsFile)
+	if err != nil {
+		t.Fatalf("stat events file: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("legacy events file permission = %o, want 600 after tightening", perm)
+	}
+}

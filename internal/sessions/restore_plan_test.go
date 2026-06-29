@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/karoc/adp/internal/events"
@@ -149,5 +150,42 @@ func TestBuildRestorePlanPartialForUnsupportedSchema(t *testing.T) {
 	}
 	if !slices.Equal(plan.SuggestedCommand, []string{"adp", "run", "codex", "--workspace", "game-a", "--", "--version"}) {
 		t.Fatalf("suggested command = %#v", plan.SuggestedCommand)
+	}
+}
+
+func TestBuildRestorePlanRedactsSecretAgentArgs(t *testing.T) {
+	detail := &Detail{
+		Summary: Summary{
+			SessionID: "session-1",
+			Workspace: "game-a",
+			Agent:     "codex",
+		},
+		Events: []events.Event{{
+			Type: eventTypeRunStarted,
+			Fields: map[string]any{
+				"invocation": map[string]any{
+					"schema_version": 1,
+					"keep_runtime":   false,
+					"agent_args":     []string{"--api-key", "sk-abc123secretvalue", "--model", "gpt-4"},
+				},
+			},
+		}},
+	}
+
+	plan := BuildRestorePlan(detail)
+
+	for _, arg := range plan.SuggestedCommand {
+		if strings.Contains(arg, "sk-abc123secretvalue") {
+			t.Fatalf("suggested command leaks secret value: %#v", plan.SuggestedCommand)
+		}
+	}
+	if !slices.Contains(plan.SuggestedCommand, "***REDACTED***") {
+		t.Fatalf("suggested command missing redaction placeholder: %#v", plan.SuggestedCommand)
+	}
+	if !slices.Contains(plan.SuggestedCommand, "--api-key") {
+		t.Fatalf("suggested command should preserve flag name: %#v", plan.SuggestedCommand)
+	}
+	if !slices.Contains(plan.SuggestedCommand, "gpt-4") {
+		t.Fatalf("suggested command should preserve non-secret value: %#v", plan.SuggestedCommand)
 	}
 }

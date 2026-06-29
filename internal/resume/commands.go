@@ -1,5 +1,7 @@
 package resume
 
+import "github.com/karoc/adp/internal/redact"
+
 func (p *Plan) addInspectionCommands() {
 	if p.SessionID != "" {
 		p.SuggestedCommands = append(p.SuggestedCommands, Command{
@@ -121,7 +123,7 @@ func (p Plan) appendRuntimeOptions(args []string) []string {
 	}
 	if p.Invocation != nil && p.sameLaunchContext() && len(p.Invocation.AgentArgs) > 0 {
 		args = append(args, "--")
-		args = append(args, p.Invocation.AgentArgs...)
+		args = append(args, redact.Args(p.Invocation.AgentArgs)...)
 	}
 	return args
 }

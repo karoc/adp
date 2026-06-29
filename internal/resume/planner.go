@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/karoc/adp/internal/redact"
 	"github.com/karoc/adp/internal/sessions"
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
@@ -127,7 +128,7 @@ func (p *Plan) applyInvocation(detail *sessions.Detail) {
 		Available:     true,
 		SchemaVersion: snapshot.SchemaVersion,
 		KeepRuntime:   snapshot.KeepRuntime,
-		AgentArgs:     snapshot.AgentArgs,
+		AgentArgs:     redact.Args(snapshot.AgentArgs),
 	}
 	for _, issue := range issues {
 		p.addContextGap(issue.Field, issue.Reason)

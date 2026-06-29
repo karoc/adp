@@ -249,3 +249,48 @@ func contains(values []string, want string) bool {
 	}
 	return false
 }
+
+func TestBuildPlanRedactsSecretAgentArgs(t *testing.T) {
+	now := time.Date(2026, 6, 10, 8, 0, 0, 0, time.UTC)
+	task := testTask("task-1", taskstore.StatusInProgress)
+	task.Owner = "codex-main"
+	task.LeaseExpiresAt = now.Add(time.Hour)
+
+	detail := testDetail("session-1", "task-1")
+	detail.Summary.Profile = "senior"
+	detail.Events = []events.Event{testInvocationEvent(true, "--api-key", "sk-abc123secretvalue", "--model", "gpt-4")}
+
+	plan := BuildPlan(Request{
+		Detail: detail,
+		Owner:  "codex-main",
+		Now:    now,
+		Task:   &task,
+	})
+
+	// The plan struct (serialized verbatim by resume-plan --json) must not
+	// carry the cleartext secret.
+	if plan.Invocation == nil {
+		t.Fatal("invocation snapshot missing")
+	}
+	joinedInvocation := strings.Join(plan.Invocation.AgentArgs, " ")
+	if strings.Contains(joinedInvocation, "sk-abc123secretvalue") {
+		t.Fatalf("invocation snapshot leaks secret: %#v", plan.Invocation.AgentArgs)
+	}
+	if !contains(plan.Invocation.AgentArgs, "--api-key") {
+		t.Fatalf("invocation snapshot dropped flag name: %#v", plan.Invocation.AgentArgs)
+	}
+	if !contains(plan.Invocation.AgentArgs, "***REDACTED***") {
+		t.Fatalf("invocation snapshot missing placeholder: %#v", plan.Invocation.AgentArgs)
+	}
+
+	// The textual suggested launch command must not leak the secret either.
+	for _, command := range plan.SuggestedCommands {
+		joined := strings.Join(command.Args, " ")
+		if strings.Contains(joined, "sk-abc123secretvalue") {
+			t.Fatalf("suggested command %q leaks secret: %#v", command.Label, command.Args)
+		}
+	}
+	if !hasCommand(plan, "launch-resumed-worker", "--profile", "senior", "--keep-runtime", "--", "--api-key", "***REDACTED***", "--model", "gpt-4") {
+		t.Fatalf("missing redacted launch command: %+v", plan.SuggestedCommands)
+	}
+}

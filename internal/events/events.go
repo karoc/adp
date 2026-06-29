@@ -53,11 +53,18 @@ func (l *Logger) Log(ctx context.Context, event Event) error {
 		return err
 	}
 
-	file, err := os.OpenFile(eventsFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	file, err := os.OpenFile(eventsFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+
+	// OpenFile only applies the mode when it creates the file. Event logs may
+	// carry recorded command context, so tighten the permission of a log that
+	// predates this guard (or was created with a looser umask) to owner-only.
+	if info, statErr := file.Stat(); statErr == nil && info.Mode().Perm() != 0o600 {
+		_ = file.Chmod(0o600)
+	}
 
 	encoder := json.NewEncoder(file)
 	return encoder.Encode(sanitizeEvent(event))

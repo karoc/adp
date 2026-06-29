@@ -11,6 +11,9 @@ ADP（Agent Development Platform）的所有重要变更都将记录在此文件
 
 ## [未发布]
 
+### 安全
+- **对事件日志与会话恢复计划中的 agent 参数密钥脱敏** — 传递给 `adp run` 的 `--` 之后的参数（例如 `--api-key sk-...`）此前被原样记录在全局可读的 `events.jsonl` 中，并被 `sessions restore-plan` / `sessions resume-plan` 回显。现在密钥形态的值会被替换为 `***REDACTED***`，同时保留参数名；事件日志以仅属主可读的 `0600` 权限创建（已存在的宽松权限会在下次写入时收紧）；脱敏在写入时和计划渲染时（文本与 JSON）双重生效。新增 `internal/redact` 包，通过敏感参数名（`key`、`secret`、`token`、`password`、`auth`、`credential` 等）、已知服务商前缀（`sk-`、`ghp_`、`AKIA`、`eyJ` 等）以及高熵裸值来识别凭据。
+
 ### Phase 1-5 基础（预发布开发）
 
 以下章节记录了 ADP 从初始概念到生产就绪 1.0 候选版本的演进。所有功能都经过系统化验收测试，对于本地 terminal-first AI agent 工作流被认为是稳定的。

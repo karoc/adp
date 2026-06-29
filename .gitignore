@@ -8,3 +8,6 @@ bin/
 
 # Local test reports (not repo content)
 reports/
+
+# Local agent tooling state (not repo content)
+.claude/

@@ -13,6 +13,7 @@ import (
 	"github.com/karoc/adp/internal/gitenv"
 	"github.com/karoc/adp/internal/gitstate"
 	"github.com/karoc/adp/internal/output"
+	"github.com/karoc/adp/internal/redact"
 	"github.com/karoc/adp/internal/runner"
 	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/schema"
@@ -305,7 +306,7 @@ func taskContext(task taskstore.Task) adapters.TaskContext {
 func runInvocationFields(opts runOptions, profile string, taskCtx adapters.TaskContext) map[string]any {
 	invocation := map[string]any{
 		"schema_version":       1,
-		"agent_args":           append([]string(nil), opts.agentArgs...),
+		"agent_args":           redact.Args(opts.agentArgs),
 		"keep_runtime":         opts.keep,
 		"workspace_resolution": workspaceResolutionSource(opts),
 		"profile_source":       profileSource(opts, profile),

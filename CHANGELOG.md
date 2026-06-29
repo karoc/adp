@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Redact secrets from agent arguments in event logs and resume planning** — Arguments passed after `--` to `adp run` (for example `--api-key sk-...`) were recorded verbatim in the world-readable `events.jsonl` and echoed back by `sessions restore-plan` / `sessions resume-plan`. Secret-looking values are now masked with `***REDACTED***` while the flag name is preserved, the event log is created with owner-only `0600` permissions (and pre-existing loose permissions are tightened on next write), and the redaction is applied both at write time and when plans are rendered (text and JSON). A new `internal/redact` package detects credentials by sensitive flag name (`key`, `secret`, `token`, `password`, `auth`, `credential`, ...), known provider prefixes (`sk-`, `ghp_`, `AKIA`, `eyJ`, ...), and high-entropy bare values.
+
 ### Phase 1-5 Foundation (Pre-release Development)
 
 The following sections document ADP's evolution from initial concept to production-ready 1.0 candidate. All features have undergone systematic acceptance testing and are considered stable for local terminal-first AI agent workflows.

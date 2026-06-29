@@ -1,5 +1,7 @@
 package sessions
 
+import "github.com/karoc/adp/internal/redact"
+
 const (
 	RestorePlanStatusReady   = "ready"
 	RestorePlanStatusPartial = "partial"
@@ -74,7 +76,7 @@ func applyInvocation(plan *RestorePlan, command *[]string, invocation Invocation
 	}
 	if len(invocation.AgentArgs) > 0 {
 		*command = append(*command, "--")
-		*command = append(*command, invocation.AgentArgs...)
+		*command = append(*command, redact.Args(invocation.AgentArgs)...)
 	}
 }
 
