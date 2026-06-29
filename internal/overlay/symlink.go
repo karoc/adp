@@ -9,9 +9,18 @@ import (
 	"strings"
 
 	"github.com/karoc/adp/internal/adapters"
+	"github.com/karoc/adp/internal/paths"
 )
 
-const defaultGeneratedFileMode fs.FileMode = 0644
+// defaultGeneratedFileMode is owner-only because the runtime overlay lives in a
+// shared temp location ($ADP_RUNTIME_DIR). Generated files are rendered from
+// workspace prompts, memory, and profiles and must not be readable by other
+// local users (CWE-732).
+const defaultGeneratedFileMode fs.FileMode = paths.PrivateFileMode
+
+// privateFileMask strips group and other permission bits so adapter-requested
+// modes cannot widen runtime file access beyond the owner.
+const privateFileMask fs.FileMode = 0o077
 
 type SymlinkBackend struct{}
 
@@ -35,7 +44,7 @@ func (b *SymlinkBackend) Materialize(ctx context.Context, req Request) (*Result,
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(runtimeRoot, 0755); err != nil {
+	if err := paths.EnsurePrivateDir(runtimeRoot); err != nil {
 		return nil, fmt.Errorf("create runtime root: %w", err)
 	}
 
@@ -111,7 +120,7 @@ func writeGeneratedFiles(runtimeRoot string, files []adapters.GeneratedFile, res
 		if err := ensureWithinRoot(runtimeRoot, target); err != nil {
 			return nil, fmt.Errorf("generated file %q: %w", file.Path, err)
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), paths.PrivateDirMode); err != nil {
 			return nil, fmt.Errorf("create generated file parent %q: %w", clean, err)
 		}
 		if err := ensureNoSymlinkParents(runtimeRoot, filepath.Dir(target)); err != nil {
@@ -122,6 +131,9 @@ func writeGeneratedFiles(runtimeRoot string, files []adapters.GeneratedFile, res
 		if mode == 0 {
 			mode = defaultGeneratedFileMode
 		}
+		// Strip group/other bits so an adapter-requested mode cannot widen
+		// access in the shared runtime location (CWE-732).
+		mode &^= privateFileMask
 		if err := writeNewFile(target, file.Data, mode); err != nil {
 			return nil, fmt.Errorf("write generated file %q: %w", clean, err)
 		}

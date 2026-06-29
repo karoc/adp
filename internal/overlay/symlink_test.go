@@ -34,7 +34,9 @@ func TestSymlinkBackendMaterializeWritesGeneratedFilesAndLinksProjectChildren(t 
 	}
 
 	assertFileContent(t, filepath.Join(runtimeRoot, "AGENTS.md"), "adp agents\n")
-	assertFileMode(t, filepath.Join(runtimeRoot, "AGENTS.md"), 0640)
+	// Group/other bits are stripped from adapter-requested modes because the
+	// runtime overlay lives in a shared temp location (CWE-732); 0640 -> 0600.
+	assertFileMode(t, filepath.Join(runtimeRoot, "AGENTS.md"), 0600)
 	assertFileContent(t, filepath.Join(runtimeRoot, ".codex", "config.toml"), "model = \"test\"\n")
 	assertSymlinkTarget(t, filepath.Join(runtimeRoot, "go.mod"), filepath.Join(projectRoot, "go.mod"))
 	assertSymlinkTarget(t, filepath.Join(runtimeRoot, "internal"), filepath.Join(projectRoot, "internal"))
@@ -45,6 +47,32 @@ func TestSymlinkBackendMaterializeWritesGeneratedFilesAndLinksProjectChildren(t 
 	if !slices.Contains(result.LinkedPaths, "go.mod") {
 		t.Fatalf("linked paths missing go.mod: %#v", result.LinkedPaths)
 	}
+}
+
+func TestSymlinkBackendMaterializeUsesOwnerOnlyPermissions(t *testing.T) {
+	requireSymlinks(t)
+	projectRoot := t.TempDir()
+	writeProjectFile(t, projectRoot, "go.mod", []byte("module example\n"))
+
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	if _, err := NewSymlinkBackend().Materialize(context.Background(), Request{
+		WorkspaceName: "game-a",
+		ProjectRoot:   projectRoot,
+		RuntimeRoot:   runtimeRoot,
+		Files: []adapters.GeneratedFile{
+			{Path: "CLAUDE.md", Data: []byte("instructions\n"), Mode: 0644},
+			{Path: ".claude/settings.json", Data: []byte("{}\n"), Mode: 0644},
+		},
+	}); err != nil {
+		t.Fatalf("materialize: %v", err)
+	}
+
+	// The runtime tree lives in a shared temp location; it must not be
+	// traversable or readable by other local users (CWE-732).
+	assertDirMode(t, runtimeRoot, 0o700)
+	assertDirMode(t, filepath.Join(runtimeRoot, ".claude"), 0o700)
+	assertFileMode(t, filepath.Join(runtimeRoot, "CLAUDE.md"), 0o600)
+	assertFileMode(t, filepath.Join(runtimeRoot, ".claude", "settings.json"), 0o600)
 }
 
 func TestSymlinkBackendGeneratedReservedPathsWinOverProjectConflicts(t *testing.T) {
@@ -256,6 +284,20 @@ func assertFileMode(t *testing.T, path string, want fs.FileMode) {
 	}
 	if got := info.Mode().Perm(); got != want {
 		t.Fatalf("mode mismatch for %s: got %v want %v", path, got, want)
+	}
+}
+
+func assertDirMode(t *testing.T, path string, want fs.FileMode) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("expected %s to be a directory", path)
+	}
+	if got := info.Mode().Perm(); got != want {
+		t.Fatalf("dir mode mismatch for %s: got %v want %v", path, got, want)
 	}
 }
 
