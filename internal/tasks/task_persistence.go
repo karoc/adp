@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/karoc/adp/internal/paths"
 	"gopkg.in/yaml.v3"
 )
 
@@ -52,7 +53,7 @@ func (s *Store) save(ctx context.Context, file taskFile) error {
 	file.Version = currentVersion
 	sortTasks(file.Tasks)
 
-	if err := os.MkdirAll(s.planningPath(), 0o755); err != nil {
+	if err := s.ensurePlanningDir(); err != nil {
 		return fmt.Errorf("create planning directory: %w", err)
 	}
 	data, err := yaml.Marshal(file)
@@ -63,7 +64,7 @@ func (s *Store) save(ctx context.Context, file taskFile) error {
 	tmpPath := path + ".tmp"
 	defer os.Remove(tmpPath)
 
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+	if err := os.WriteFile(tmpPath, data, paths.PrivateFileMode); err != nil {
 		return fmt.Errorf("write temporary task file %s: %w", tmpPath, err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {

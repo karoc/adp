@@ -49,7 +49,7 @@ func (l *Logger) Log(ctx context.Context, event Event) error {
 	}
 
 	logsDir := l.logsDir(eventsFile)
-	if err := os.MkdirAll(logsDir, 0o755); err != nil {
+	if err := paths.EnsurePrivateDir(logsDir); err != nil {
 		return err
 	}
 

@@ -38,7 +38,7 @@ func (r *Registry) Init(ctx context.Context) error {
 	}
 
 	for _, dir := range []string{r.Layout.Home, r.Layout.WorkspacesDir, r.Layout.LogsDir} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := paths.EnsurePrivateDir(dir); err != nil {
 			return fmt.Errorf("create directory %s: %w", dir, err)
 		}
 	}
@@ -312,7 +312,7 @@ func ensureProjectDir(projectRoot string) error {
 }
 
 func createNewWorkspaceDir(workspaceDir string, name string) error {
-	if err := os.Mkdir(workspaceDir, 0o755); err != nil {
+	if err := os.Mkdir(workspaceDir, paths.PrivateDirMode); err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return fmt.Errorf("%w: %s", ErrWorkspaceExists, name)
 		}
@@ -391,7 +391,7 @@ func saveWorkspaceConfigAtomic(path string, cfg *schema.Config) error {
 
 func writeWorkspaceDefaults(workspaceDir string, cfg *schema.Config) error {
 	for _, dir := range []string{"prompts", "memory", "mcp", "profiles"} {
-		if err := os.MkdirAll(filepath.Join(workspaceDir, dir), 0o755); err != nil {
+		if err := paths.EnsurePrivateDir(filepath.Join(workspaceDir, dir)); err != nil {
 			return fmt.Errorf("create workspace subdirectory %s: %w", dir, err)
 		}
 	}

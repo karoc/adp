@@ -18,7 +18,7 @@ func (s *Store) withPlanningLock(ctx context.Context, fn func() error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.planningPath(), 0o755); err != nil {
+	if err := s.ensurePlanningDir(); err != nil {
 		return fmt.Errorf("create planning directory: %w", err)
 	}
 

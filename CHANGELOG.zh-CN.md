@@ -13,6 +13,7 @@ ADP（Agent Development Platform）的所有重要变更都将记录在此文件
 
 ### 安全
 - **对事件日志与会话恢复计划中的 agent 参数密钥脱敏** — 传递给 `adp run` 的 `--` 之后的参数（例如 `--api-key sk-...`）此前被原样记录在全局可读的 `events.jsonl` 中，并被 `sessions restore-plan` / `sessions resume-plan` 回显。现在密钥形态的值会被替换为 `***REDACTED***`，同时保留参数名；事件日志以仅属主可读的 `0600` 权限创建（已存在的宽松权限会在下次写入时收紧）；脱敏在写入时和计划渲染时（文本与 JSON）双重生效。新增 `internal/redact` 包，通过敏感参数名（`key`、`secret`、`token`、`password`、`auth`、`credential` 等）、已知服务商前缀（`sk-`、`ghp_`、`AKIA`、`eyJ` 等）以及高熵裸值来识别凭据。
+- **将 `$ADP_HOME` 状态目录树收紧为仅属主可访问** — ADP 此前以 `0o755`（目录）和 `0o644`（文件）创建 `$ADP_HOME` 下的全部内容，使同一主机上的其他本地用户可以读取项目路径、任务内容、git remote（可能含令牌）以及命令历史（CWE-732）。现在所有 `$ADP_HOME` 目录（home、`workspaces/`、`logs/`、每个工作区子目录以及 `planning/`）都通过新增的 `internal/paths.EnsurePrivateDir` 以 `0o700` 创建，已存在的宽松权限会被收紧；任务台账文件（`tasks.yaml`、`phases.yaml`、`progress.jsonl`）额外以 `0o600` 写入，构成纵深防御。
 
 ### Phase 1-5 基础（预发布开发）
 

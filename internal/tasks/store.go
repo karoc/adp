@@ -3,6 +3,8 @@ package tasks
 import (
 	"path/filepath"
 	"time"
+
+	"github.com/karoc/adp/internal/paths"
 )
 
 const (
@@ -34,6 +36,14 @@ func (s *Store) now() time.Time {
 
 func (s *Store) planningPath() string {
 	return filepath.Join(s.WorkspaceDir, planningDir)
+}
+
+// ensurePlanningDir creates the planning directory with owner-only
+// permissions (0o700). Planning data can contain project paths, task
+// content, and command history that must not be exposed to other local
+// users (CWE-732).
+func (s *Store) ensurePlanningDir() error {
+	return paths.EnsurePrivateDir(s.planningPath())
 }
 
 func (s *Store) tasksPath() string {

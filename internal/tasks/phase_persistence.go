@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/karoc/adp/internal/paths"
 	"gopkg.in/yaml.v3"
 )
 
@@ -49,7 +50,7 @@ func (s *Store) savePhases(ctx context.Context, file phaseFile) error {
 	}
 	file.Version = currentVersion
 	sortPhases(file.Phases)
-	if err := os.MkdirAll(s.planningPath(), 0o755); err != nil {
+	if err := s.ensurePlanningDir(); err != nil {
 		return fmt.Errorf("create planning directory: %w", err)
 	}
 	data, err := yaml.Marshal(file)
@@ -59,7 +60,7 @@ func (s *Store) savePhases(ctx context.Context, file phaseFile) error {
 	path := s.phasesPath()
 	tmpPath := path + ".tmp"
 	defer os.Remove(tmpPath)
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+	if err := os.WriteFile(tmpPath, data, paths.PrivateFileMode); err != nil {
 		return fmt.Errorf("write temporary phase file %s: %w", tmpPath, err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/karoc/adp/internal/paths"
 	"gopkg.in/yaml.v3"
 )
 
@@ -81,7 +82,7 @@ func replacePlanningFiles(ctx context.Context, files []stagedPlanningFile) error
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := os.WriteFile(file.tmp, file.data, 0o644); err != nil {
+		if err := os.WriteFile(file.tmp, file.data, paths.PrivateFileMode); err != nil {
 			return fmt.Errorf("write temporary planning file %s: %w", file.tmp, err)
 		}
 	}
@@ -131,7 +132,7 @@ func snapshotPlanningFiles(files []stagedPlanningFile) ([]planningFileSnapshot, 
 func restorePlanningFiles(snapshots []planningFileSnapshot) error {
 	for _, snapshot := range snapshots {
 		if snapshot.exists {
-			if err := os.WriteFile(snapshot.path, snapshot.data, 0o644); err != nil {
+			if err := os.WriteFile(snapshot.path, snapshot.data, paths.PrivateFileMode); err != nil {
 				return fmt.Errorf("restore planning file %s: %w", snapshot.path, err)
 			}
 			continue

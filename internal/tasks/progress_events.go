@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/karoc/adp/internal/paths"
 )
 
 type progressEvent struct {
@@ -32,7 +34,7 @@ func (s *Store) appendEvent(ctx context.Context, event progressEvent) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.planningPath(), 0o755); err != nil {
+	if err := s.ensurePlanningDir(); err != nil {
 		return fmt.Errorf("create planning directory: %w", err)
 	}
 	data, err := json.Marshal(event)
@@ -41,7 +43,7 @@ func (s *Store) appendEvent(ctx context.Context, event progressEvent) error {
 	}
 	data = append(data, '\n')
 
-	file, err := os.OpenFile(s.progressPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	file, err := os.OpenFile(s.progressPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, paths.PrivateFileMode)
 	if err != nil {
 		return fmt.Errorf("open progress file: %w", err)
 	}
