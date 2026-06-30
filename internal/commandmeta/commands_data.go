@@ -176,7 +176,7 @@ var rootCommands = []Command{
 			"adp tasks take [--workspace <name>] --owner <owner> [--lease <duration>] [--format <text|json>]",
 			"adp tasks stale [--workspace <name>] [--format <text|json>]",
 			"adp tasks show [--workspace <name>] <task-id> [--format <text|json>]",
-			"adp tasks update [--workspace <name>] <task-id> --status <status>",
+			"adp tasks update [--workspace <name>] <task-id> --status <planned|ready|in_progress|blocked|review|validated|done|canceled>",
 			"adp tasks claim [--workspace <name>] <task-id> --owner <owner> [--lease <duration>]",
 			"adp tasks renew [--workspace <name>] <task-id> --owner <owner> --lease <duration>",
 			"adp tasks release [--workspace <name>] <task-id> [--owner <owner>]",
