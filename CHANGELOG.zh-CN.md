@@ -23,6 +23,7 @@ ADP（Agent Development Platform）的所有重要变更都将记录在此文件
 
 ### 变更
 - **让 task、phase、workspace 与 session 的 "not found" 错误可操作** — 对不存在的标识符执行 `adp tasks show`/`done`/`claim`/...、`adp phase show`/`start`/`accept`/...、`adp workspace show`/`remove`/... 或 `adp sessions show`/`restore-plan`/... 时，此前只输出一条干瘪的 "not found" 消息，操作员只能猜测实际存在哪些 ID。现在这些错误会追加 `run: adp <cmd> list` 提示（`adp tasks list`、`adp phase list`、`adp workspace list` 或 `adp sessions list`），让操作员能立刻查看可用标识符，与既有的可操作空列表和拼写建议行为保持一致。歧义前缀错误不受影响（它们本就列出所有匹配项）。
+- **拒绝非法 task status 时列出合法值** — `adp tasks update --status <非法值>`（以及计划导入遇到未知 status 时）此前只输出 "unknown task status"，而 `adp tasks update --help` 也不列出合法值，操作员只能猜测。现在该错误会追加可接受的 status（planned、ready、in_progress、blocked、review、validated、done、canceled），让操作员能立即更正输入。
 
 ### Phase 1-5 基础（预发布开发）
 

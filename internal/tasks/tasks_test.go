@@ -549,8 +549,14 @@ func TestStoreReportsMissingAndInvalidTasks(t *testing.T) {
 	if _, err := store.Block(context.Background(), "missing", ""); err == nil {
 		t.Fatal("Block without reason returned nil error")
 	}
-	if _, err := ParseStatus("bad"); err == nil {
+	_, parseErr := ParseStatus("bad")
+	if parseErr == nil {
 		t.Fatal("ParseStatus returned nil error for bad status")
+	}
+	// Ensure the error lists the legal statuses so the operator can recover
+	// without consulting separate docs (the --help text does not enumerate them).
+	if msg := parseErr.Error(); !strings.Contains(msg, "valid:") || !strings.Contains(msg, "ready") || !strings.Contains(msg, "done") {
+		t.Fatalf("ParseStatus error should list valid statuses; got %q", msg)
 	}
 	if _, err := store.GetPhase(context.Background(), "missing"); !errors.Is(err, ErrPhaseNotFound) {
 		t.Fatalf("GetPhase error = %v, want ErrPhaseNotFound", err)

@@ -94,9 +94,21 @@ func Statuses() []Status {
 func ParseStatus(value string) (Status, error) {
 	status := Status(strings.TrimSpace(value))
 	if !isValidStatus(status) {
-		return "", fmt.Errorf("unknown task status %q", value)
+		return "", fmt.Errorf("unknown task status %q (valid: %s)", value, validStatusesString())
 	}
 	return status, nil
+}
+
+// validStatusesString returns the comma-separated list of accepted task
+// statuses for inclusion in "unknown task status" error messages, so the
+// operator can see the legal values directly instead of consulting --help
+// (which does not enumerate them either).
+func validStatusesString() string {
+	names := make([]string, len(statusOrder))
+	for i, s := range statusOrder {
+		names[i] = string(s)
+	}
+	return strings.Join(names, ", ")
 }
 
 func isValidStatus(status Status) bool {

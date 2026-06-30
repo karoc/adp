@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Make task, phase, workspace, and session "not found" errors actionable** — `adp tasks show`/`done`/`claim`/..., `adp phase show`/`start`/`accept`/..., `adp workspace show`/`remove`/..., and `adp sessions show`/`restore-plan`/... invoked with a missing identifier previously printed only a bare "not found" message, leaving the operator to guess what identifiers actually exist. The errors now append a `run: adp <cmd> list` hint (`adp tasks list`, `adp phase list`, `adp workspace list`, or `adp sessions list`) so the operator can immediately see the available identifiers, mirroring the existing actionable empty-list and did-you-mean behavior. Ambiguous-prefix errors are unchanged because they already list the matches.
+- **List valid statuses when a task status is rejected** — `adp tasks update --status <invalid>` (and plan import of an unknown status) previously printed only "unknown task status", and `adp tasks update --help` does not enumerate the legal values either, leaving the operator to guess. The error now appends the accepted statuses (planned, ready, in_progress, blocked, review, validated, done, canceled) so the operator can correct the input immediately.
 
 ### Phase 1-5 Foundation (Pre-release Development)
 

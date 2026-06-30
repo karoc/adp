@@ -132,7 +132,7 @@ func (s *Store) FindByPrefix(ctx context.Context, prefix string) ([]Task, error)
 
 func (s *Store) UpdateStatus(ctx context.Context, id string, status Status) (Task, error) {
 	if !isValidStatus(status) {
-		return Task{}, fmt.Errorf("unknown task status %q", status)
+		return Task{}, fmt.Errorf("unknown task status %q (valid: %s)", status, validStatusesString())
 	}
 	return s.update(ctx, id, func(task *Task, now time.Time) (progressEvent, error) {
 		task.Status = status
