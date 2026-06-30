@@ -159,7 +159,13 @@ func (a *App) workspaceList(ctx context.Context, args []string) error {
 	for _, record := range records {
 		fmt.Fprintf(writer, "%s\t%s\t%s\n", record.Name, record.ProjectRoot, record.WorkspaceDir)
 	}
-	return writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	if len(records) == 0 {
+		fmt.Fprintln(a.stdout, "\nNo workspaces found. Register one with 'adp workspace add <name> <project-root>'")
+	}
+	return nil
 }
 
 func (a *App) workspaceListJSON(records []workspace.Record) error {

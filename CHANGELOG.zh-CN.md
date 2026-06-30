@@ -26,6 +26,7 @@ ADP（Agent Development Platform）的所有重要变更都将记录在此文件
 - **拒绝非法 task status 时列出合法值** — `adp tasks update --status <非法值>`（以及计划导入遇到未知 status 时）此前只输出 "unknown task status"，而 `adp tasks update --help` 也不列出合法值，操作员只能猜测。现在该错误会追加可接受的 status（planned、ready、in_progress、blocked、review、validated、done、canceled），让操作员能立即更正输入。
 - **`adp run` 的 flags 出现在 agent 之前时报明确的 "agent is required" 错误** — `adp run --workspace x codex`（flags 在 agent 之前，常见的 shell 习惯）此前会把 `--workspace` 当作 agent 名，再为该 flag 的值报误导性的 `unknown run option "x"`，让操作员去寻找一个不存在的 option。解析器现在检测到首个参数是 flag 时，改报与空参数一致的、可操作的 `agent is required; usage: adp run <agent> ...` 消息（含 `try: adp run --help` 提示），指向真正的问题——agent 必须在前——而非一个虚构的 option。文档约定的 `adp run <agent> [flags]` 顺序不变；顺序正确的调用不受影响。
 - **在 `adp tasks update --help` 中列出合法 task status** — `--status` 选项的 usage 行此前只显示 `<status>`，而同类枚举选项在 `adp progress report --help`（`--language <en|zh-CN>`、`--format <markdown|json>`）中已列出合法值。该 usage 行现在枚举可接受的 status（planned、ready、in_progress、blocked、review、validated、done、canceled），让操作员能预先得知合法值，而不必在提交非法值后才能从错误消息中看到（后者已由前一项变更覆盖）。`--status` 的错误消息行为不变。
+- **`adp workspace list` 为空时引导操作员** — 空的 workspace 列表此前只打印表头，首次使用的操作员无从得知如何注册 workspace，而其他 list 命令（`adp sessions list`、`adp events list`、`adp tasks list`、`adp phase list`）已打印 "No X found. ... with 'adp ...'" 行指向创建命令。`adp workspace list` 现在以相同风格追加 `No workspaces found. Register one with 'adp workspace add <name> <project-root>'`。JSON 输出不变（本就返回空数组）。
 
 ### Phase 1-5 基础（预发布开发）
 
