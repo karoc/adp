@@ -21,6 +21,9 @@ ADP（Agent Development Platform）的所有重要变更都将记录在此文件
 - **脱敏 `phase push --remote` URL 中内嵌的凭据** — `adp phase push` 记录操作员推送到了哪里（`--remote` 值）作为审计证据；它本身不执行 `git push`，故该字段纯为声明性。操作员若误粘贴含凭据的 URL（如 `https://user:ghp_...@github.com/org/repo`）而非 remote 名，该 URL 会被原样存入阶段台账与 `progress.jsonl`，并回显到终端、进度报告与 JSON 输出（CWE-200）。新增 `redact.URLCredentials` 助手剥离 URL 中的 `user:password@` userinfo，同时保留 scheme/host/path 可见；在唯一存储 chokepoint（`RecordPhasePush`）处应用，使所有展示 sink 与两份持久化文件都拿到脱敏值。remote 名（`origin`）与 scp 风格路径（`git@host:repo.git`）原样保留，无 userinfo 的 URL（含 path 中含 `@` 的）不受影响。
 - **将工作区配置文件收紧为仅属主可访问** — 早先的 `$ADP_HOME` 权限加固把目录收紧为 `0700`、规划台账收紧为 `0600`，但写入 `$ADP_HOME/workspaces/<name>/` 下的工作区配置文件——`workspace.yaml`、`mcp/config.yaml`、`prompts/`·`memory/`·`profiles/` 种子文件，以及全局 workspaces 注册表——仍以 `0644` 写入，仅依赖父目录的 `0700` 作为唯一屏障（CWE-732）。其中 `mcp/config.yaml` 尤其可能存放操作员粘贴的 MCP 服务器 token 或 URL。现这些文件改用 `paths.PrivateFileMode` 以 `0600` 写入，与规划台账一致，并增加一道独立于目录权限的纵深防御层。
 
+### 变更
+- **让 task 与 phase 的 "not found" 错误可操作** — 对不存在的标识符执行 `adp tasks show`/`done`/`claim`/... 或 `adp phase show`/`start`/`accept`/... 时，此前只输出一条干瘪的 "not found" 消息，操作员只能猜测实际存在哪些 ID。现在这些错误会追加 `run: adp tasks list`（或 `adp phase list`）提示，让操作员能立刻查看可用标识符，与既有的可操作空列表和拼写建议行为保持一致。歧义前缀错误不受影响（它们本就列出所有匹配项）。
+
 ### Phase 1-5 基础（预发布开发）
 
 以下章节记录了 ADP 从初始概念到生产就绪 1.0 候选版本的演进。所有功能都经过系统化验收测试，对于本地 terminal-first AI agent 工作流被认为是稳定的。

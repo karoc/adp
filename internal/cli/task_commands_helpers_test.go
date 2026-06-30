@@ -23,6 +23,8 @@ type fakeTaskStore struct {
 	planPreviewResult taskstore.PlanImportResult
 	planApplyResult   taskstore.PlanImportResult
 	planningReport    taskstore.PlanningDiagnosticReport
+	findByPrefixErr   error
+	getPhaseErr       error
 	previewCalls      int
 	applyCalls        int
 	doctorCalls       int
@@ -47,6 +49,9 @@ func (s *fakeTaskStore) Get(_ context.Context, id string) (taskstore.Task, error
 }
 
 func (s *fakeTaskStore) FindByPrefix(_ context.Context, prefix string) ([]taskstore.Task, error) {
+	if s.findByPrefixErr != nil {
+		return nil, s.findByPrefixErr
+	}
 	// Check for exact match first
 	for _, task := range s.tasks {
 		if task.ID == prefix {
@@ -161,6 +166,9 @@ func (s *fakeTaskStore) ListPhases(context.Context) ([]taskstore.Phase, error) {
 }
 
 func (s *fakeTaskStore) GetPhase(_ context.Context, id string) (taskstore.Phase, error) {
+	if s.getPhaseErr != nil {
+		return taskstore.Phase{}, s.getPhaseErr
+	}
 	for _, phase := range s.phases {
 		if phase.ID == id {
 			return phase, nil

@@ -462,7 +462,7 @@ func (a *App) findTaskByPrefix(ctx context.Context, store TaskStore, prefix stri
 		return taskstore.Task{}, err
 	}
 	if len(tasks) != 1 {
-		return taskstore.Task{}, fmt.Errorf("task %q not found", prefix)
+		return taskstore.Task{}, fmt.Errorf("%w: %q", taskstore.ErrTaskNotFound, prefix)
 	}
 	return tasks[0], nil
 }

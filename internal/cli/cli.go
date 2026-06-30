@@ -240,6 +240,20 @@ func (a *App) failWithHint(err error, args []string) int {
 		}
 	}
 
+	// When a task or phase lookup misses, point the operator at the matching
+	// list command so they can discover the identifiers that actually exist
+	// instead of guessing. This mirrors the actionable empty-list / did-you-mean
+	// philosophy already used elsewhere: an ambiguous-prefix error lists the
+	// matches, and a total miss now suggests how to see what is available.
+	if err != nil {
+		switch {
+		case errors.Is(err, taskstore.ErrTaskNotFound):
+			fmt.Fprintf(a.stderr, "\nrun: %s\n", output.Command("adp tasks list"))
+		case errors.Is(err, taskstore.ErrPhaseNotFound):
+			fmt.Fprintf(a.stderr, "\nrun: %s\n", output.Command("adp phase list"))
+		}
+	}
+
 	if shouldShowHelpHint(err) {
 		hint := helpHint(args)
 		fmt.Fprintf(a.stderr, "\ntry: %s\n", output.Command(hint))
