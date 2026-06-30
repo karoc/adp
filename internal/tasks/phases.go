@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/karoc/adp/internal/redact"
 )
 
 func (s *Store) AddPhase(ctx context.Context, req PhaseAddRequest) (Phase, error) {
@@ -162,7 +164,7 @@ func (s *Store) RecordPhaseCommit(ctx context.Context, req PhaseCommitRequest) (
 }
 
 func (s *Store) RecordPhasePush(ctx context.Context, req PhasePushRequest) (Phase, error) {
-	remote := strings.TrimSpace(req.Remote)
+	remote := redact.URLCredentials(strings.TrimSpace(req.Remote))
 	branch := strings.TrimSpace(req.Branch)
 	if remote == "" {
 		return Phase{}, errors.New("push remote is required")

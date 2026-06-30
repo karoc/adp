@@ -7,6 +7,7 @@ package redact
 
 import (
 	"math"
+	"net/url"
 	"strings"
 )
 
@@ -182,4 +183,40 @@ func shannonEntropy(value string) float64 {
 		entropy -= p * math.Log2(p)
 	}
 	return entropy
+}
+
+// URLCredentials strips any embedded userinfo (user:password@) from a URL in s
+// and returns the result. It is meant for free-text fields that record a git
+// remote, where an operator may paste a URL carrying credentials
+// (https://user:token@host/...) instead of a remote name. The userinfo is
+// replaced with Placeholder so the scheme, host, and path — which identify the
+// destination — stay visible for audit, while the credential does not reach the
+// terminal, JSON output, or progress log.
+//
+// Values that are not URLs pass through unchanged: a remote name ("origin"),
+// an scp-like path ("git@host:repo.git"), and any string without a "://"
+// separator cannot carry scheme userinfo. A URL with no userinfo
+// (https://github.com/org/repo) is also unchanged, even if its path contains
+// an "@" — url.Parse is used only to confirm userinfo is present, so a path
+// "@" is never mistaken for the end of credentials. The function redacts
+// conservatively: any URL that parses with userinfo is masked, so a public
+// ssh user such as "git" is redacted too rather than risk leaving a short
+// token used as a username exposed.
+func URLCredentials(s string) string {
+	if !strings.Contains(s, "://") {
+		return s
+	}
+	u, err := url.Parse(s)
+	if err != nil || u.User == nil {
+		return s
+	}
+	// Replace the userinfo segment verbatim rather than rebuilding via
+	// u.String(), which would percent-encode the Placeholder's asterisks.
+	idx := strings.Index(s, "://")
+	after := s[idx+3:]
+	at := strings.IndexByte(after, '@')
+	if at < 0 {
+		return s
+	}
+	return s[:idx+3] + Placeholder + after[at:]
 }

@@ -2,6 +2,7 @@ package redact
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -213,5 +214,36 @@ func TestLooksLikeSecretEmptyAndWhitespace(t *testing.T) {
 func TestShannonEntropyEmpty(t *testing.T) {
 	if got := shannonEntropy(""); got != 0 {
 		t.Fatalf("shannonEntropy(empty) = %v, want 0", got)
+	}
+}
+
+func TestURLCredentialsStripsUserInfo(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "remote name unchanged", in: "origin", want: "origin"},
+		{name: "upstream name unchanged", in: "upstream", want: "upstream"},
+		{name: "public url unchanged", in: "https://github.com/org/repo", want: "https://github.com/org/repo"},
+		{name: "user password redacted", in: "https://user:pass@github.com/org/repo", want: "https://" + Placeholder + "@github.com/org/repo"},
+		{name: "token as username redacted", in: "https://ghp_token123456@github.com/org/repo", want: "https://" + Placeholder + "@github.com/org/repo"},
+		{name: "ssh userinfo redacted", in: "ssh://git@github.com/org/repo", want: "ssh://" + Placeholder + "@github.com/org/repo"},
+		{name: "scp-like unchanged", in: "git@github.com:org/repo.git", want: "git@github.com:org/repo.git"},
+		{name: "empty unchanged", in: "", want: ""},
+		{name: "url with port and userinfo", in: "https://user:pass@git.example.com:8443/repo", want: "https://" + Placeholder + "@git.example.com:8443/repo"},
+		{name: "credential never reaches output", in: "https://alice:s3cr3t@github.com/org/repo", want: "https://" + Placeholder + "@github.com/org/repo"},
+		{name: "path at-sign without userinfo unchanged", in: "https://github.com/org/repo@v1", want: "https://github.com/org/repo@v1"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := URLCredentials(tc.in)
+			if got != tc.want {
+				t.Fatalf("URLCredentials(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+			if strings.Contains(got, "s3cr3t") || strings.Contains(got, "pass") || strings.Contains(got, "ghp_token") {
+				t.Fatalf("URLCredentials(%q) leaked credential: %q", tc.in, got)
+			}
+		})
 	}
 }
