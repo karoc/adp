@@ -12,6 +12,14 @@ import (
 const defaultEventLimit = 20
 const defaultSessionLimit = 20
 
+// runAgentRequiredMsg is the error shown when `adp run` is invoked without a
+// leading agent argument — including when flags are placed before the agent
+// (e.g. `adp run --workspace x codex`), which the parser would otherwise
+// misread as an "unknown run option" for the flag's value. Naming the agent
+// position explicitly guides the operator to the fix instead of a misleading
+// option error.
+const runAgentRequiredMsg = "agent is required; usage: adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>|--take --owner <owner> [--lease <duration>]] [--keep-runtime] [-- <agent-args>...]"
+
 type runOptions struct {
 	agent     string
 	workspace string
@@ -70,7 +78,14 @@ type completionValuesOptions struct {
 
 func parseRunArgs(args []string) (runOptions, error) {
 	if len(args) == 0 {
-		return runOptions{}, errors.New("agent is required; usage: adp run <agent> [--workspace <name>] [--profile <profile>] [--task <task-id>|--take --owner <owner> [--lease <duration>]] [--keep-runtime] [-- <agent-args>...]")
+		return runOptions{}, errors.New(runAgentRequiredMsg)
+	}
+	// Flags placed before the agent (e.g. `adp run --workspace x codex`) would
+	// otherwise be consumed as the agent name, surfacing a misleading
+	// "unknown run option" for the flag's value. Require the agent first,
+	// matching the documented usage and the empty-args case above.
+	if strings.HasPrefix(args[0], "-") {
+		return runOptions{}, errors.New(runAgentRequiredMsg)
 	}
 	opts := runOptions{agent: args[0]}
 	for i := 1; i < len(args); i++ {

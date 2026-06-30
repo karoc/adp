@@ -178,6 +178,16 @@ func TestExecuteReportsSubcommandUsageHelpHints(t *testing.T) {
 			hint: "try: adp run --help",
 		},
 		{
+			// Flags placed before the agent must not be misread as the agent
+			// name (which would surface a misleading "unknown run option" for
+			// the flag's value); the operator should be told the agent goes
+			// first, matching the empty-args case above.
+			name: "run flags before agent",
+			args: []string{"run", "--workspace", "uxrt", "codex"},
+			want: "agent is required; usage: adp run <agent>",
+			hint: "try: adp run --help",
+		},
+		{
 			name: "run take missing owner",
 			args: []string{"run", "codex", "--take"},
 			want: "--owner is required with --take",
