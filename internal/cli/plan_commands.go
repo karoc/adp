@@ -128,7 +128,7 @@ func (a *App) printPlanImportResult(req planImportPrintRequest) error {
 		writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(writer, "PHASE\tSTATUS\tTITLE")
 		for _, phase := range req.result.Phases {
-			fmt.Fprintf(writer, "%s\t%s\t%s\n", phase.ID, phase.Status, safeText(phase.Title))
+			fmt.Fprintf(writer, "%s\t%s\t%s\n", safeText(phase.ID), phase.Status, safeText(phase.Title))
 		}
 		if err := writer.Flush(); err != nil {
 			return err

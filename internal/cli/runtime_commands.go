@@ -272,12 +272,7 @@ func (a *App) loadRunTaskContext(ctx context.Context, workspaceDir string, opts 
 	tasks, err := store.FindByPrefix(ctx, taskID)
 	if err != nil {
 		if errors.Is(err, taskstore.ErrAmbiguousTaskID) {
-			// Extract task IDs for a friendly error message
-			ids := make([]string, len(tasks))
-			for i, task := range tasks {
-				ids[i] = task.ID
-			}
-			return adapters.TaskContext{}, fmt.Errorf("ambiguous task ID %q, matches multiple tasks:\n  - %s\n\nPlease use a more specific prefix.", taskID, strings.Join(ids, "\n  - "))
+			return adapters.TaskContext{}, fmt.Errorf("ambiguous task ID %q, matches multiple tasks:\n  - %s\n\nPlease use a more specific prefix.", taskID, formatAmbiguousTaskIDList(tasks))
 		}
 		return adapters.TaskContext{}, fmt.Errorf("load task %q: %w", taskID, err)
 	}

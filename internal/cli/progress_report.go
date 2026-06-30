@@ -300,9 +300,9 @@ func writeNextWorkReportEnglish(w io.Writer, tasks []taskstore.Task) {
 	now := time.Now().UTC()
 	for _, task := range open {
 		fmt.Fprintf(w, "- `%s` [%s] %s (priority: %s, phase: %s, claim: %s)\n",
-			task.ID,
+			safeText(task.ID),
 			task.Status,
-			task.Title,
+			safeText(task.Title),
 			valueOrDash(task.Priority),
 			valueOrDash(task.Phase),
 			taskClaimHandoff(task, now),
@@ -324,9 +324,9 @@ func writeNextWorkReportChinese(w io.Writer, tasks []taskstore.Task) {
 	now := time.Now().UTC()
 	for _, task := range open {
 		fmt.Fprintf(w, "- `%s` [%s] %s（优先级：%s，阶段：%s，领取：%s）\n",
-			task.ID,
+			safeText(task.ID),
 			task.Status,
-			task.Title,
+			safeText(task.Title),
 			valueOrDash(task.Priority),
 			valueOrDash(task.Phase),
 			taskClaimHandoffChinese(task, now),

@@ -99,11 +99,7 @@ func (a *App) eventsList(ctx context.Context, args []string) error {
 			tasks, err := store.FindByPrefix(ctx, opts.taskID)
 			if err != nil {
 				if errors.Is(err, taskstore.ErrAmbiguousTaskID) {
-					ids := make([]string, len(tasks))
-					for i, task := range tasks {
-						ids[i] = task.ID
-					}
-					return fmt.Errorf("adp: ambiguous task ID %q, matches multiple tasks:\n  - %s\n\nPlease use a more specific prefix.", opts.taskID, strings.Join(ids, "\n  - "))
+					return fmt.Errorf("adp: ambiguous task ID %q, matches multiple tasks:\n  - %s\n\nPlease use a more specific prefix.", opts.taskID, formatAmbiguousTaskIDList(tasks))
 				}
 				// If task not found, use the original ID as-is
 				if !errors.Is(err, taskstore.ErrTaskNotFound) {

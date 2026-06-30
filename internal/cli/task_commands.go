@@ -68,11 +68,11 @@ func (a *App) tasksAdd(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "%s\n", output.Successf("task %s added", task.ID))
+	fmt.Fprintf(a.stdout, "%s\n", output.Successf("task %s added", safeText(task.ID)))
 	fmt.Fprintln(a.stdout)
 	fmt.Fprintln(a.stdout, "Next steps:")
-	fmt.Fprintf(a.stdout, "  View task:   %s\n", output.Command(fmt.Sprintf("adp tasks show %s", task.ID)))
-	fmt.Fprintf(a.stdout, "  Claim task:  %s\n", output.Command(fmt.Sprintf("adp tasks claim %s --owner <name> --lease 4h", task.ID)))
+	fmt.Fprintf(a.stdout, "  View task:   %s\n", output.Command(fmt.Sprintf("adp tasks show %s", safeText(task.ID))))
+	fmt.Fprintf(a.stdout, "  Claim task:  %s\n", output.Command(fmt.Sprintf("adp tasks claim %s --owner <name> --lease 4h", safeText(task.ID))))
 	fmt.Fprintf(a.stdout, "  Start work:  %s\n", output.Command("adp run <agent> --take --owner <name>"))
 	return nil
 }
@@ -130,7 +130,7 @@ func (a *App) printTaskTable(tasks []taskstore.Task) error {
 	fmt.Fprintln(writer, "ID\tSTATUS\tOWNER\tCLAIM\tPRIORITY\tPHASE\tUPDATED\tTITLE")
 	for _, task := range tasks {
 		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			task.ID,
+			safeText(task.ID),
 			task.Status,
 			valueOrDash(task.Owner),
 			taskClaimDetail(task, now),
@@ -190,7 +190,7 @@ func (a *App) tasksUpdate(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "task %s status: %s\n", task.ID, task.Status)
+	fmt.Fprintf(a.stdout, "task %s status: %s\n", safeText(task.ID), task.Status)
 	return nil
 }
 
@@ -215,7 +215,7 @@ func (a *App) tasksClaim(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "task %s claimed by %s\n", task.ID, safeText(task.Owner))
+	fmt.Fprintf(a.stdout, "task %s claimed by %s\n", safeText(task.ID), safeText(task.Owner))
 	return nil
 }
 
@@ -238,7 +238,7 @@ func (a *App) tasksTake(ctx context.Context, args []string) error {
 	if opts.format == outputFormatJSON {
 		return writePlanningJSON(a.stdout, taskOutput(task))
 	}
-	fmt.Fprintf(a.stdout, "task %s taken by %s\n", task.ID, safeText(task.Owner))
+	fmt.Fprintf(a.stdout, "task %s taken by %s\n", safeText(task.ID), safeText(task.Owner))
 	a.printTask(task)
 	return nil
 }
@@ -286,7 +286,7 @@ func (a *App) tasksRelease(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "task %s released\n", task.ID)
+	fmt.Fprintf(a.stdout, "task %s released\n", safeText(task.ID))
 	return nil
 }
 
@@ -311,7 +311,7 @@ func (a *App) tasksRenew(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "task %s lease renewed until %s\n", task.ID, formatEventTime(task.LeaseExpiresAt))
+	fmt.Fprintf(a.stdout, "task %s lease renewed until %s\n", safeText(task.ID), formatEventTime(task.LeaseExpiresAt))
 	return nil
 }
 
@@ -332,7 +332,7 @@ func (a *App) tasksDone(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "task %s done\n", task.ID)
+	fmt.Fprintf(a.stdout, "task %s done\n", safeText(task.ID))
 	return nil
 }
 
@@ -353,7 +353,7 @@ func (a *App) tasksBlock(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "task %s blocked\n", task.ID)
+	fmt.Fprintf(a.stdout, "task %s blocked\n", safeText(task.ID))
 	return nil
 }
 
@@ -391,7 +391,7 @@ func (a *App) progress(ctx context.Context, args []string) error {
 	} else {
 		fmt.Fprintln(a.stdout, "phases:")
 		for _, phase := range phases {
-			fmt.Fprintf(a.stdout, "- %s [%s] %s\n", phase.ID, phase.Status, safeText(phase.Title))
+			fmt.Fprintf(a.stdout, "- %s [%s] %s\n", safeText(phase.ID), phase.Status, safeText(phase.Title))
 		}
 	}
 	fmt.Fprintf(a.stdout, "total: %d\n", progress.Total)
@@ -409,7 +409,7 @@ func (a *App) progress(ctx context.Context, args []string) error {
 	}
 	fmt.Fprintln(a.stdout, "next:")
 	for _, task := range progress.Next {
-		fmt.Fprintf(a.stdout, "- %s [%s] %s\n", task.ID, task.Status, safeText(task.Title))
+		fmt.Fprintf(a.stdout, "- %s [%s] %s\n", safeText(task.ID), task.Status, safeText(task.Title))
 	}
 	return nil
 }
@@ -432,7 +432,7 @@ func (a *App) loadTaskStoreWithWorkspaceDir(ctx context.Context, workspace strin
 
 func (a *App) printTask(task taskstore.Task) {
 	now := time.Now().UTC()
-	fmt.Fprintf(a.stdout, "id: %s\n", task.ID)
+	fmt.Fprintf(a.stdout, "id: %s\n", safeText(task.ID))
 	fmt.Fprintf(a.stdout, "title: %s\n", safeText(task.Title))
 	fmt.Fprintf(a.stdout, "status: %s\n", task.Status)
 	fmt.Fprintf(a.stdout, "priority: %s\n", valueOrDash(task.Priority))
@@ -457,12 +457,7 @@ func (a *App) findTaskByPrefix(ctx context.Context, store TaskStore, prefix stri
 	tasks, err := store.FindByPrefix(ctx, prefix)
 	if err != nil {
 		if errors.Is(err, taskstore.ErrAmbiguousTaskID) {
-			// Extract task IDs for a friendly error message
-			ids := make([]string, len(tasks))
-			for i, task := range tasks {
-				ids[i] = task.ID
-			}
-			return taskstore.Task{}, fmt.Errorf("ambiguous task ID %q, matches multiple tasks:\n  - %s\n\nPlease use a more specific prefix.", prefix, strings.Join(ids, "\n  - "))
+			return taskstore.Task{}, fmt.Errorf("ambiguous task ID %q, matches multiple tasks:\n  - %s\n\nPlease use a more specific prefix.", prefix, formatAmbiguousTaskIDList(tasks))
 		}
 		return taskstore.Task{}, err
 	}
@@ -470,4 +465,16 @@ func (a *App) findTaskByPrefix(ctx context.Context, store TaskStore, prefix stri
 		return taskstore.Task{}, fmt.Errorf("task %q not found", prefix)
 	}
 	return tasks[0], nil
+}
+
+// formatAmbiguousTaskIDList renders loaded task IDs for an "ambiguous prefix"
+// error message. Task IDs originate in the hand-editable planning YAML, so
+// they are passed through safeText to neutralize terminal control characters
+// (CWE-150) before reaching the operator's terminal.
+func formatAmbiguousTaskIDList(tasks []taskstore.Task) string {
+	ids := make([]string, len(tasks))
+	for i, task := range tasks {
+		ids[i] = safeText(task.ID)
+	}
+	return strings.Join(ids, "\n  - ")
 }

@@ -54,7 +54,7 @@ func taskClaimDetailChinese(task taskstore.Task, now time.Time) string {
 }
 
 func taskClaimHandoff(task taskstore.Task, now time.Time) string {
-	owner := strings.TrimSpace(task.Owner)
+	owner := safeText(strings.TrimSpace(task.Owner))
 	switch taskClaimState(task, now) {
 	case taskClaimStateUnclaimed:
 		return taskClaimStateUnclaimed
@@ -68,7 +68,7 @@ func taskClaimHandoff(task taskstore.Task, now time.Time) string {
 }
 
 func taskClaimHandoffChinese(task taskstore.Task, now time.Time) string {
-	owner := strings.TrimSpace(task.Owner)
+	owner := safeText(strings.TrimSpace(task.Owner))
 	switch taskClaimState(task, now) {
 	case taskClaimStateUnclaimed:
 		return "未领取"
