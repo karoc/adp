@@ -404,7 +404,7 @@ func writeWorkspaceDefaults(workspaceDir string, cfg *schema.Config) error {
 		"profiles/claude.yaml": "profile: default\ncommand: claude\n",
 	}
 	for relPath, content := range files {
-		if err := os.WriteFile(filepath.Join(workspaceDir, relPath), []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(workspaceDir, relPath), []byte(content), paths.PrivateFileMode); err != nil {
 			return fmt.Errorf("write workspace file %s: %w", relPath, err)
 		}
 	}
@@ -423,7 +423,7 @@ func writeFileIfMissing(path string, data []byte) error {
 	if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("stat file %s: %w", path, err)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, paths.PrivateFileMode); err != nil {
 		return fmt.Errorf("write file %s: %w", path, err)
 	}
 	return nil

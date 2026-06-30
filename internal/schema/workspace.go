@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/karoc/adp/internal/paths"
 	"gopkg.in/yaml.v3"
 )
 
@@ -106,7 +107,7 @@ func SaveConfig(path string, cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("encode workspace config: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, paths.PrivateFileMode); err != nil {
 		return fmt.Errorf("write workspace config: %w", err)
 	}
 	return nil
