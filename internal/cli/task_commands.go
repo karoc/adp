@@ -137,7 +137,7 @@ func (a *App) printTaskTable(tasks []taskstore.Task) error {
 			valueOrDash(task.Priority),
 			valueOrDash(task.Phase),
 			formatEventTime(task.UpdatedAt),
-			task.Title,
+			safeText(task.Title),
 		)
 	}
 	if err := writer.Flush(); err != nil {
@@ -215,7 +215,7 @@ func (a *App) tasksClaim(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "task %s claimed by %s\n", task.ID, task.Owner)
+	fmt.Fprintf(a.stdout, "task %s claimed by %s\n", task.ID, safeText(task.Owner))
 	return nil
 }
 
@@ -238,7 +238,7 @@ func (a *App) tasksTake(ctx context.Context, args []string) error {
 	if opts.format == outputFormatJSON {
 		return writePlanningJSON(a.stdout, taskOutput(task))
 	}
-	fmt.Fprintf(a.stdout, "task %s taken by %s\n", task.ID, task.Owner)
+	fmt.Fprintf(a.stdout, "task %s taken by %s\n", task.ID, safeText(task.Owner))
 	a.printTask(task)
 	return nil
 }
@@ -391,7 +391,7 @@ func (a *App) progress(ctx context.Context, args []string) error {
 	} else {
 		fmt.Fprintln(a.stdout, "phases:")
 		for _, phase := range phases {
-			fmt.Fprintf(a.stdout, "- %s [%s] %s\n", phase.ID, phase.Status, phase.Title)
+			fmt.Fprintf(a.stdout, "- %s [%s] %s\n", phase.ID, phase.Status, safeText(phase.Title))
 		}
 	}
 	fmt.Fprintf(a.stdout, "total: %d\n", progress.Total)
@@ -409,7 +409,7 @@ func (a *App) progress(ctx context.Context, args []string) error {
 	}
 	fmt.Fprintln(a.stdout, "next:")
 	for _, task := range progress.Next {
-		fmt.Fprintf(a.stdout, "- %s [%s] %s\n", task.ID, task.Status, task.Title)
+		fmt.Fprintf(a.stdout, "- %s [%s] %s\n", task.ID, task.Status, safeText(task.Title))
 	}
 	return nil
 }
@@ -433,7 +433,7 @@ func (a *App) loadTaskStoreWithWorkspaceDir(ctx context.Context, workspace strin
 func (a *App) printTask(task taskstore.Task) {
 	now := time.Now().UTC()
 	fmt.Fprintf(a.stdout, "id: %s\n", task.ID)
-	fmt.Fprintf(a.stdout, "title: %s\n", task.Title)
+	fmt.Fprintf(a.stdout, "title: %s\n", safeText(task.Title))
 	fmt.Fprintf(a.stdout, "status: %s\n", task.Status)
 	fmt.Fprintf(a.stdout, "priority: %s\n", valueOrDash(task.Priority))
 	fmt.Fprintf(a.stdout, "phase: %s\n", valueOrDash(task.Phase))

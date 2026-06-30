@@ -80,7 +80,7 @@ func (a *App) phaseList(ctx context.Context, args []string) error {
 	writer := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(writer, "ID\tSTATUS\tUPDATED\tTITLE")
 	for _, phase := range phases {
-		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", phase.ID, phase.Status, formatEventTime(phase.UpdatedAt), phase.Title)
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", phase.ID, phase.Status, formatEventTime(phase.UpdatedAt), safeText(phase.Title))
 	}
 	if err := writer.Flush(); err != nil {
 		return err
@@ -167,7 +167,7 @@ func (a *App) phaseAccept(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "phase %s accepted: %s\n", phase.ID, phase.Acceptance.Result)
+	fmt.Fprintf(a.stdout, "phase %s accepted: %s\n", phase.ID, safeText(phase.Acceptance.Result))
 	return nil
 }
 
@@ -210,13 +210,13 @@ func (a *App) phasePush(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.stdout, "phase %s push: %s/%s %s\n", phase.ID, phase.Push.Remote, phase.Push.Branch, phase.Push.Result)
+	fmt.Fprintf(a.stdout, "phase %s push: %s/%s %s\n", phase.ID, phase.Push.Remote, phase.Push.Branch, safeText(phase.Push.Result))
 	return nil
 }
 
 func (a *App) printPhase(phase taskstore.Phase) {
 	fmt.Fprintf(a.stdout, "id: %s\n", phase.ID)
-	fmt.Fprintf(a.stdout, "title: %s\n", phase.Title)
+	fmt.Fprintf(a.stdout, "title: %s\n", safeText(phase.Title))
 	fmt.Fprintf(a.stdout, "status: %s\n", phase.Status)
 	fmt.Fprintf(a.stdout, "goal: %s\n", valueOrDash(phase.Goal))
 	fmt.Fprintf(a.stdout, "acceptance_result: %s\n", valueOrDash(phase.Acceptance.Result))
@@ -245,5 +245,5 @@ func phaseGatePhaseSummary(phase *taskstore.Phase) string {
 	if phase == nil {
 		return "-"
 	}
-	return fmt.Sprintf("%s [%s] %s", phase.ID, phase.Status, phase.Title)
+	return fmt.Sprintf("%s [%s] %s", phase.ID, phase.Status, safeText(phase.Title))
 }

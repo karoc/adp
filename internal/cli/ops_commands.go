@@ -195,14 +195,18 @@ func valueOrDash(value string) string {
 	if value == "" {
 		return "-"
 	}
-	return value
+	return safeText(value)
 }
 
 func formatStringList(values []string) string {
 	if len(values) == 0 {
 		return "-"
 	}
-	return strings.Join(values, "; ")
+	sanitized := make([]string, len(values))
+	for i, value := range values {
+		sanitized[i] = safeText(value)
+	}
+	return strings.Join(sanitized, "; ")
 }
 
 func formatSuggestedCommand(args []string) string {

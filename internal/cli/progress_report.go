@@ -464,6 +464,7 @@ func pushSummary(record taskstore.PushRecord) string {
 }
 
 func markdownCell(value string) string {
+	value = safeText(value)
 	value = strings.ReplaceAll(value, "\n", " ")
 	value = strings.ReplaceAll(value, "\r", " ")
 	return strings.ReplaceAll(value, "|", "\\|")
