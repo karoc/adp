@@ -51,7 +51,21 @@ func (s *Store) withPlanningLock(ctx context.Context, fn func() error) error {
 			return err
 		}
 		if stale {
-			_ = os.Remove(lockPath)
+			// Atomically claim the stale lock by renaming it. Only one
+			// stale-breaker can win the rename; a concurrent breaker that
+			// lost the race gets os.ErrNotExist (the lock was already
+			// renamed) and retries the exclusive create. This avoids the
+			// TOCTOU where two breakers each os.Remove a lock the other
+			// just recreated, which would let both enter the critical
+			// section (CWE-367).
+			trash := lockPath + ".stale"
+			if err := os.Rename(lockPath, trash); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				return fmt.Errorf("claim stale planning lock: %w", err)
+			}
+			_ = os.Remove(trash)
 			continue
 		}
 

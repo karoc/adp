@@ -532,6 +532,9 @@ func TestPlanningLockWaitsForFreshLockAndRemovesStaleLock(t *testing.T) {
 	if _, err := os.Stat(store.lockPath()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("lock file after Add error = %v, want not exist", err)
 	}
+	if _, err := os.Stat(store.lockPath() + ".stale"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("stale-break left trash file: %v", err)
+	}
 }
 
 func TestStoreReportsMissingAndInvalidTasks(t *testing.T) {
