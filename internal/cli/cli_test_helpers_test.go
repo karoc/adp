@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"io/fs"
 	"sort"
 
@@ -69,7 +68,7 @@ func (s *fakeStore) Get(_ context.Context, name string) (*schema.Config, string,
 		}
 		return &cfg, workspaceDir, nil
 	}
-	return nil, "", errors.New("workspace not found")
+	return nil, "", workspace.ErrWorkspaceNotFound
 }
 
 func (s *fakeStore) List(context.Context) ([]workspace.Record, error) {
@@ -88,7 +87,7 @@ func (s *fakeStore) Names(context.Context) ([]string, error) {
 func (s *fakeStore) FindByProjectPath(_ context.Context, _ string) (*schema.Config, string, error) {
 	s.findCalled = true
 	if !s.findByProjectPath {
-		return nil, "", errors.New("workspace not found")
+		return nil, "", workspace.ErrWorkspaceNotFound
 	}
 	cfg := s.cfg
 	if cfg.Version == 0 {

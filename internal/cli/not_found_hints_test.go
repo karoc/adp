@@ -84,3 +84,23 @@ func TestAmbiguousTaskIDDoesNotSuggestList(t *testing.T) {
 		t.Fatalf("stderr missing ambiguous message; stderr = %q", stderr.String())
 	}
 }
+
+// TestWorkspaceLookupNotFoundSuggestsList verifies the same actionable hint for
+// a missed workspace lookup, pointing the operator at "adp workspace list".
+// (Session not-found is covered by runtime acceptance because sessions.FindByPrefix
+// reads the real event log rather than an injectable dep.)
+func TestWorkspaceLookupNotFoundSuggestsList(t *testing.T) {
+	deps := Dependencies{WorkspaceStore: &fakeStore{}}
+	var stderr bytes.Buffer
+
+	code := NewApp(deps, &bytes.Buffer{}, &stderr).Execute(context.Background(), []string{
+		"workspace", "show", "nope",
+	})
+
+	if code == 0 {
+		t.Fatalf("exit code = 0, want non-zero; stderr = %q", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "run: adp workspace list") {
+		t.Fatalf("stderr missing list hint; stderr = %q", stderr.String())
+	}
+}

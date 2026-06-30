@@ -22,7 +22,7 @@ ADP（Agent Development Platform）的所有重要变更都将记录在此文件
 - **将工作区配置文件收紧为仅属主可访问** — 早先的 `$ADP_HOME` 权限加固把目录收紧为 `0700`、规划台账收紧为 `0600`，但写入 `$ADP_HOME/workspaces/<name>/` 下的工作区配置文件——`workspace.yaml`、`mcp/config.yaml`、`prompts/`·`memory/`·`profiles/` 种子文件，以及全局 workspaces 注册表——仍以 `0644` 写入，仅依赖父目录的 `0700` 作为唯一屏障（CWE-732）。其中 `mcp/config.yaml` 尤其可能存放操作员粘贴的 MCP 服务器 token 或 URL。现这些文件改用 `paths.PrivateFileMode` 以 `0600` 写入，与规划台账一致，并增加一道独立于目录权限的纵深防御层。
 
 ### 变更
-- **让 task 与 phase 的 "not found" 错误可操作** — 对不存在的标识符执行 `adp tasks show`/`done`/`claim`/... 或 `adp phase show`/`start`/`accept`/... 时，此前只输出一条干瘪的 "not found" 消息，操作员只能猜测实际存在哪些 ID。现在这些错误会追加 `run: adp tasks list`（或 `adp phase list`）提示，让操作员能立刻查看可用标识符，与既有的可操作空列表和拼写建议行为保持一致。歧义前缀错误不受影响（它们本就列出所有匹配项）。
+- **让 task、phase、workspace 与 session 的 "not found" 错误可操作** — 对不存在的标识符执行 `adp tasks show`/`done`/`claim`/...、`adp phase show`/`start`/`accept`/...、`adp workspace show`/`remove`/... 或 `adp sessions show`/`restore-plan`/... 时，此前只输出一条干瘪的 "not found" 消息，操作员只能猜测实际存在哪些 ID。现在这些错误会追加 `run: adp <cmd> list` 提示（`adp tasks list`、`adp phase list`、`adp workspace list` 或 `adp sessions list`），让操作员能立刻查看可用标识符，与既有的可操作空列表和拼写建议行为保持一致。歧义前缀错误不受影响（它们本就列出所有匹配项）。
 
 ### Phase 1-5 基础（预发布开发）
 

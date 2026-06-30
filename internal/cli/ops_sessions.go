@@ -99,7 +99,7 @@ func (a *App) sessionsShow(ctx context.Context, args []string) error {
 		return err
 	}
 	if len(summaries) != 1 {
-		return fmt.Errorf("session %q not found", opts.sessionID)
+		return fmt.Errorf("%w: %q", sessions.ErrSessionNotFound, opts.sessionID)
 	}
 	resolvedSessionID := summaries[0].SessionID
 
@@ -160,7 +160,7 @@ func (a *App) sessionsRestorePlan(ctx context.Context, args []string) error {
 		return err
 	}
 	if len(summaries) != 1 {
-		return fmt.Errorf("session %q not found", opts.sessionID)
+		return fmt.Errorf("%w: %q", sessions.ErrSessionNotFound, opts.sessionID)
 	}
 	resolvedSessionID := summaries[0].SessionID
 
@@ -200,7 +200,7 @@ func (a *App) sessionsResumePlan(ctx context.Context, args []string) error {
 		return err
 	}
 	if len(summaries) != 1 {
-		return fmt.Errorf("session %q not found", opts.sessionID)
+		return fmt.Errorf("%w: %q", sessions.ErrSessionNotFound, opts.sessionID)
 	}
 	resolvedSessionID := summaries[0].SessionID
 
