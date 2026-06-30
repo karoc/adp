@@ -299,7 +299,7 @@ func (a *App) printResumePlan(plan adpresume.Plan) {
 	fmt.Fprintf(a.stdout, "read_only: %t\n", plan.Guarantees.ReadOnly)
 	fmt.Fprintln(a.stdout, "guidance:")
 	for _, item := range plan.Guidance {
-		fmt.Fprintf(a.stdout, "- %s\n", item)
+		fmt.Fprintf(a.stdout, "- %s\n", safeText(item))
 	}
 	if len(plan.SuggestedCommands) == 0 {
 		fmt.Fprintln(a.stdout, "suggested_commands: -")
