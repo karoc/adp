@@ -36,4 +36,16 @@ jobs:
 
       - name: Run aggregate local gate
         shell: bash
+        # COVERAGE_PROFILE tells check-coverage.sh to write the raw profile to a
+        # known path (and skip cleanup) so the upload step below can archive it.
+        env:
+          COVERAGE_PROFILE: coverage.out
         run: scripts/check-all.sh
+
+      - name: Upload coverage profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage.out
+          if-no-files-found: ignore

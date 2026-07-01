@@ -9,5 +9,9 @@ bin/
 # Local test reports (not repo content)
 reports/
 
+# Coverage profiles from scripts/check-coverage.sh and CI
+coverage.out
+coverage*.out
+
 # Local agent tooling state (not repo content)
 .claude/
