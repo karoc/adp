@@ -537,5 +537,23 @@ func requireValue(args []string, index int, option string) (string, int, error) 
 	if index+1 >= len(args) {
 		return "", index, fmt.Errorf("%s requires a value", option)
 	}
+	if looksLikeFlag(args[index+1]) {
+		return "", index, fmt.Errorf("%s requires a value", option)
+	}
 	return args[index+1], index + 1, nil
+}
+
+// looksLikeFlag reports whether s appears to be a flag token rather than a
+// value. It guards value-consuming options against silently swallowing the
+// following flag as their value (e.g. `--workspace --profile x` mistaking
+// "--profile" for the workspace name). A leading '-' followed by a digit is
+// treated as a value so that negative numbers and durations (e.g. "-1",
+// "-5m") still reach their dedicated validators and surface their existing
+// "must not be negative" messages unchanged. A bare "-" (often stdin) is also
+// treated as a value.
+func looksLikeFlag(s string) bool {
+	if len(s) < 2 || s[0] != '-' {
+		return false
+	}
+	return s[1] < '0' || s[1] > '9'
 }

@@ -95,44 +95,44 @@ func parseRunArgs(args []string) (runOptions, error) {
 			opts.agentArgs = append(opts.agentArgs, args[i+1:]...)
 			return opts, nil
 		case "--workspace", "-w":
-			if i+1 >= len(args) {
-				return runOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return runOptions{}, err
 			}
-			i++
-			opts.workspace = args[i]
+			opts.workspace, i = value, next
 		case "--profile", "-p":
-			if i+1 >= len(args) {
-				return runOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return runOptions{}, err
 			}
-			i++
-			opts.profile = args[i]
+			opts.profile, i = value, next
 		case "--task":
-			if i+1 >= len(args) {
-				return runOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return runOptions{}, err
 			}
-			i++
-			opts.taskID = args[i]
+			opts.taskID, i = value, next
 		case "--take":
 			opts.take = true
 		case "--owner":
-			if i+1 >= len(args) {
-				return runOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return runOptions{}, err
 			}
-			i++
-			opts.owner = args[i]
+			opts.owner, i = value, next
 		case "--lease":
-			if i+1 >= len(args) {
-				return runOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return runOptions{}, err
 			}
-			i++
-			lease, err := time.ParseDuration(args[i])
+			lease, err := time.ParseDuration(value)
 			if err != nil {
 				return runOptions{}, fmt.Errorf("parse lease duration: %w", err)
 			}
 			if lease < 0 {
 				return runOptions{}, errors.New("lease must not be negative")
 			}
-			opts.lease = lease
+			opts.lease, i = lease, next
 		case "--keep-runtime":
 			opts.keep = true
 		default:
@@ -206,17 +206,17 @@ func parseShellHookArgs(args []string) (shell.HookOptions, error) {
 		arg := args[i]
 		switch arg {
 		case "--shell", "-s":
-			if i+1 >= len(args) {
-				return shell.HookOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return shell.HookOptions{}, err
 			}
-			i++
-			opts.Shell = args[i]
+			opts.Shell, i = value, next
 		case "--name", "--function", "-n":
-			if i+1 >= len(args) {
-				return shell.HookOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return shell.HookOptions{}, err
 			}
-			i++
-			opts.FunctionName = args[i]
+			opts.FunctionName, i = value, next
 		default:
 			return shell.HookOptions{}, fmt.Errorf("unknown shell-hook option %q", arg)
 		}
@@ -230,17 +230,17 @@ func parseCompletionArgs(args []string) (shell.CompletionOptions, error) {
 		arg := args[i]
 		switch arg {
 		case "--shell", "-s":
-			if i+1 >= len(args) {
-				return shell.CompletionOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return shell.CompletionOptions{}, err
 			}
-			i++
-			opts.Shell = args[i]
+			opts.Shell, i = value, next
 		case "--command":
-			if i+1 >= len(args) {
-				return shell.CompletionOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return shell.CompletionOptions{}, err
 			}
-			i++
-			opts.CommandName = args[i]
+			opts.CommandName, i = value, next
 		default:
 			return shell.CompletionOptions{}, fmt.Errorf("unknown completion option %q", arg)
 		}
@@ -252,16 +252,24 @@ func parseCompletionValuesArgs(args []string) (completionValuesOptions, error) {
 	if len(args) == 0 {
 		return completionValuesOptions{}, errors.New("usage: adp completion values <agents|workspaces|profiles|tasks|phases|sessions|owners|statuses> [--workspace <name>]")
 	}
+	// The kind is positional and must come first. A leading flag (e.g.
+	// `adp completion values --workspace x`) would otherwise be read as the
+	// kind, surfacing a misleading "unknown completion values option" for the
+	// flag's value. Require the kind first, matching the documented usage and
+	// the empty-args case above.
+	if strings.HasPrefix(args[0], "-") {
+		return completionValuesOptions{}, errors.New("usage: adp completion values <agents|workspaces|profiles|tasks|phases|sessions|owners|statuses> [--workspace <name>]")
+	}
 	opts := completionValuesOptions{kind: args[0]}
 	for i := 1; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
 		case "--workspace", "-w":
-			if i+1 >= len(args) {
-				return completionValuesOptions{}, fmt.Errorf("%s requires a value", arg)
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return completionValuesOptions{}, err
 			}
-			i++
-			opts.workspace = args[i]
+			opts.workspace, i = value, next
 		default:
 			return completionValuesOptions{}, fmt.Errorf("unknown completion values option %q", arg)
 		}
