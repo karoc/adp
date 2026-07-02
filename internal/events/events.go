@@ -9,10 +9,26 @@ import (
 	"strings"
 	"time"
 
+	"github.com/karoc/adp/internal/filelock"
 	"github.com/karoc/adp/internal/paths"
 )
 
 var ErrEventsFileRequired = errors.New("events file path is required")
+
+const (
+	// eventsLockFile serializes appends to the events log across processes.
+	// Multiple `adp run` invocations can append concurrently; a single append
+	// can exceed PIPE_BUF (typically 4096 bytes) once it carries recorded
+	// command context, and O_APPEND only guarantees atomicity below that
+	// threshold, so an unlocked concurrent write could interleave and corrupt a
+	// JSONL line.
+	eventsLockFile = ".events.lock"
+	// eventsLockStaleAge lets a waiter reclaim a lock left by a crashed holder.
+	// The append critical section is sub-millisecond, so a minute is orders of
+	// magnitude longer than any legitimate hold — long enough never to break a
+	// live holder, short enough to recover quickly from a crash.
+	eventsLockStaleAge = time.Minute
+)
 
 type Event struct {
 	Timestamp      time.Time      `json:"ts"`
@@ -53,6 +69,20 @@ func (l *Logger) Log(ctx context.Context, event Event) error {
 		return err
 	}
 
+	// Serialize the append across processes. Concurrent `adp run` invocations
+	// each append to the same log, and a single event line can exceed the
+	// PIPE_BUF atomicity threshold once it carries command context, so an
+	// unlocked O_APPEND could interleave and corrupt a JSONL line.
+	locker := filelock.Locker{
+		Path:     filepath.Join(logsDir, eventsLockFile),
+		StaleAge: eventsLockStaleAge,
+	}
+	return locker.With(ctx, func() error {
+		return appendEvent(eventsFile, event)
+	})
+}
+
+func appendEvent(eventsFile string, event Event) error {
 	file, err := os.OpenFile(eventsFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return err

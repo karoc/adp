@@ -9,11 +9,21 @@ set -euo pipefail
 #
 # Override the floor with COVERAGE_MIN=NN (integer or decimal percent). Set
 # COVERAGE_PROFILE to keep the raw profile for inspection.
+#
+# The Go race detector runs by default (RACE=1): -race is compatible with
+# -covermode=atomic, so the same instrumented run doubles as a cross-process /
+# goroutine race gate for the file-lock, tasks, and events packages. It needs
+# CGO and a C toolchain; set RACE=0 to skip it in environments without one
+# (the coverage floor is still enforced).
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 coverage_min="${COVERAGE_MIN:-75}"
+race_flag=""
+if [ "${RACE:-1}" != "0" ]; then
+  race_flag="-race"
+fi
 profile="${COVERAGE_PROFILE:-$(mktemp "${TMPDIR:-/tmp}/adp-coverage.XXXXXX")}"
 cleanup_profile=1
 if [ -n "${COVERAGE_PROFILE:-}" ]; then
@@ -26,7 +36,7 @@ trap '[ "$cleanup_profile" = 1 ] && rm -f "$profile"' EXIT
 # `go tool cover` but do not distort the weighted total meaningfully. Test
 # output is left on stdout so failures stay visible when this replaces the
 # plain `go test` step in check-all.sh.
-go test -count=1 -covermode=atomic -coverprofile="$profile" ./...
+go test -count=1 -covermode=atomic $race_flag -coverprofile="$profile" ./...
 
 total_line="$(go tool cover -func="$profile" | tail -1)"
 # Format: "total:\t(statements)\t92.2%"

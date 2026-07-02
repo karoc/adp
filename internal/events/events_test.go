@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -143,5 +144,77 @@ func TestLoggerTightensPreexistingLoosePermission(t *testing.T) {
 	}
 	if perm := info.Mode().Perm(); perm != 0o600 {
 		t.Fatalf("legacy events file permission = %o, want 600 after tightening", perm)
+	}
+}
+
+// TestLoggerConcurrentAppendsProduceIntactJSONLines drives many goroutines
+// appending to one log at once. Run under `go test -race`, it guards the
+// file-lock serialization in Log: without it, concurrent O_APPEND writes of a
+// line that exceeds PIPE_BUF could interleave and leave a half-written record,
+// so every line must still parse as JSON and every event must be present
+// exactly once.
+func TestLoggerConcurrentAppendsProduceIntactJSONLines(t *testing.T) {
+	t.Parallel()
+
+	layout := paths.New(t.TempDir(), t.TempDir())
+	logger := NewLogger(layout)
+
+	const writers = 16
+	// Pad each event past the PIPE_BUF atomicity threshold (~4096 bytes) so an
+	// unlocked append would be free to interleave mid-line.
+	padding := strings.Repeat("x", 5000)
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, writers)
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			err := logger.Log(context.Background(), Event{
+				Type:      "run_started",
+				Workspace: "game-a",
+				SessionID: "session-" + string(rune('a'+i)),
+				Fields:    map[string]any{"pad": padding, "seq": i},
+			})
+			if err != nil {
+				errCh <- err
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		t.Fatalf("concurrent Log returned error: %v", err)
+	}
+
+	data, err := os.ReadFile(layout.EventsFile)
+	if err != nil {
+		t.Fatalf("read events file: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != writers {
+		t.Fatalf("line count = %d, want %d (interleaved appends corrupt the log)", len(lines), writers)
+	}
+
+	seen := map[float64]bool{}
+	for _, line := range lines {
+		var event struct {
+			Type   string         `json:"type"`
+			Fields map[string]any `json:"fields"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("event line is not intact JSON: %v\nline: %q", err, line)
+		}
+		seq, ok := event.Fields["seq"].(float64)
+		if !ok {
+			t.Fatalf("event line missing seq field: %q", line)
+		}
+		if seen[seq] {
+			t.Fatalf("event seq %v written more than once", seq)
+		}
+		seen[seq] = true
+	}
+	if len(seen) != writers {
+		t.Fatalf("distinct events = %d, want %d", len(seen), writers)
 	}
 }

@@ -2,10 +2,10 @@ package tasks
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"time"
+
+	"github.com/karoc/adp/internal/filelock"
 )
 
 const (
@@ -14,6 +14,12 @@ const (
 	planningLockRetry    = 10 * time.Millisecond
 )
 
+// withPlanningLock serializes mutating planning operations across processes.
+// Each adp invocation is a separate OS process, so the planning ledger
+// (tasks.yaml, phases.yaml, progress.jsonl) is protected by an on-disk lock
+// rather than an in-process mutex. The cross-process locking primitive lives
+// in the shared filelock package; this wrapper pins the planning lock path and
+// the stale-reclaim policy.
 func (s *Store) withPlanningLock(ctx context.Context, fn func() error) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -21,68 +27,11 @@ func (s *Store) withPlanningLock(ctx context.Context, fn func() error) error {
 	if err := s.ensurePlanningDir(); err != nil {
 		return fmt.Errorf("create planning directory: %w", err)
 	}
-
-	lockPath := s.lockPath()
-	for {
-		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
-		if err == nil {
-			_, writeErr := fmt.Fprintf(file, "%s\n", s.now().Format(time.RFC3339))
-			closeErr := file.Close()
-			if writeErr != nil {
-				_ = os.Remove(lockPath)
-				return fmt.Errorf("write planning lock: %w", writeErr)
-			}
-			if closeErr != nil {
-				_ = os.Remove(lockPath)
-				return fmt.Errorf("close planning lock: %w", closeErr)
-			}
-			defer os.Remove(lockPath)
-			return fn()
-		}
-		if !errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("create planning lock: %w", err)
-		}
-
-		stale, err := planningLockStale(lockPath, s.now())
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			return err
-		}
-		if stale {
-			// Atomically claim the stale lock by renaming it. Only one
-			// stale-breaker can win the rename; a concurrent breaker that
-			// lost the race gets os.ErrNotExist (the lock was already
-			// renamed) and retries the exclusive create. This avoids the
-			// TOCTOU where two breakers each os.Remove a lock the other
-			// just recreated, which would let both enter the critical
-			// section (CWE-367).
-			trash := lockPath + ".stale"
-			if err := os.Rename(lockPath, trash); err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					continue
-				}
-				return fmt.Errorf("claim stale planning lock: %w", err)
-			}
-			_ = os.Remove(trash)
-			continue
-		}
-
-		timer := time.NewTimer(planningLockRetry)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
-		}
+	locker := filelock.Locker{
+		Path:     s.lockPath(),
+		Now:      s.now,
+		StaleAge: planningLockStaleAge,
+		Retry:    planningLockRetry,
 	}
-}
-
-func planningLockStale(path string, now time.Time) (bool, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false, err
-	}
-	return now.Sub(info.ModTime()) > planningLockStaleAge, nil
+	return locker.With(ctx, fn)
 }
