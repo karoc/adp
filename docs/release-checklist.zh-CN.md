@@ -34,6 +34,7 @@ scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
+scripts/planning-concurrency-smoke.sh
 scripts/check-coverage.sh
 go vet ./...
 scripts/check-file-lines.sh
@@ -195,6 +196,8 @@ phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership
 
 `scripts/plan-intake-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，并用来自文件以及通过 `--file -` 从 stdin 传入的结构化 YAML 输入验证 `adp plan preview` 和 `adp plan apply`。它证明 preview 保持只读，apply 只写 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地 planning ledger，JSON 输出仍是 inspection format，fresh workspace 上的 invalid input 不会留下 planning 目录，staging failure 不会留下 partial phase/task/progress state，并且不会产生 runtime、Git、event log 或真实 project-root 副作用。
 
+`scripts/planning-concurrency-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建一个临时 `ADP_HOME` 和 workspace，并让真实 CLI 进程并发写入同一个本地 planning ledger。它验证并发 task add、phase add、duplicate phase creation 和 plan apply batches 都能序列化执行，不会丢失 task ID、phase ID、phase order，或 task / phase 更新。它还会验证 `plan doctor` 保持健康，progress evidence 写入本地，并且不会产生 runtime、Git、event log 或真实 project-root 副作用。
+
 `scripts/check-coverage.sh` 会用仓库 coverage floor 验证完整 Go 测试套件。默认情况下它也会启用 race detector，并避免使用缓存测试结果。
 
 `go vet ./...` 运行 Go 静态检查。
@@ -294,6 +297,8 @@ adp run claude --workspace <name> --task <task-id> -- <claude-args>
 如果 `scripts/task-manager-smoke.sh` 失败，优先检查 task CLI 解析、workspace 解析、`planning/` 下的 task 存储、planning doctor diagnostics 和退出码 `2` 行为、next-work JSON selection、helper wiring、JSON report validation、next-work/plan-doctor/report read-only 检查，以及项目根目录污染防护。
 
 如果 `scripts/plan-intake-smoke.sh` 失败，优先检查 plan input 解析、plan preview 只读行为、显式 apply 写入 `$ADP_HOME`、planning batch rollback 行为、JSON 输出结构，以及 project-root/runtime/Git 副作用检查。
+
+如果 `scripts/planning-concurrency-smoke.sh` 失败，优先检查 planning lock、task ID allocation、phase ID 和 order allocation、duplicate phase conflict handling、plan apply batch commit path、append-only progress log、same-workspace multi-process outputs，以及 project-root/runtime/Git 副作用检查。
 
 如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、claim lease parsing、owner-checked release、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期的 operator error 包括未通过 acceptance 就记录 commit evidence、未记录 commit evidence 就记录 push evidence，以及 earlier phase 没有 pushed evidence 就启动 later phase。修复路径是在真实 validation、commit 和 push 已经在 ADP 外部完成后，显式按 `adp phase accept`、`adp phase commit`、`adp phase push` 的顺序记录。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录或让 ADP 自动执行 Git 来修复失败。
 

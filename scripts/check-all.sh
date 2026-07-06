@@ -159,6 +159,7 @@ SMOKE_SCRIPTS=(
   "scripts/example-workspace-smoke.sh"
   "scripts/task-manager-smoke.sh"
   "scripts/plan-intake-smoke.sh"
+  "scripts/planning-concurrency-smoke.sh"
 )
 
 if [ "${CHECK_ALL_SERIAL:-0}" = "1" ]; then
