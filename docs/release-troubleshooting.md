@@ -1,8 +1,8 @@
 # Release Troubleshooting
 
-简体中文：[release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)
+Simplified Chinese: [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)
 
-This note is the operator triage path for preview release failures. It keeps failure handling local-first and terminal-first; it does not add hosted orchestration, dashboards, cloud sync, SaaS release tracking, automatic Git execution, provider-native resume, or default real Codex/Claude gates.
+This note is the operator triage path for release candidate failures. It keeps failure handling local-first and terminal-first; it does not add hosted orchestration, dashboards, cloud sync, SaaS release tracking, automatic Git execution, provider-native resume, or default real Codex/Claude gates.
 
 ## First Response
 
@@ -47,7 +47,7 @@ If the archive build needs files from the operator machine, rebuild the archive 
 
 ## Build And Version Failures
 
-If `adp version` prints `adp dev`, the release ldflags were not injected. Rebuild with explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values from [release-packaging.md](release-packaging.md).
+If `adp version` omits `commit:` or `built:`, or reports the wrong release version, the artifact was not built with full release identity. Rebuild with explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values from [release-packaging.md](release-packaging.md).
 
 If the reported commit or build date does not match the release evidence, discard the artifact and rebuild. Do not edit evidence to match an accidental binary.
 
@@ -56,8 +56,9 @@ If the reported commit or build date does not match the release evidence, discar
 Checksum evidence must refer to the exact artifact that will be packaged:
 
 ```bash
-sha256sum dist/adp > dist/adp.sha256
-sha256sum -c dist/adp.sha256
+cd dist
+sha256sum -c SHA256SUMS
+cd ..
 ```
 
 If verification fails, discard the checksum and artifact pair, rebuild the artifact, regenerate the checksum, and verify again. Do not modify an artifact after recording its checksum.
@@ -67,10 +68,10 @@ If verification fails, discard the checksum and artifact pair, rebuild the artif
 Inspect the archive contents before publishing:
 
 ```bash
-tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort
+tar -tf adp-1.0.1-linux-amd64.tar.gz | sort
 ```
 
-The package must include the binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, release packaging docs, release evidence docs, and a short release note. It must exclude `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, logs, task state, credentials, shell startup files, and temporary rehearsal directories.
+The package must include the binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `CONTRIBUTING.md`, `CONTRIBUTING.zh-CN.md`, `SECURITY.md`, `SECURITY.zh-CN.md`, `docs/license-policy.md`, `docs/license-policy.zh-CN.md`, release packaging docs, release evidence docs, and a short release note or release evidence note. It must exclude `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, logs, task state, credentials, provider-native session state, shell startup files, local ADP planning ledgers, and temporary rehearsal directories.
 
 If required files are missing, fix the clean staging directory and rebuild the package. If excluded files appear, fix the package assembly path; do not weaken the local-first boundary or publish operator state.
 
@@ -80,11 +81,11 @@ Install and run from the packaged artifact path, not from the source tree:
 
 ```bash
 ADP_INSTALL_BIN="$(mktemp -d)"
-install -m 0755 dist/adp "${ADP_INSTALL_BIN}/adp"
+install -m 0755 dist/adp-1.0.1-linux-amd64 "${ADP_INSTALL_BIN}/adp"
 PATH="${ADP_INSTALL_BIN}:${PATH}" adp version
 ```
 
-If the installed binary fails but `dist/adp` succeeds, inspect file permissions, package extraction, target platform, and `PATH` ordering. The rehearsal must use temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, a temporary project root, and fake provider commands unless optional real CLI evidence was intentionally enabled.
+If the installed binary fails but the artifact path succeeds directly, inspect file permissions, package extraction, target platform, and `PATH` ordering. The rehearsal must use temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, a temporary project root, and fake provider commands unless optional real CLI evidence was intentionally enabled.
 
 If the project-root pollution scan finds ADP files, fix runtime or planning output boundaries. Do not accept `AGENTS.md`, `CLAUDE.md`, `.codex`, `.claude`, `.adp-runtime.yaml`, `planning`, task files, phase files, or progress reports in the real project root.
 

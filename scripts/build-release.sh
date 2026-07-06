@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${VERSION:-1.0.0}"
-BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-COMMIT="$(git rev-parse HEAD)"
-DIST_DIR="dist"
+VERSION="${VERSION:-1.0.1}"
+BUILD_DATE="${BUILD_DATE:-$(date -u '+%Y-%m-%dT%H:%M:%SZ')}"
+COMMIT="${COMMIT:-}"
+DIST_DIR="${DIST_DIR:-dist}"
+
+if [ -z "${COMMIT}" ]; then
+    COMMIT="$(git rev-parse HEAD)"
+fi
+
+LDFLAGS="-s -w"
+LDFLAGS="${LDFLAGS} -X github.com/karoc/adp/internal/cli.Version=${VERSION}"
+LDFLAGS="${LDFLAGS} -X github.com/karoc/adp/internal/cli.Commit=${COMMIT}"
+LDFLAGS="${LDFLAGS} -X github.com/karoc/adp/internal/cli.BuildDate=${BUILD_DATE}"
 
 echo "Building ADP ${VERSION}"
 echo "Commit: ${COMMIT}"
@@ -34,9 +43,8 @@ for platform in "${PLATFORMS[@]}"; do
 
     echo "Building ${os}/${arch}..."
     GOOS="${os}" GOARCH="${arch}" go build \
-        -ldflags "-X github.com/karoc/adp/internal/cli.Version=${VERSION} \
-                  -X github.com/karoc/adp/internal/cli.Commit=${COMMIT} \
-                  -X github.com/karoc/adp/internal/cli.BuildDate=${BUILD_DATE}" \
+        -trimpath \
+        -ldflags "${LDFLAGS}" \
         -o "${DIST_DIR}/${output_name}" \
         ./cmd/adp
 

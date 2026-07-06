@@ -71,7 +71,7 @@ fake-runtime、可审计。
 - 保持 task、phase 和 progress records 本地、显式、可审计。
 - 保持默认 release validation 确定性：fake agent、临时目录、无 provider
   credentials、无网络要求、无自动 Git side effects。
-- 把双语文档和 700 行 code-file cap 继续作为有效打磨约束。
+- 把双语文档和 1000 行 code-file cap 继续作为有效打磨约束。
 
 ## MVP 打磨阶段不应吸收
 

@@ -2,7 +2,7 @@
 
 简体中文：[release-packaging.zh-CN.md](release-packaging.zh-CN.md)
 
-This note defines the early preview packaging path for ADP as a terminal-first, local-first Go CLI. It keeps release artifacts aligned with the local runtime model and does not introduce hosted services, dashboards, cloud sync, or SaaS deployment assumptions.
+This note defines the stable release packaging path for ADP as a terminal-first, local-first Go CLI. It keeps release artifacts aligned with the local runtime model and does not introduce hosted services, dashboards, cloud sync, or SaaS deployment assumptions.
 
 ## Release Gate
 
@@ -28,8 +28,8 @@ They do not replace the aggregate gate and do not prove provider credentials, mo
 The release-candidate path is deterministic by default:
 
 1. Verify the exact source form with `scripts/check-all.sh`.
-2. Build artifacts with explicit release ldflags.
-3. Generate and verify checksums before packaging.
+2. Build artifacts with the release script's explicit `-trimpath` and release ldflags.
+3. Verify the generated checksums before packaging.
 4. Stage the package from clean files only.
 5. Inspect the package manifest for required notices and excluded local state.
 6. Install a packaged binary on a temporary `PATH`.
@@ -40,12 +40,12 @@ This path must not depend on real Codex or Claude CLIs, provider credentials, ne
 
 ## Operator Drill
 
-Use this sequence for preview release rehearsals:
+Use this sequence for stable release rehearsals:
 
 1. Start from a clean Git checkout and record `git status --short --branch` and the commit hash. If a source archive without `.git` will also be published or used for builds, record the archive origin and set `COMMIT` explicitly before the no-`.git` build rehearsal.
 2. Run `scripts/check-all.sh` from the clean checkout used to produce the artifacts or source archive. If an archive is missing test scripts or Go module files, rebuild it from that clean checkout instead of filling gaps from machine-local files.
-3. Build the target-platform artifact with explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values.
-4. Generate and verify the SHA-256 checksum for the artifact that will be packaged.
+3. Build the release artifacts with `scripts/build-release.sh`, using explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values when the defaults do not describe the exact source form being released.
+4. Verify the generated SHA-256 checksums for the artifacts that will be packaged.
 5. Assemble the package from a clean staging directory, then record a sorted package manifest before publishing.
 6. Install at least one packaged binary into a temporary directory on `PATH` and run the provider-free first-run rehearsal from that installed path.
 7. Record release evidence only after the gate, checksum verification, package manifest inspection, install rehearsal, and source archive or no-`.git` rehearsal have passed.
@@ -54,46 +54,61 @@ If any required step fails, stop the release candidate, keep the failed command 
 
 ## Build Artifacts
 
-For an early preview binary, build the CLI from the repository root:
+The canonical multi-platform release build path is `scripts/build-release.sh` from the repository root:
 
 ```bash
-mkdir -p dist
-VERSION=${VERSION:-0.1.0-preview.1}
-COMMIT=${COMMIT:-$(git rev-parse --short HEAD)}
-BUILD_DATE=${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
-
-LDFLAGS="-s -w"
-LDFLAGS="$LDFLAGS -X github.com/karoc/adp/internal/cli.Version=$VERSION"
-LDFLAGS="$LDFLAGS -X github.com/karoc/adp/internal/cli.Commit=$COMMIT"
-LDFLAGS="$LDFLAGS -X github.com/karoc/adp/internal/cli.BuildDate=$BUILD_DATE"
-
-go build -trimpath -ldflags="$LDFLAGS" -o dist/adp ./cmd/adp
-dist/adp version
+VERSION=1.0.1 ./scripts/build-release.sh
 ```
 
-The expected release output shape is `adp 0.1.0-preview.1 commit <commit> built <utc-timestamp>`. The `-X` values target package variables in `github.com/karoc/adp/internal/cli`. When they are omitted, `adp version` falls back to the development identity `dev`; release artifacts should inject all three values so operators can connect a binary to the Git commit and build timestamp.
-
-The default `COMMIT` command assumes a Git checkout. If building from a source archive without `.git`, set `COMMIT` explicitly before running the build command:
+The script builds Linux, macOS, and Windows artifacts under `dist/`, injects release identity through `-ldflags`, uses `-trimpath`, strips debug metadata with `-s -w`, and writes `dist/SHA256SUMS`. By default it uses `VERSION=1.0.1`, the current Git commit from `git rev-parse HEAD`, and a UTC build timestamp. Operators may override all three values:
 
 ```bash
-COMMIT=source-archive-commit
+VERSION=1.0.1 \
+COMMIT="$(git rev-parse HEAD)" \
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+./scripts/build-release.sh
+```
+
+When debugging the release script from a single-platform source form, this manual fallback exposes the same release identity contract. Use it to isolate build or archive problems, then return to `scripts/build-release.sh` for published multi-platform artifacts:
+
+```bash
+VERSION="${VERSION:-1.0.1}"
+COMMIT="${COMMIT:-source-archive-commit}"
+BUILD_DATE="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+LDFLAGS="-s -w -X github.com/karoc/adp/internal/cli.Version=${VERSION} -X github.com/karoc/adp/internal/cli.Commit=${COMMIT} -X github.com/karoc/adp/internal/cli.BuildDate=${BUILD_DATE}"
+mkdir -p dist
+go build -trimpath -ldflags="$LDFLAGS" -o dist/adp ./cmd/adp
+sha256sum dist/adp > dist/adp.sha256
+sha256sum -c dist/adp.sha256
+ADP_INSTALL_BIN="$(mktemp -d)"
+install -m 0755 dist/adp "${ADP_INSTALL_BIN}/adp"
+```
+
+The expected text output from a packaged release binary is multiline and begins with the injected version:
+
+```text
+adp version 1.0.1
+commit: <commit>
+built: <utc-timestamp>
+go: <go-version>
+platform: <goos>/<goarch>
+```
+
+The `-X` values target package variables in `github.com/karoc/adp/internal/cli`. A local source build without release ldflags uses the source default version and omits `commit:` and `built:` when those values were not injected; release artifacts should inject all three identity values so operators can connect a binary to the Git commit and build timestamp.
+
+The default `COMMIT` lookup assumes a Git checkout. If building from a source archive without `.git`, set `COMMIT` explicitly before running the build script:
+
+```bash
+COMMIT=source-archive-commit VERSION=1.0.1 ./scripts/build-release.sh
 ```
 
 When a source archive is used, the explicit `COMMIT` value should be the published commit hash or another stable archive identifier recorded in the release evidence. Do not infer build identity from a local checkout that is not the source form being released.
 
-For cross-platform preview artifacts, set `GOOS` and `GOARCH` explicitly and use platform-specific names:
+After building artifacts, verify checksums before distributing them:
 
 ```bash
-GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="$LDFLAGS" -o dist/adp-linux-amd64 ./cmd/adp
-GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="$LDFLAGS" -o dist/adp-darwin-arm64 ./cmd/adp
-GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="$LDFLAGS" -o dist/adp-windows-amd64.exe ./cmd/adp
-```
-
-After building an artifact, generate and verify a checksum before distributing it:
-
-```bash
-sha256sum dist/adp > dist/adp.sha256
-sha256sum -c dist/adp.sha256
+cd dist
+sha256sum -c SHA256SUMS
 ```
 
 If the operator platform does not provide `sha256sum`, use an equivalent SHA-256 tool and record the exact command in the release evidence note.
@@ -104,7 +119,7 @@ Validate at least one packaged binary from an installed location rather than by 
 
 ```bash
 ADP_INSTALL_BIN="$(mktemp -d)"
-install -m 0755 dist/adp "${ADP_INSTALL_BIN}/adp"
+install -m 0755 dist/adp-1.0.1-linux-amd64 "${ADP_INSTALL_BIN}/adp"
 export PATH="${ADP_INSTALL_BIN}:${PATH}"
 adp version
 ```
@@ -144,14 +159,14 @@ Do not include provider credentials, account identifiers, private prompts, model
 Record a package manifest before publishing, for example:
 
 ```bash
-tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort > adp-0.1.0-preview.1-linux-amd64.manifest
+tar -tf adp-1.0.1-linux-amd64.tar.gz | sort > adp-1.0.1-linux-amd64.manifest
 ```
 
 Inspect the manifest before release. A manifest mismatch is a packaging failure, not a reason to weaken repository ignores or include local operator state.
 
-## Preview Scope
+## Release Scope
 
-Early preview packages are local CLI artifacts. Users should install the binary somewhere on `PATH`, run `adp init`, register local workspaces, and keep agent configuration under `$ADP_HOME`.
+Stable release packages are local CLI artifacts. Users should install the binary somewhere on `PATH`, run `adp init`, register local workspaces, and keep agent configuration under `$ADP_HOME`.
 
 The package should not claim:
 
@@ -164,9 +179,9 @@ The package should not claim:
 
 ## Tagging Notes
 
-Use explicit preview tags, for example `v0.1.0-preview.1`, only after the working tree is clean and the release gate has passed. The tag should point at the same commit used to build the binary artifacts.
+Use explicit stable release tags, for example `v1.0.1`, only after the working tree is clean and the release gate has passed. The tag should point at the same commit used to build the binary artifacts.
 
-Before publishing a preview, record the evidence described in [release-evidence.md](release-evidence.md), including:
+Before publishing a release, record the evidence described in [release-evidence.md](release-evidence.md), including:
 
 - Commit hash.
 - Source form used for the build, such as a Git checkout or source archive.

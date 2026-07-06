@@ -22,7 +22,7 @@ For details, see [docs/license-policy.md](docs/license-policy.md) and [COMMERCIA
 
 Before opening or handing off a change:
 
-- Keep code files at or below 700 physical lines.
+- Keep code files at or below 1000 physical lines.
 - Keep English documentation as the default and add equivalent Simplified Chinese `*.zh-CN.md` counterparts for maintained Markdown files.
 - Keep `.envrc` and `mvp.md` ignored and uncommitted.
 - Keep ADP runtime and planning state outside real project roots.

@@ -2,7 +2,7 @@
 
 English: [release-packaging.md](release-packaging.md)
 
-本文档定义 ADP early preview 的打包路径。ADP 是 terminal-first、local-first 的 Go CLI，发布 artifact 应与本地 runtime 模型保持一致，不引入 hosted service、dashboard、cloud sync 或 SaaS deployment 假设。
+本文档定义 ADP stable release 的打包路径。ADP 是 terminal-first、local-first 的 Go CLI，发布 artifact 应与本地 runtime 模型保持一致，不引入 hosted service、dashboard、cloud sync 或 SaaS deployment 假设。
 
 ## 发布门禁
 
@@ -28,8 +28,8 @@ ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 Release-candidate 路径默认是确定性的：
 
 1. 用 `scripts/check-all.sh` 验证准确的 source form。
-2. 使用明确的 release ldflags 构建 artifacts。
-3. 在 packaging 前生成并验证 checksums。
+2. 使用 release script 中明确的 `-trimpath` 和 release ldflags 构建 artifacts。
+3. 在 packaging 前验证生成的 checksums。
 4. 只从干净文件 staging package。
 5. 检查 package manifest，确认 required notices 存在且 excluded local state 不存在。
 6. 把 packaged binary 安装到临时 `PATH`。
@@ -40,12 +40,12 @@ Release-candidate 路径默认是确定性的：
 
 ## Operator 演练
 
-preview release rehearsal 使用这条顺序：
+stable release rehearsal 使用这条顺序：
 
 1. 从干净 Git checkout 开始，记录 `git status --short --branch` 和 commit hash。如果还要发布没有 `.git` 的 source archive 或用它构建，记录 archive 来源，并在 no-`.git` build rehearsal 前显式设置 `COMMIT`。
 2. 从用于生成 artifacts 或 source archive 的干净 checkout 运行 `scripts/check-all.sh`。如果 archive 缺少测试脚本或 Go module 文件，应从该干净 checkout 重新生成 archive，而不是用本机本地文件补洞。
-3. 使用明确的 `VERSION`、`COMMIT` 和 `BUILD_DATE` 构建目标平台 artifact。
-4. 为将要打包的 artifact 生成并验证 SHA-256 checksum。
+3. 使用 `scripts/build-release.sh` 构建 release artifacts；当默认值不能描述本次发布的准确 source form 时，显式传入 `VERSION`、`COMMIT` 和 `BUILD_DATE`。
+4. 验证将要打包的 artifacts 对应的 SHA-256 checksums。
 5. 从干净 staging directory 组装 package，然后在发布前记录排序后的 package manifest。
 6. 至少把一个 packaged binary 安装到临时 `PATH` 目录，并从该 installed path 运行 provider-free first-run rehearsal。
 7. 只有在 gate、checksum verification、package manifest inspection、install rehearsal，以及适用的 source archive 或 no-`.git` rehearsal 都通过后，才记录 release evidence。
@@ -54,46 +54,61 @@ preview release rehearsal 使用这条顺序：
 
 ## 构建 Artifact
 
-early preview binary 应从仓库根目录构建 CLI：
+标准的多平台 release build 路径是在仓库根目录运行 `scripts/build-release.sh`：
 
 ```bash
-mkdir -p dist
-VERSION=${VERSION:-0.1.0-preview.1}
-COMMIT=${COMMIT:-$(git rev-parse --short HEAD)}
-BUILD_DATE=${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
-
-LDFLAGS="-s -w"
-LDFLAGS="$LDFLAGS -X github.com/karoc/adp/internal/cli.Version=$VERSION"
-LDFLAGS="$LDFLAGS -X github.com/karoc/adp/internal/cli.Commit=$COMMIT"
-LDFLAGS="$LDFLAGS -X github.com/karoc/adp/internal/cli.BuildDate=$BUILD_DATE"
-
-go build -trimpath -ldflags="$LDFLAGS" -o dist/adp ./cmd/adp
-dist/adp version
+VERSION=1.0.1 ./scripts/build-release.sh
 ```
 
-期望的 release 输出形态是 `adp 0.1.0-preview.1 commit <commit> built <utc-timestamp>`。这些 `-X` 值对应 `github.com/karoc/adp/internal/cli` 包中的变量。省略时，`adp version` 会回退到开发构建标识 `dev`；release artifact 应注入全部三个值，方便 operator 把 binary 关联到 Git commit 和构建时间。
-
-默认的 `COMMIT` 命令假设当前是 Git checkout。如果从没有 `.git` 的 source archive 构建，应在运行 build command 前显式设置 `COMMIT`：
+该脚本会在 `dist/` 下构建 Linux、macOS 和 Windows artifacts，通过 `-ldflags` 注入 release identity，使用 `-trimpath`，通过 `-s -w` 去除调试元数据，并写入 `dist/SHA256SUMS`。默认情况下，它使用 `VERSION=1.0.1`、`git rev-parse HEAD` 返回的当前 Git commit，以及 UTC build timestamp。Operator 可以覆盖全部三个值：
 
 ```bash
-COMMIT=source-archive-commit
+VERSION=1.0.1 \
+COMMIT="$(git rev-parse HEAD)" \
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+./scripts/build-release.sh
+```
+
+调试 release script 的单平台 source form 时，可以使用以下手工 fallback 暴露相同的 release identity 契约。它用于隔离 build 或 archive 问题；发布多平台 artifact 时仍应回到 `scripts/build-release.sh`：
+
+```bash
+VERSION="${VERSION:-1.0.1}"
+COMMIT="${COMMIT:-source-archive-commit}"
+BUILD_DATE="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+LDFLAGS="-s -w -X github.com/karoc/adp/internal/cli.Version=${VERSION} -X github.com/karoc/adp/internal/cli.Commit=${COMMIT} -X github.com/karoc/adp/internal/cli.BuildDate=${BUILD_DATE}"
+mkdir -p dist
+go build -trimpath -ldflags="$LDFLAGS" -o dist/adp ./cmd/adp
+sha256sum dist/adp > dist/adp.sha256
+sha256sum -c dist/adp.sha256
+ADP_INSTALL_BIN="$(mktemp -d)"
+install -m 0755 dist/adp "${ADP_INSTALL_BIN}/adp"
+```
+
+packaged release binary 的预期 text output 是多行文本，并以注入的版本开头：
+
+```text
+adp version 1.0.1
+commit: <commit>
+built: <utc-timestamp>
+go: <go-version>
+platform: <goos>/<goarch>
+```
+
+这些 `-X` 值对应 `github.com/karoc/adp/internal/cli` 包中的变量。没有 release ldflags 的本地源码构建会使用源码中的默认版本；如果没有注入这些值，则不会输出 `commit:` 和 `built:`。release artifact 应注入全部三个 identity 值，方便 operator 把 binary 关联到 Git commit 和构建时间。
+
+默认的 `COMMIT` lookup 假设当前是 Git checkout。如果从没有 `.git` 的 source archive 构建，应在运行 build script 前显式设置 `COMMIT`：
+
+```bash
+COMMIT=source-archive-commit VERSION=1.0.1 ./scripts/build-release.sh
 ```
 
 使用 source archive 时，显式 `COMMIT` 值应是发布的 commit hash，或 release evidence 中记录的另一个稳定 archive identifier。不要从并非本次发布 source form 的本地 checkout 推断 build identity。
 
-如果需要跨平台 preview artifact，应显式设置 `GOOS` 和 `GOARCH`，并使用带平台信息的名称：
+构建 artifacts 后，应先验证 checksums，再进行分发：
 
 ```bash
-GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="$LDFLAGS" -o dist/adp-linux-amd64 ./cmd/adp
-GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="$LDFLAGS" -o dist/adp-darwin-arm64 ./cmd/adp
-GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="$LDFLAGS" -o dist/adp-windows-amd64.exe ./cmd/adp
-```
-
-构建 artifact 后，应先生成并验证 checksum，再进行分发：
-
-```bash
-sha256sum dist/adp > dist/adp.sha256
-sha256sum -c dist/adp.sha256
+cd dist
+sha256sum -c SHA256SUMS
 ```
 
 如果 operator 平台没有 `sha256sum`，可以使用等价的 SHA-256 工具，并在 release evidence note 中记录实际命令。
@@ -104,7 +119,7 @@ sha256sum -c dist/adp.sha256
 
 ```bash
 ADP_INSTALL_BIN="$(mktemp -d)"
-install -m 0755 dist/adp "${ADP_INSTALL_BIN}/adp"
+install -m 0755 dist/adp-1.0.1-linux-amd64 "${ADP_INSTALL_BIN}/adp"
 export PATH="${ADP_INSTALL_BIN}:${PATH}"
 adp version
 ```
@@ -144,14 +159,14 @@ adp version
 发布前记录 package manifest，例如：
 
 ```bash
-tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort > adp-0.1.0-preview.1-linux-amd64.manifest
+tar -tf adp-1.0.1-linux-amd64.tar.gz | sort > adp-1.0.1-linux-amd64.manifest
 ```
 
 发布前检查该 manifest。manifest mismatch 是 packaging failure，不能通过削弱 repository ignores 或包含本地 operator state 来修复。
 
-## Preview 范围
+## Release 范围
 
-early preview package 是本地 CLI artifact。用户应把 binary 安装到 `PATH` 中，运行 `adp init`，注册本地 workspace，并把 agent 配置保存在 `$ADP_HOME` 下。
+stable release package 是本地 CLI artifact。用户应把 binary 安装到 `PATH` 中，运行 `adp init`，注册本地 workspace，并把 agent 配置保存在 `$ADP_HOME` 下。
 
 package 不应声明：
 
@@ -164,9 +179,9 @@ package 不应声明：
 
 ## Tagging 说明
 
-仅在 working tree 干净且发布门禁通过后，才使用明确的 preview tag，例如 `v0.1.0-preview.1`。tag 应指向构建 binary artifacts 使用的同一个 commit。
+仅在 working tree 干净且发布门禁通过后，才使用明确的 stable release tag，例如 `v1.0.1`。tag 应指向构建 binary artifacts 使用的同一个 commit。
 
-发布 preview 前应记录 [release-evidence.zh-CN.md](release-evidence.zh-CN.md) 中描述的 evidence，包括：
+发布 release 前应记录 [release-evidence.zh-CN.md](release-evidence.zh-CN.md) 中描述的 evidence，包括：
 
 - Commit hash。
 - 构建使用的 source 形态，例如 Git checkout 或 source archive。

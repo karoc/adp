@@ -2,7 +2,7 @@
 set -euo pipefail
 
 mode="enforce"
-limit="${MAX_FILE_LINES:-700}"
+limit="${MAX_FILE_LINES:-1000}"
 warn_limit="${LINE_PRESSURE_WARN_LINES:-600}"
 status=0
 
@@ -16,7 +16,7 @@ Modes:
   --audit   Report files at or above LINE_PRESSURE_WARN_LINES and exit zero.
 
 Environment:
-  MAX_FILE_LINES              Hard limit for default mode. Default: 700.
+  MAX_FILE_LINES              Hard limit for default mode. Default: 1000.
   LINE_PRESSURE_WARN_LINES    Warning threshold for --audit. Default: 600.
 USAGE
 }

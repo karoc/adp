@@ -11,6 +11,12 @@ ADP（Agent Development Platform）的所有重要变更都将记录在此文件
 
 ## [未发布]
 
+暂无变更。
+
+---
+
+## [1.0.1] - 2026-07-06
+
 ### 安全
 - **对事件日志与会话恢复计划中的 agent 参数密钥脱敏** — 传递给 `adp run` 的 `--` 之后的参数（例如 `--api-key sk-...`）此前被原样记录在全局可读的 `events.jsonl` 中，并被 `sessions restore-plan` / `sessions resume-plan` 回显。现在密钥形态的值会被替换为 `***REDACTED***`，同时保留参数名；事件日志以仅属主可读的 `0600` 权限创建（已存在的宽松权限会在下次写入时收紧）；脱敏在写入时和计划渲染时（文本与 JSON）双重生效。新增 `internal/redact` 包，通过敏感参数名（`key`、`secret`、`token`、`password`、`auth`、`credential` 等）、已知服务商前缀（`sk-`、`ghp_`、`AKIA`、`eyJ` 等）以及高熵裸值来识别凭据。
 - **将 `$ADP_HOME` 状态目录树收紧为仅属主可访问** — ADP 此前以 `0o755`（目录）和 `0o644`（文件）创建 `$ADP_HOME` 下的全部内容，使同一主机上的其他本地用户可以读取项目路径、任务内容、git remote（可能含令牌）以及命令历史（CWE-732）。现在所有 `$ADP_HOME` 目录（home、`workspaces/`、`logs/`、每个工作区子目录以及 `planning/`）都通过新增的 `internal/paths.EnsurePrivateDir` 以 `0o700` 创建，已存在的宽松权限会被收紧；任务台账文件（`tasks.yaml`、`phases.yaml`、`progress.jsonl`）额外以 `0o600` 写入，构成纵深防御。
@@ -27,8 +33,31 @@ ADP（Agent Development Platform）的所有重要变更都将记录在此文件
 - **`adp run` 的 flags 出现在 agent 之前时报明确的 "agent is required" 错误** — `adp run --workspace x codex`（flags 在 agent 之前，常见的 shell 习惯）此前会把 `--workspace` 当作 agent 名，再为该 flag 的值报误导性的 `unknown run option "x"`，让操作员去寻找一个不存在的 option。解析器现在检测到首个参数是 flag 时，改报与空参数一致的、可操作的 `agent is required; usage: adp run <agent> ...` 消息（含 `try: adp run --help` 提示），指向真正的问题——agent 必须在前——而非一个虚构的 option。文档约定的 `adp run <agent> [flags]` 顺序不变；顺序正确的调用不受影响。
 - **在 `adp tasks update --help` 中列出合法 task status** — `--status` 选项的 usage 行此前只显示 `<status>`，而同类枚举选项在 `adp progress report --help`（`--language <en|zh-CN>`、`--format <markdown|json>`）中已列出合法值。该 usage 行现在枚举可接受的 status（planned、ready、in_progress、blocked、review、validated、done、canceled），让操作员能预先得知合法值，而不必在提交非法值后才能从错误消息中看到（后者已由前一项变更覆盖）。`--status` 的错误消息行为不变。
 - **`adp workspace list` 为空时引导操作员** — 空的 workspace 列表此前只打印表头，首次使用的操作员无从得知如何注册 workspace，而其他 list 命令（`adp sessions list`、`adp events list`、`adp tasks list`、`adp phase list`）已打印 "No X found. ... with 'adp ...'" 行指向创建命令。`adp workspace list` 现在以相同风格追加 `No workspaces found. Register one with 'adp workspace add <name> <project-root>'`。JSON 输出不变（本就返回空数组）。
+- **将源文件硬性行数上限提高到 1000 行** — 项目操作指南、贡献文档、README 摘要、工程标准、同类工具说明、发布 checklist 以及 `scripts/check-file-lines.sh` 现在统一使用 1000 行硬上限。审计压力阈值仍保持较低，以便维护者在硬门禁失败前提前看到建议拆分的文件。
+- **将默认开发与发布版本标识设为 1.0.1** — 源码构建现在报告 `adp version 1.0.1`，`scripts/build-release.sh` 默认使用 `VERSION=1.0.1`，同时仍允许操作员显式覆盖发布元数据。
 
-### Phase 1-5 基础（预发布开发）
+### 修复
+- **确定性拒绝被吞掉的 CLI option 值** — CLI 解析现在会捕获 flag 或值出现在错误位置的情况，包括 `adp run` 的前置 flag 场景，而不是把下一个 token 变成误导性的未知 option。
+- **净化终端安全文本中的原始非 UTF-8 字节** — `safeText` 现在能处理非法字节序列，避免原始控制字节泄漏到终端输出。
+- **提升 Windows 测试可移植性** — 测试套件覆盖了已识别的四类 Windows 可移植性根因，并新增 CI sentinel 让回归保持可见。
+- **防护 smoke 测试中的符号链接污染和本地报告漂移** — Smoke 路径现在检查符号链接行为，并确保本地报告产物保持 ignored 状态。
+- **拆分过大的实现文件** — P65 维护阶段拆分了大型源码文件，使其继续满足项目文件规模约束。
+
+### 构建与验证
+- **并行化完整仓库门禁** — `scripts/check-all.sh` 现在预热 Go build cache，默认并行运行 smoke 脚本，保留 `CHECK_ALL_SERIAL=1` 串行回退，并使用 coverage 门禁避免重复运行普通测试。
+- **报告完整门禁耗时** — `scripts/check-all.sh` 现在输出 cache 预热、整体 smoke suite、每个 smoke worker、coverage、vet、文件行数检查、双语文档、diff check 以及总耗时。
+- **降低 install-onboarding smoke 延迟** — 固定的一秒 stale-lease 等待已替换为围绕立即过期 lease 的短轮询循环。
+- **新增并扩展回归覆盖** — 新测试覆盖输出渲染、Codex/Claude 适配器、overlay 安全防护、resume 决策路径、render 内容注入路径、schema 与 path/layout 包，并为 plan intake 与 redaction parser 增加 fuzz 覆盖。
+- **保持发布构建路径权威一致** — `scripts/build-release.sh` 现在接受 `VERSION`、`COMMIT`、`BUILD_DATE`、`DIST_DIR`，使用集中化 release ldflags，带 `-trimpath` 构建，并保留校验和生成。
+
+### 文档
+- **为稳定版 1.0.1 包装流程对齐发布文档** — 发布包装、checklist、evidence、troubleshooting 与 GitHub 发布说明现在描述稳定版发布流程，而不是 preview 阶段示例，并包含多行 `adp version` 输出格式。
+- **归档过期规划和验证文档** — 历史 plan、verification report 与 checklist snapshot 已标记为 archived 或 historical，不再读起来像当前项目状态。
+- **记录 Phase 6 与 Phase 7 验收证据** — 为已完成的文档阶段和发布就绪阶段补充最终验收报告。
+
+---
+
+## Phase 1-5 基础（预发布开发）
 
 以下章节记录了 ADP 从初始概念到生产就绪 1.0 候选版本的演进。所有功能都经过系统化验收测试，对于本地 terminal-first AI agent 工作流被认为是稳定的。
 

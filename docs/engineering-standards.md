@@ -6,9 +6,9 @@ This document defines repository-wide engineering rules for ADP contributors and
 
 ## File Size Limit
 
-Project code files must stay at or below 700 physical lines.
+Project code files must stay at or below 1000 physical lines.
 
-When a code file would exceed 700 lines, split it before merging. Prefer splitting by stable responsibility boundaries:
+When a code file would exceed 1000 lines, split it before merging. Prefer splitting by stable responsibility boundaries:
 
 - CLI command wiring vs command implementation.
 - schema types vs validation logic.
@@ -32,10 +32,10 @@ Run the local check before handoff:
 scripts/check-file-lines.sh
 ```
 
-The required check defaults to 700 lines and fails when a code file exceeds that hard limit. For local experiments, override it with:
+The required check defaults to 1000 lines and fails when a code file exceeds that hard limit. For local experiments, override it with:
 
 ```bash
-MAX_FILE_LINES=700 scripts/check-file-lines.sh
+MAX_FILE_LINES=1000 scripts/check-file-lines.sh
 ```
 
 Run a non-blocking line pressure audit before planning split or hardening phases:

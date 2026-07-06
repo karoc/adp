@@ -6,7 +6,7 @@ This checklist defines the local release gate for ADP. It keeps release validati
 
 The release gate verifies ADP's own runtime, CLI, workspace, diagnostics, documentation, and repository hygiene. It does not turn release validation into a hosted service check, Web UI check, SaaS deployment check, or remote provider certification process.
 
-For early preview artifact layout and CLI build commands, see [release-packaging.md](release-packaging.md). For operator failure triage, see [release-troubleshooting.md](release-troubleshooting.md). For adjacent-tool scope calibration, see [comparable-tools.md](comparable-tools.md).
+For release artifact layout and CLI build commands, see [release-packaging.md](release-packaging.md). For operator failure triage, see [release-troubleshooting.md](release-troubleshooting.md). For adjacent-tool scope calibration, see [comparable-tools.md](comparable-tools.md).
 
 ## Required Gate
 
@@ -20,7 +20,7 @@ The script can be called from any current directory. It resolves the repository 
 
 `scripts/check-all.sh` remains the aggregate gate even when an individual smoke is internally split for maintainability.
 
-The required gate runs these checks in order:
+The required gate warms the Go build cache, runs the smoke scripts in parallel by default, then runs the remaining repository gates. Set `CHECK_ALL_SERIAL=1` when debugging a smoke failure that is easier to inspect sequentially. The gate covers these checks:
 
 ```bash
 scripts/runtime-smoke.sh --fake
@@ -34,7 +34,7 @@ scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
-go test -count=1 ./...
+scripts/check-coverage.sh
 go vet ./...
 scripts/check-file-lines.sh
 scripts/check-docs-bilingual.sh
@@ -43,11 +43,11 @@ git diff --check
 
 ## Release Candidate Path
 
-Use this path for every preview release candidate:
+Use this path for every release candidate:
 
 1. Start from the source form that will be released: a clean Git checkout or a source archive with a recorded origin commit.
 2. Run `scripts/check-all.sh` from that source form and keep the full command result as required release evidence.
-3. Build the preview artifact with explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values as described in [release-packaging.md](release-packaging.md).
+3. Build the release artifact with explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values as described in [release-packaging.md](release-packaging.md).
 4. Generate and verify the SHA-256 checksum before package assembly.
 5. Assemble the package from a clean staging directory and inspect a sorted manifest before publishing.
 6. Install at least one packaged binary into a temporary directory on `PATH` and run the provider-free first-run rehearsal.
@@ -60,9 +60,9 @@ The default release path is provider-free. It uses fake local agent commands, te
 
 ## Release Package Contents
 
-For preview artifacts, inspect the package before publishing it. The package should include the target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `CONTRIBUTING.md`, `CONTRIBUTING.zh-CN.md`, `SECURITY.md`, `SECURITY.zh-CN.md`, `docs/license-policy.md`, `docs/license-policy.zh-CN.md`, `docs/release-packaging.md`, `docs/release-packaging.zh-CN.md`, `docs/release-evidence.md`, `docs/release-evidence.zh-CN.md`, and a release evidence note or release note that records the commit, version, target platform, gate result, and checksum.
+For release artifacts, inspect the package before publishing it. The package should include the target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `CONTRIBUTING.md`, `CONTRIBUTING.zh-CN.md`, `SECURITY.md`, `SECURITY.zh-CN.md`, `docs/license-policy.md`, `docs/license-policy.zh-CN.md`, `docs/release-packaging.md`, `docs/release-packaging.zh-CN.md`, `docs/release-evidence.md`, `docs/release-evidence.zh-CN.md`, and a release evidence note or release note that records the commit, version, target platform, gate result, and checksum.
 
-The package must preserve the PolyForm Noncommercial and source-available positioning. Noncommercial redistribution must keep the license text, required notices, and attribution to ADP and the copyright holder. Any commercial use requires separate paid authorization; do not describe a preview package as granting commercial rights.
+The package must preserve the PolyForm Noncommercial and source-available positioning. Noncommercial redistribution must keep the license text, required notices, and attribution to ADP and the copyright holder. Any commercial use requires separate paid authorization; do not describe a release package as granting commercial rights.
 
 The package must exclude local or sensitive operator state, including `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, event logs, session logs, task or phase state, credentials, tokens, account identifiers, private prompts, and machine-specific shell startup files.
 
@@ -83,7 +83,7 @@ P3 phase gate work turns this discipline into local records under `$ADP_HOME/wor
 
 `scripts/runtime-smoke.sh --fake` builds the current `cmd/adp` binary into a temporary directory and runs the deterministic fake-agent runtime acceptance path. It uses temporary `ADP_HOME`, `ADP_RUNTIME_DIR`, fake agent binaries, and a temporary project root.
 
-P17 may split shared helpers and fake diagnostics/session/prune slices into helper files under `scripts/`. That split is an implementation detail for maintainability under the 700-line file cap; callers still run `scripts/runtime-smoke.sh --fake`, and the aggregate release gate still runs it through `scripts/check-all.sh`.
+P17 may split shared helpers and fake diagnostics/session/prune slices into helper files under `scripts/`. That split is an implementation detail for maintainability under the 1000-line file cap; callers still run `scripts/runtime-smoke.sh --fake`, and the aggregate release gate still runs it through `scripts/check-all.sh`.
 
 The fake runtime smoke verifies:
 
@@ -138,16 +138,16 @@ The release readiness smoke verifies:
 - Phase evidence commands do not execute Git side-effect commands such as `git commit`, `git push`, `git pull`, `git fetch`, `git clone`, or `git ls-remote`.
 - The default release path remains local, deterministic, and independent of real Codex or Claude CLIs.
 
-`scripts/release-rehearsal-smoke.sh` copies the current non-ignored repository files into a temporary clean workspace, builds a preview binary with release ldflags, verifies copied docs and file limits, bootstraps the copied example workspace with isolated `ADP_HOME` and `ADP_RUNTIME_DIR`, and checks phase evidence recording with a fake Git tripwire.
+`scripts/release-rehearsal-smoke.sh` copies the current non-ignored repository files into a temporary clean workspace, builds a release binary with release ldflags, verifies copied docs and file limits, bootstraps the copied example workspace with isolated `ADP_HOME` and `ADP_RUNTIME_DIR`, and checks phase evidence recording with a fake Git tripwire.
 
 The release rehearsal smoke verifies:
 
-- The documented preview build/version path can produce a binary whose `adp version` reports injected version, commit, and build date values.
-- The copied docs and code files still satisfy the bilingual-document and 700-line gates from a clean temporary workspace.
+- The documented release build/version path can produce a binary whose `adp version` reports injected version, commit, and build date values.
+- The copied docs and code files still satisfy the bilingual-document and 1000-line gates from a clean temporary workspace.
 - The published example workspace can bootstrap against a temporary project without relying on the developer's local `$ADP_HOME` or runtime state.
 - Release phase evidence remains local and does not execute Git side-effect commands.
 
-`scripts/release-artifact-smoke.sh` builds preview artifacts in a temporary source tree, assembles a local release package, verifies checksums, checks package include/exclude boundaries, installs the packaged binary into a temporary `PATH`, runs a provider-free first-run rehearsal, and verifies a source archive build without `.git` by using an explicit commit value.
+`scripts/release-artifact-smoke.sh` builds release artifacts in a temporary source tree, assembles a local release package, verifies checksums, checks package include/exclude boundaries, installs the packaged binary into a temporary `PATH`, runs a provider-free first-run rehearsal, and verifies a source archive build without `.git` by using an explicit commit value.
 
 The release artifact smoke verifies:
 
@@ -195,11 +195,11 @@ The phase gate smoke path covers phase records, task claim ownership with leases
 
 `scripts/plan-intake-smoke.sh` builds the current `cmd/adp` binary, creates a temporary workspace, and verifies `adp plan preview` and `adp plan apply` with structured YAML input from both files and stdin through `--file -`. It proves preview stays read-only, apply writes only the local planning ledger under `$ADP_HOME/workspaces/<workspace>/planning`, JSON output remains an inspection format, invalid input on a fresh workspace leaves no planning directory, staging failures leave no partial phase/task/progress state, and no runtime, Git, event-log, or real project-root side effects occur.
 
-`go test -count=1 ./...` verifies the full Go test suite without using cached test results.
+`scripts/check-coverage.sh` verifies the full Go test suite with the repository coverage floor. By default it also enables the race detector and avoids cached test results.
 
 `go vet ./...` runs Go static checks.
 
-`scripts/check-file-lines.sh` enforces the project rule that code files stay at or below 700 physical lines. It checks tracked files and non-ignored untracked files.
+`scripts/check-file-lines.sh` enforces the project rule that code files stay at or below 1000 physical lines. It checks tracked files and non-ignored untracked files.
 
 `scripts/check-file-lines.sh --audit` is a non-blocking line pressure report for planning future splits before files approach the hard cap. It reports files at or above `LINE_PRESSURE_WARN_LINES`, defaults to 600 lines, and exits zero. The audit is not part of `scripts/check-all.sh` by default and must not replace the hard line-count gate.
 
@@ -287,7 +287,7 @@ For agent command/profile warnings, check whether the enabled agent has an adapt
 
 If a completion value step fails, inspect the local adapter registry, local workspace name discovery under `$ADP_HOME/workspaces`, `ADP_WORKSPACE` or `--workspace` resolution, workspace agent profiles, and files under the workspace `profiles/` directory. Completion value endpoints must stay read-only and local.
 
-If a version step fails, inspect the CLI build variables in `internal/cli` and the release `-ldflags` described in [release-packaging.md](release-packaging.md). Development builds may print `dev`; packaged preview binaries should inject version, commit, and build date.
+If a version step fails, inspect the CLI build variables in `internal/cli` and the release `-ldflags` described in [release-packaging.md](release-packaging.md). Packaged release binaries should inject version, commit, and build date.
 
 If `scripts/example-workspace-smoke.sh` fails, inspect whether the copied `examples/basic-workspace/workspace.yaml` still matches the current schema and whether `adp env <workspace> --cd` still produces a kept runtime with project-file symlinks.
 
@@ -297,7 +297,7 @@ If `scripts/plan-intake-smoke.sh` fails, inspect plan input parsing, plan previe
 
 If a phase-gate smoke step fails, inspect phase record storage, task owner state, claim lease parsing, owner-checked release, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. Expected operator errors include commit evidence before passed acceptance, push evidence before commit evidence, and starting a later phase before the earlier phase has pushed evidence. The repair path is the explicit sequence `adp phase accept`, `adp phase commit`, and `adp phase push` after real validation, commit, and push have happened outside ADP. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root or by making ADP run Git automatically.
 
-If `go test -count=1 ./...` fails, narrow the failing package and rerun that package before making changes:
+If `scripts/check-coverage.sh` fails, narrow the failing package and rerun that package before making changes:
 
 ```bash
 go test -count=1 ./internal/workspace
@@ -307,7 +307,7 @@ go test -count=1 ./test/e2e
 
 If `go vet ./...` fails, treat it as a code-quality gate and fix the reported package before rerunning the full gate.
 
-If `scripts/check-file-lines.sh` fails, split the reported code file before adding more behavior. Do not bypass the 700-line limit with generated-looking manual files or unrelated formatting churn. If the reported file is a scratch file, remove it or ignore it deliberately.
+If `scripts/check-file-lines.sh` fails, split the reported code file before adding more behavior. Do not bypass the 1000-line limit with generated-looking manual files or unrelated formatting churn. If the reported file is a scratch file, remove it or ignore it deliberately.
 
 If `scripts/check-docs-bilingual.sh` fails, add the missing English default or Simplified Chinese counterpart. New Markdown files should follow the default English path plus `*.zh-CN.md` counterpart pattern. If the reported Markdown is a local note, remove it or ignore it deliberately.
 
@@ -320,7 +320,7 @@ Before a release candidate is announced, an operator should also confirm:
 - `git status --short --branch` shows only intentional changes before commit and a clean tree after commit.
 - `.envrc` and `mvp.md` remain ignored and uncommitted.
 - Repository-local Git identity is not configured with `user.name` or `user.email`.
-- Preview packages include `LICENSE`, `COMMERCIAL.md`, and `COMMERCIAL.zh-CN.md`, preserve required notices and attribution, and do not include `.envrc`, `mvp.md`, local ADP state, runtime overlays, logs, task state, credentials, or machine-specific shell configuration.
+- Release packages include `LICENSE`, `COMMERCIAL.md`, and `COMMERCIAL.zh-CN.md`, preserve required notices and attribution, and do not include `.envrc`, `mvp.md`, local ADP state, runtime overlays, logs, task state, credentials, or machine-specific shell configuration.
 - A sorted package manifest was recorded and checked against the required include/exclude list before publishing.
 - At least one artifact was installed from the package into a temporary `PATH` and exercised without using the source-tree binary.
 - The license files and PolyForm Noncommercial/source-available positioning were not changed unintentionally, and public docs do not imply that noncommercial availability grants commercial rights.

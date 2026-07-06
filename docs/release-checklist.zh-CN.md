@@ -6,7 +6,7 @@ English: [release-checklist.md](release-checklist.md)
 
 发布门禁验证 ADP 自身的 runtime、CLI、workspace、diagnostics、文档和仓库卫生。它不会把发布验证扩展为 hosted service 检查、Web UI 检查、SaaS deployment 检查或远程 provider certification 流程。
 
-early preview artifact 布局和 CLI 构建命令见 [release-packaging.zh-CN.md](release-packaging.zh-CN.md)。operator failure triage 见 [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)。相邻工具范围校准见 [comparable-tools.zh-CN.md](comparable-tools.zh-CN.md)。
+release artifact 布局和 CLI 构建命令见 [release-packaging.zh-CN.md](release-packaging.zh-CN.md)。operator failure triage 见 [release-troubleshooting.zh-CN.md](release-troubleshooting.zh-CN.md)。相邻工具范围校准见 [comparable-tools.zh-CN.md](comparable-tools.zh-CN.md)。
 
 ## 必跑门禁
 
@@ -20,7 +20,7 @@ scripts/check-all.sh
 
 即使单个 smoke 为了可维护性在内部拆分，`scripts/check-all.sh` 仍然是聚合门禁。
 
-必跑门禁按以下顺序执行：
+必跑门禁会先预热 Go build cache，默认并行运行 smoke scripts，然后运行剩余仓库门禁。调试更适合顺序查看的 smoke 失败时，可设置 `CHECK_ALL_SERIAL=1`。该门禁覆盖以下检查：
 
 ```bash
 scripts/runtime-smoke.sh --fake
@@ -34,7 +34,7 @@ scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
-go test -count=1 ./...
+scripts/check-coverage.sh
 go vet ./...
 scripts/check-file-lines.sh
 scripts/check-docs-bilingual.sh
@@ -43,11 +43,11 @@ git diff --check
 
 ## Release Candidate 路径
 
-每个 preview release candidate 都使用这条路径：
+每个 release candidate 都使用这条路径：
 
 1. 从将要发布的 source form 开始：干净的 Git checkout，或已经记录来源 commit 的 source archive。
 2. 从该 source form 运行 `scripts/check-all.sh`，并把完整命令结果保留为 required release evidence。
-3. 按 [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 使用明确的 `VERSION`、`COMMIT` 和 `BUILD_DATE` 值构建 preview artifact。
+3. 按 [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 使用明确的 `VERSION`、`COMMIT` 和 `BUILD_DATE` 值构建 release artifact。
 4. 在 package assembly 前生成并验证 SHA-256 checksum。
 5. 从干净 staging directory 组装 package，并在发布前检查排序后的 manifest。
 6. 至少把一个 packaged binary 安装到临时目录并放到 `PATH` 上，然后运行 provider-free first-run rehearsal。
@@ -60,9 +60,9 @@ git diff --check
 
 ## 发布包内容
 
-发布 preview artifact 前，应先检查 package 内容。Package 应包含目标平台的 `adp` binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、`CONTRIBUTING.md`、`CONTRIBUTING.zh-CN.md`、`SECURITY.md`、`SECURITY.zh-CN.md`、`docs/license-policy.md`、`docs/license-policy.zh-CN.md`、`docs/release-packaging.md`、`docs/release-packaging.zh-CN.md`、`docs/release-evidence.md`、`docs/release-evidence.zh-CN.md`，以及记录 commit、version、target platform、gate result 和 checksum 的 release evidence note 或 release note。
+发布 release artifact 前，应先检查 package 内容。Package 应包含目标平台的 `adp` binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、`CONTRIBUTING.md`、`CONTRIBUTING.zh-CN.md`、`SECURITY.md`、`SECURITY.zh-CN.md`、`docs/license-policy.md`、`docs/license-policy.zh-CN.md`、`docs/release-packaging.md`、`docs/release-packaging.zh-CN.md`、`docs/release-evidence.md`、`docs/release-evidence.zh-CN.md`，以及记录 commit、version、target platform、gate result 和 checksum 的 release evidence note 或 release note。
 
-Package 必须保留 PolyForm Noncommercial 和 source-available 定位。非商业再分发必须保留许可证文本、必要声明，以及对 ADP 和版权持有人的署名。任何商业使用都必须取得单独付费授权；不得把 preview package 描述成已经授予商业权利。
+Package 必须保留 PolyForm Noncommercial 和 source-available 定位。非商业再分发必须保留许可证文本、必要声明，以及对 ADP 和版权持有人的署名。任何商业使用都必须取得单独付费授权；不得把 release package 描述成已经授予商业权利。
 
 Package 必须排除本地或敏感 operator 状态，包括 `.envrc`、`mvp.md`、`$ADP_HOME`、`$ADP_RUNTIME_DIR`、runtime overlay、event log、session log、task 或 phase 状态、凭据、token、账号标识、私有 prompt，以及机器特定的 shell startup file。
 
@@ -83,7 +83,7 @@ P3 phase gate 工作会把这条纪律转化为 `$ADP_HOME/workspaces/<workspace
 
 `scripts/runtime-smoke.sh --fake` 会把当前 `cmd/adp` 二进制构建到临时目录，并运行确定性的 fake-agent runtime acceptance 路径。它使用临时 `ADP_HOME`、`ADP_RUNTIME_DIR`、fake agent binary 和临时项目根目录。
 
-P17 可以把共享 helper 以及 fake diagnostics/session/prune slices 拆到 `scripts/` 下的 helper 文件。这只是为了在 700 行文件上限内保持可维护性的实现细节；调用方仍然运行 `scripts/runtime-smoke.sh --fake`，聚合 release gate 仍然通过 `scripts/check-all.sh` 运行它。
+P17 可以把共享 helper 以及 fake diagnostics/session/prune slices 拆到 `scripts/` 下的 helper 文件。这只是为了在 1000 行文件上限内保持可维护性的实现细节；调用方仍然运行 `scripts/runtime-smoke.sh --fake`，聚合 release gate 仍然通过 `scripts/check-all.sh` 运行它。
 
 fake runtime smoke 验证：
 
@@ -138,16 +138,16 @@ release readiness smoke 验证：
 - Phase evidence 命令不会执行 `git commit`、`git push`、`git pull`、`git fetch`、`git clone` 或 `git ls-remote` 等 Git 副作用命令。
 - 默认 release path 保持本地、确定性，并且不依赖真实 Codex 或 Claude CLI。
 
-`scripts/release-rehearsal-smoke.sh` 会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，使用隔离的 `ADP_HOME` 和 `ADP_RUNTIME_DIR` bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。
+`scripts/release-rehearsal-smoke.sh` 会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 release binary，验证复制后的文档和文件行数，使用隔离的 `ADP_HOME` 和 `ADP_RUNTIME_DIR` bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。
 
 release rehearsal smoke 验证：
 
-- 文档化的 preview build/version 路径可以生成 binary，并且 `adp version` 会报告注入的 version、commit 和 build date。
-- 在临时干净 workspace 中，复制后的文档和代码文件仍满足双语文档和 700 行门禁。
+- 文档化的 release build/version 路径可以生成 binary，并且 `adp version` 会报告注入的 version、commit 和 build date。
+- 在临时干净 workspace 中，复制后的文档和代码文件仍满足双语文档和 1000 行门禁。
 - 发布的 example workspace 可以针对临时项目完成 bootstrap，不依赖开发机本地 `$ADP_HOME` 或 runtime state。
 - Release phase evidence 保持本地记录，不执行 Git 副作用命令。
 
-`scripts/release-artifact-smoke.sh` 会在临时 source tree 中构建 preview artifacts，组装本地 release package，验证 checksums，检查 package include/exclude boundaries，把 packaged binary 安装到临时 `PATH`，运行 provider-free first-run rehearsal，并通过显式 commit 值验证没有 `.git` 的 source archive build。
+`scripts/release-artifact-smoke.sh` 会在临时 source tree 中构建 release artifacts，组装本地 release package，验证 checksums，检查 package include/exclude boundaries，把 packaged binary 安装到临时 `PATH`，运行 provider-free first-run rehearsal，并通过显式 commit 值验证没有 `.git` 的 source archive build。
 
 release artifact smoke 验证：
 
@@ -195,11 +195,11 @@ phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership
 
 `scripts/plan-intake-smoke.sh` 会构建当前 `cmd/adp` 二进制，创建临时 workspace，并用来自文件以及通过 `--file -` 从 stdin 传入的结构化 YAML 输入验证 `adp plan preview` 和 `adp plan apply`。它证明 preview 保持只读，apply 只写 `$ADP_HOME/workspaces/<workspace>/planning` 下的本地 planning ledger，JSON 输出仍是 inspection format，fresh workspace 上的 invalid input 不会留下 planning 目录，staging failure 不会留下 partial phase/task/progress state，并且不会产生 runtime、Git、event log 或真实 project-root 副作用。
 
-`go test -count=1 ./...` 会运行完整 Go 测试套件，并且不使用缓存测试结果。
+`scripts/check-coverage.sh` 会用仓库 coverage floor 验证完整 Go 测试套件。默认情况下它也会启用 race detector，并避免使用缓存测试结果。
 
 `go vet ./...` 运行 Go 静态检查。
 
-`scripts/check-file-lines.sh` 执行项目规则：代码文件必须控制在 700 物理行以内。它会检查 tracked 文件以及未被 ignored 的 untracked 文件。
+`scripts/check-file-lines.sh` 执行项目规则：代码文件必须控制在 1000 物理行以内。它会检查 tracked 文件以及未被 ignored 的 untracked 文件。
 
 `scripts/check-file-lines.sh --audit` 是非阻断 line pressure report，用于在文件接近硬上限前规划后续拆分。它会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的文件，默认阈值为 600 行，并且退出码保持为零。该 audit 默认不属于 `scripts/check-all.sh`，也不能替代硬性的行数门禁。
 
@@ -287,7 +287,7 @@ adp run claude --workspace <name> --task <task-id> -- <claude-args>
 
 如果 completion value 步骤失败，检查本地 adapter registry、`$ADP_HOME/workspaces` 下的本地 workspace 名称发现、`ADP_WORKSPACE` 或 `--workspace` 解析、workspace agent profiles，以及 workspace `profiles/` 目录下的文件。completion value endpoints 必须保持只读和本地化。
 
-如果 version 步骤失败，检查 `internal/cli` 中的 CLI build variables，以及 [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 中记录的 release `-ldflags`。开发构建可以输出 `dev`；packaged preview binary 应注入 version、commit 和 build date。
+如果 version 步骤失败，检查 `internal/cli` 中的 CLI build variables，以及 [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 中记录的 release `-ldflags`。Packaged release binary 应注入 version、commit 和 build date。
 
 如果 `scripts/example-workspace-smoke.sh` 失败，优先检查复制后的 `examples/basic-workspace/workspace.yaml` 是否仍匹配当前 schema，以及 `adp env <workspace> --cd` 是否仍能生成带项目文件 symlink 的 kept runtime。
 
@@ -297,7 +297,7 @@ adp run claude --workspace <name> --task <task-id> -- <claude-args>
 
 如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、claim lease parsing、owner-checked release、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期的 operator error 包括未通过 acceptance 就记录 commit evidence、未记录 commit evidence 就记录 push evidence，以及 earlier phase 没有 pushed evidence 就启动 later phase。修复路径是在真实 validation、commit 和 push 已经在 ADP 外部完成后，显式按 `adp phase accept`、`adp phase commit`、`adp phase push` 的顺序记录。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录或让 ADP 自动执行 Git 来修复失败。
 
-如果 `go test -count=1 ./...` 失败，先定位失败 package，并在修改前单独重跑该 package：
+如果 `scripts/check-coverage.sh` 失败，先定位失败 package，并在修改前单独重跑该 package：
 
 ```bash
 go test -count=1 ./internal/workspace
@@ -307,7 +307,7 @@ go test -count=1 ./test/e2e
 
 如果 `go vet ./...` 失败，把它作为 code-quality gate 处理，先修复报告的 package，再重跑完整门禁。
 
-如果 `scripts/check-file-lines.sh` 失败，在继续增加行为前先拆分被报告的代码文件。不要通过手工制造 generated-looking 文件或无关格式调整绕过 700 行限制。如果被报告的是 scratch file，应删除或明确 ignore。
+如果 `scripts/check-file-lines.sh` 失败，在继续增加行为前先拆分被报告的代码文件。不要通过手工制造 generated-looking 文件或无关格式调整绕过 1000 行限制。如果被报告的是 scratch file，应删除或明确 ignore。
 
 如果 `scripts/check-docs-bilingual.sh` 失败，补齐缺失的英文默认文档或简体中文 counterpart。新增 Markdown 文件应遵循默认英文路径加 `*.zh-CN.md` counterpart 的模式。如果被报告的是本地 note，应删除或明确 ignore。
 
@@ -320,7 +320,7 @@ go test -count=1 ./test/e2e
 - `git status --short --branch` 在提交前只显示有意变更，提交后工作区干净。
 - `.envrc` 和 `mvp.md` 仍被忽略且未提交。
 - 仓库本地 Git identity 没有配置 `user.name` 或 `user.email`。
-- Preview package 包含 `LICENSE`、`COMMERCIAL.md` 和 `COMMERCIAL.zh-CN.md`，保留必要声明和署名，并且不包含 `.envrc`、`mvp.md`、本地 ADP 状态、runtime overlay、日志、任务状态、凭据或机器特定 shell 配置。
+- Release package 包含 `LICENSE`、`COMMERCIAL.md` 和 `COMMERCIAL.zh-CN.md`，保留必要声明和署名，并且不包含 `.envrc`、`mvp.md`、本地 ADP 状态、runtime overlay、日志、任务状态、凭据或机器特定 shell 配置。
 - 发布前已记录 sorted package manifest，并按 required include/exclude list 检查。
 - 至少一个 artifact 已从 package 安装到临时 `PATH` 并完成演练，且没有使用 source-tree binary。
 - license 文件和 PolyForm Noncommercial/source-available 定位没有被意外修改，公开文档也没有暗示非商业可访问性会授予商业权利。

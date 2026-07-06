@@ -6,9 +6,9 @@ English: [engineering-standards.md](engineering-standards.md)
 
 ## 文件行数限制
 
-项目代码文件必须控制在 700 个物理行以内。
+项目代码文件必须控制在 1000 个物理行以内。
 
-如果代码文件将超过 700 行，合并前必须拆分。优先按稳定职责边界拆分：
+如果代码文件将超过 1000 行，合并前必须拆分。优先按稳定职责边界拆分：
 
 - CLI command wiring vs command implementation。
 - schema types vs validation logic。
@@ -32,10 +32,10 @@ English: [engineering-standards.md](engineering-standards.md)
 scripts/check-file-lines.sh
 ```
 
-必跑检查默认限制为 700 行，当代码文件超过该硬限制时失败。本地实验可以覆盖：
+必跑检查默认限制为 1000 行，当代码文件超过该硬限制时失败。本地实验可以覆盖：
 
 ```bash
-MAX_FILE_LINES=700 scripts/check-file-lines.sh
+MAX_FILE_LINES=1000 scripts/check-file-lines.sh
 ```
 
 规划拆分或 hardening 阶段前，可以运行非阻断 line pressure audit：

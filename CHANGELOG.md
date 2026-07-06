@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No changes yet.
+
+---
+
+## [1.0.1] - 2026-07-06
+
 ### Security
 - **Redact secrets from agent arguments in event logs and resume planning** — Arguments passed after `--` to `adp run` (for example `--api-key sk-...`) were recorded verbatim in the world-readable `events.jsonl` and echoed back by `sessions restore-plan` / `sessions resume-plan`. Secret-looking values are now masked with `***REDACTED***` while the flag name is preserved, the event log is created with owner-only `0600` permissions (and pre-existing loose permissions are tightened on next write), and the redaction is applied both at write time and when plans are rendered (text and JSON). A new `internal/redact` package detects credentials by sensitive flag name (`key`, `secret`, `token`, `password`, `auth`, `credential`, ...), known provider prefixes (`sk-`, `ghp_`, `AKIA`, `eyJ`, ...), and high-entropy bare values.
 - **Restrict `$ADP_HOME` to owner-only permissions** — The ADP home tree (`$ADP_HOME`, `workspaces/`, `logs/`, and each workspace's `planning/`) was created world-readable (`0755`), and planning ledgers (`tasks.yaml`, `phases.yaml`, `progress.jsonl`) were written `0644`, exposing project paths, task content, command history, and git remotes (which may embed tokens) to other local users (CWE-732). All ADP-managed directories are now created `0700` and tightened on next access if pre-existing, and planning ledgers are written `0600`. A new `internal/paths.EnsurePrivateDir` helper centralizes the directory hardening.
@@ -25,8 +31,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Report a clear "agent is required" error when `adp run` flags precede the agent** — `adp run --workspace x codex` (flags before the agent, a common shell habit) previously consumed `--workspace` as the agent name and then surfaced a misleading `unknown run option "x"` for the flag's value, sending the operator hunting for a nonexistent option. The parser now detects a leading flag and reports the same actionable `agent is required; usage: adp run <agent> ...` message (with the `try: adp run --help` hint) used for the empty-args case, pointing at the real problem — the agent must come first — instead of a phantom option. The documented `adp run <agent> [flags]` ordering is unchanged; correctly-ordered invocations are unaffected.
 - **List valid task statuses in `adp tasks update --help`** — The `--status` option's usage line previously showed only `<status>`, while the same kind of enum option in `adp progress report --help` (`--language <en|zh-CN>`, `--format <markdown|json>`) already listed its legal values. The usage line now enumerates the accepted statuses (planned, ready, in_progress, blocked, review, validated, done, canceled) so operators can discover them up front instead of only seeing them in the error message after submitting an invalid value (which the prior change already covered). The `--status` error message behavior is unchanged.
 - **Guide operators when `adp workspace list` is empty** — An empty workspace list previously printed only the table header, leaving a first-time operator with no indication of how to register a workspace, whereas the other list commands (`adp sessions list`, `adp events list`, `adp tasks list`, `adp phase list`) already printed a "No X found. ... with 'adp ...'" line pointing at the creation command. `adp workspace list` now appends `No workspaces found. Register one with 'adp workspace add <name> <project-root>'` in the same style. JSON output is unchanged (it already returns an empty array).
+- **Raise the hard source-file line limit to 1000 lines** — The project operating guide, contributor docs, README summaries, engineering standards, comparable-tools notes, release checklist, and `scripts/check-file-lines.sh` now use a 1000-line hard ceiling. The audit pressure threshold remains lower so maintainers still see early split candidates before the hard gate fails.
+- **Set the default development and release identity to 1.0.1** — Source builds now report `adp version 1.0.1`, and `scripts/build-release.sh` defaults to `VERSION=1.0.1` while still allowing explicit release metadata overrides.
 
-### Phase 1-5 Foundation (Pre-release Development)
+### Fixed
+- **Reject swallowed CLI option values deterministically** — CLI parsing now catches cases where flags or values were consumed in the wrong position, including the `adp run` leading-flag case, instead of turning the next token into a misleading unknown option.
+- **Neutralize raw non-UTF-8 bytes in terminal-safe text** — `safeText` now handles invalid byte sequences without leaking raw control bytes into terminal output.
+- **Improve Windows test portability** — The test suite now covers the four identified Windows portability root causes and adds a CI sentinel to keep those regressions visible.
+- **Guard smoke tests against symlink pollution and local report drift** — Smoke paths now check symlink behavior and keep local report artifacts ignored.
+- **Split oversized implementation files** — Large source files from the P65 maintenance pass were split to stay within project file-size constraints.
+
+### Build And Validation
+- **Parallelize the full repository gate** — `scripts/check-all.sh` warms the Go build cache, runs smoke scripts in parallel by default, keeps a serial fallback with `CHECK_ALL_SERIAL=1`, and uses the coverage gate instead of duplicating a plain test run.
+- **Report full-gate timing** — `scripts/check-all.sh` now prints elapsed time for cache warmup, the aggregate smoke suite, each smoke worker, coverage, vet, file-line checks, bilingual docs, diff checks, and total runtime.
+- **Reduce install-onboarding smoke latency** — The fixed one-second stale-lease wait was replaced with a short polling loop around an immediately expired lease.
+- **Add and broaden regression coverage** — New tests cover output rendering, Codex/Claude adapters, overlay security guards, resume decision paths, render content-injection paths, schema and path/layout packages, plus fuzz coverage for plan intake and redaction parsers.
+- **Keep the release build path canonical** — `scripts/build-release.sh` now accepts `VERSION`, `COMMIT`, `BUILD_DATE`, and `DIST_DIR`, uses centralized release ldflags, builds with `-trimpath`, and preserves checksum generation.
+
+### Documentation
+- **Reconcile release documentation for stable 1.0.1 packaging** — Release packaging, checklist, evidence, troubleshooting, and GitHub release instructions now describe stable release flow instead of preview-era examples, including the multiline `adp version` output shape.
+- **Archive stale planning and verification documents** — Historical plans, verification reports, and checklist snapshots were marked as archived or historical so they no longer read as active project state.
+- **Record Phase 6 and Phase 7 acceptance evidence** — Final acceptance reporting was added for the completed documentation and release-readiness phases.
+
+---
+
+## Phase 1-5 Foundation (Pre-release Development)
 
 The following sections document ADP's evolution from initial concept to production-ready 1.0 candidate. All features have undergone systematic acceptance testing and are considered stable for local terminal-first AI agent workflows.
 

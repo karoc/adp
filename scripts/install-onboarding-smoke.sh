@@ -261,10 +261,19 @@ STALE_TASK_ID=$(printf '%s\n' "$output" | sed -n 's/^task \(task-[^ ]*\) added$/
 if [ -z "$STALE_TASK_ID" ]; then
   fail "could not parse stale task id from: $output"
 fi
-output=$(run_adp "$TMP_ROOT" tasks claim --workspace onboarding-a "$STALE_TASK_ID" --owner abandoned-agent --lease 1ms)
+output=$(run_adp "$TMP_ROOT" tasks claim --workspace onboarding-a "$STALE_TASK_ID" --owner abandoned-agent --lease 1ns)
 assert_contains "$output" "task $STALE_TASK_ID claimed by abandoned-agent" "stale task claim output"
-sleep 1
-output=$(run_adp "$TMP_ROOT" tasks stale --workspace onboarding-a --format json)
+output=""
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  output=$(run_adp "$TMP_ROOT" tasks stale --workspace onboarding-a --format json)
+  assert_json_valid "$output" "tasks stale json output"
+  case "$output" in
+    *'"stale_count": 1'*"\"$STALE_TASK_ID\""*) break ;;
+  esac
+  if [ "$attempt" != "10" ]; then
+    sleep 0.05
+  fi
+done
 assert_json_valid "$output" "tasks stale json output"
 assert_contains "$output" '"stale_count": 1' "tasks stale json output"
 assert_contains "$output" "\"$STALE_TASK_ID\"" "tasks stale json output"

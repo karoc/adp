@@ -2,7 +2,7 @@
 
 English: [release-troubleshooting.md](release-troubleshooting.md)
 
-本文档是 preview release failures 的 operator triage path。它保持 local-first 和 terminal-first；不增加 hosted orchestration、dashboards、cloud sync、SaaS release tracking、automatic Git execution、provider-native resume 或默认真实 Codex/Claude gates。
+本文档是 release candidate failures 的 operator triage path。它保持 local-first 和 terminal-first；不增加 hosted orchestration、dashboards、cloud sync、SaaS release tracking、automatic Git execution、provider-native resume 或默认真实 Codex/Claude gates。
 
 ## 第一响应
 
@@ -47,7 +47,7 @@ COMMIT=<published-commit-or-archive-id>
 
 ## 构建和版本失败
 
-如果 `adp version` 输出 `adp dev`，说明 release ldflags 没有注入。按 [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 使用明确的 `VERSION`、`COMMIT` 和 `BUILD_DATE` 重新构建。
+如果 `adp version` 缺少 `commit:` 或 `built:`，或报告了错误的 release version，说明该 artifact 没有完整 release identity。按 [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 使用明确的 `VERSION`、`COMMIT` 和 `BUILD_DATE` 重新构建。
 
 如果报告的 commit 或 build date 与 release evidence 不一致，应丢弃该 artifact 并重新构建。不要修改 evidence 去匹配意外 binary。
 
@@ -56,8 +56,9 @@ COMMIT=<published-commit-or-archive-id>
 checksum evidence 必须指向将要打包的同一个 artifact：
 
 ```bash
-sha256sum dist/adp > dist/adp.sha256
-sha256sum -c dist/adp.sha256
+cd dist
+sha256sum -c SHA256SUMS
+cd ..
 ```
 
 如果 verification 失败，丢弃 checksum 和 artifact 这一组，重新构建 artifact，重新生成 checksum，并再次验证。记录 checksum 后不要再修改 artifact。
@@ -67,10 +68,10 @@ sha256sum -c dist/adp.sha256
 发布前检查 archive contents：
 
 ```bash
-tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort
+tar -tf adp-1.0.1-linux-amd64.tar.gz | sort
 ```
 
-package 必须包含 binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、release packaging docs、release evidence docs 和简短 release note。必须排除 `.envrc`、`mvp.md`、`$ADP_HOME`、`$ADP_RUNTIME_DIR`、runtime overlays、logs、task state、credentials、shell startup files 和临时 rehearsal directories。
+package 必须包含 binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COMMERCIAL.md`、`COMMERCIAL.zh-CN.md`、`CONTRIBUTING.md`、`CONTRIBUTING.zh-CN.md`、`SECURITY.md`、`SECURITY.zh-CN.md`、`docs/license-policy.md`、`docs/license-policy.zh-CN.md`、release packaging docs、release evidence docs，以及简短 release note 或 release evidence note。必须排除 `.envrc`、`mvp.md`、`$ADP_HOME`、`$ADP_RUNTIME_DIR`、runtime overlays、logs、task state、credentials、provider-native session state、shell startup files、local ADP planning ledgers 和临时 rehearsal directories。
 
 如果 required files 缺失，应修复干净 staging directory 并重新构建 package。如果 excluded files 出现，应修复 package assembly path；不能削弱 local-first boundary 或发布 operator state。
 
@@ -80,11 +81,11 @@ package 必须包含 binary、`README.md`、`README.zh-CN.md`、`LICENSE`、`COM
 
 ```bash
 ADP_INSTALL_BIN="$(mktemp -d)"
-install -m 0755 dist/adp "${ADP_INSTALL_BIN}/adp"
+install -m 0755 dist/adp-1.0.1-linux-amd64 "${ADP_INSTALL_BIN}/adp"
 PATH="${ADP_INSTALL_BIN}:${PATH}" adp version
 ```
 
-如果 installed binary 失败但 `dist/adp` 成功，应检查 file permissions、package extraction、target platform 和 `PATH` ordering。rehearsal 必须使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、临时 project root 和 fake provider commands，除非已明确启用 optional real CLI evidence。
+如果 installed binary 失败但 artifact path 直接运行成功，应检查 file permissions、package extraction、target platform 和 `PATH` ordering。rehearsal 必须使用临时 `ADP_HOME`、临时 `ADP_RUNTIME_DIR`、临时 project root 和 fake provider commands，除非已明确启用 optional real CLI evidence。
 
 如果 project-root pollution scan 找到 ADP files，应修复 runtime 或 planning output boundaries。不能接受真实 project root 中出现 `AGENTS.md`、`CLAUDE.md`、`.codex`、`.claude`、`.adp-runtime.yaml`、`planning`、task files、phase files 或 progress reports。
 

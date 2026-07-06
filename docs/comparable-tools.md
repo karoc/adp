@@ -77,7 +77,7 @@ bounded, and whether default gates remain local, fake-runtime, and auditable.
 - Keep release validation deterministic by default: fake agents, temporary
   directories, no provider credentials, no network requirement, and no
   automatic Git side effects.
-- Keep bilingual documentation and the 700-line code-file cap as active
+- Keep bilingual documentation and the 1000-line code-file cap as active
   polishing constraints.
 
 ## ADP Should Not Absorb In MVP Polishing

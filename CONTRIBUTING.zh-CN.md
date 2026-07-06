@@ -22,7 +22,7 @@ ADP 在 [PolyForm Noncommercial License 1.0.0](LICENSE) 下提供。商业使用
 
 提交或交接变更前：
 
-- 代码文件保持在 700 个物理行以内。
+- 代码文件保持在 1000 个物理行以内。
 - 英文文档作为默认版本；维护中的 Markdown 文件必须增加等价的简体中文 `*.zh-CN.md` counterpart。
 - `.envrc` 和 `mvp.md` 保持 ignored，不提交。
 - ADP runtime 和 planning state 必须留在真实项目根目录之外。

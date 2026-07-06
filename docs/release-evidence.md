@@ -1,27 +1,28 @@
 # Release Evidence
 
-简体中文：[release-evidence.zh-CN.md](release-evidence.zh-CN.md)
+Simplified Chinese: [release-evidence.zh-CN.md](release-evidence.zh-CN.md)
 
-This template records the local evidence needed before publishing an ADP preview artifact. It is a release note companion, not a hosted release system, cloud ledger, SaaS workflow, provider credential check, or replacement for the local phase gate.
+This template records the local evidence needed before publishing an ADP release artifact. It is a release note companion, not a hosted release system, cloud ledger, SaaS workflow, provider credential check, or replacement for the local release gate. ADP release evidence must stay terminal-first, local-first, and provider-neutral by default.
 
 ## Required Fields
 
-Record these fields for every preview artifact:
+Record these fields for every release artifact:
 
-- Release version, such as `0.1.0-preview.1`.
-- Git commit hash used for the build.
+- Release version, such as `1.0.1`.
+- Git tag when one is created, such as `v1.0.1`.
+- Git commit hash or stable source archive identifier used for the build.
 - Source form, such as Git checkout or source archive.
-- Build date in UTC.
+- UTC build date.
 - Go version.
 - Target operating system and architecture.
-- Artifact filename.
+- Artifact filename, such as `adp-1.0.1-linux-amd64`.
 - Artifact SHA-256 checksum and the checksum command used.
 - Packaged binary `adp version` output.
-- `scripts/check-all.sh` result.
+- `scripts/check-all.sh` result from the released source form.
+- Package contents manifest, either as an attached manifest path or a concise inline excerpt.
 - Install-from-artifact rehearsal result.
 - Source archive or no-`.git` rehearsal result when applicable.
-- Package contents manifest, either as an attached manifest path or a concise inline excerpt.
-- Explicit list of excluded local state, credentials, logs, and machine-specific files.
+- Explicit list of excluded local state, credentials, logs, runtime overlays, machine-specific files, and local ADP planning ledgers.
 - Failure triage notes for any required check that failed before the final passing run.
 - Optional real-agent operator evidence, separated by command availability, non-interactive invocation, and manual interactive acceptance when any tier was intentionally enabled.
 - License notice: ADP is source-available for noncommercial learning, research, evaluation, and open collaboration; commercial use requires separate paid authorization.
@@ -30,8 +31,8 @@ Record these fields for every preview artifact:
 
 Required evidence is provider-free and must be present for every release candidate:
 
-- `scripts/check-all.sh` passed from the released source form.
-- The release binary reports explicit `VERSION`, `COMMIT`, and `BUILD_DATE` values.
+- `scripts/check-all.sh` passed from the source form used to build or publish the artifacts.
+- The release binary reports explicit version, commit, build date, Go version, and platform values.
 - Artifact checksum generation and verification passed.
 - Package manifest inspection passed and excluded local state was absent.
 - Install-from-artifact rehearsal passed with temporary ADP directories, a temporary project root, fake agent commands, and no project-root pollution.
@@ -45,24 +46,31 @@ The release note should include the exact build identity:
 
 ```bash
 go version
-dist/adp version
-sha256sum dist/adp > dist/adp.sha256
-sha256sum -c dist/adp.sha256
+dist/adp-1.0.1-linux-amd64 version
+cd dist
+sha256sum -c SHA256SUMS
+cd ..
 ```
 
-Expected `dist/adp version` release output shape:
+Expected `adp version` release output shape:
 
-```txt
-adp 0.1.0-preview.1 commit <commit> built <utc-timestamp>
+```text
+adp version 1.0.1
+commit: <commit>
+built: <timestamp>
+go: <go-version>
+platform: <goos>/<goarch>
 ```
 
-If a source archive does not contain `.git`, record the explicit commit value used before building:
+The `commit:` value must match the Git commit or stable source archive identifier recorded in the evidence. The `built:` value must match the UTC build date recorded for the artifact. A development build that omits `commit:` or `built:` is useful for local development but is not sufficient release artifact evidence.
+
+If a source archive does not contain `.git`, record the explicit commit or archive identifier used before building:
 
 ```bash
 COMMIT=source-archive-commit
 ```
 
-A development build that prints `adp dev` is useful for local development but is not sufficient preview artifact evidence.
+Do not infer build identity from an unrelated local checkout when the source archive is the source form being released.
 
 ## Install Rehearsal Evidence
 
@@ -70,12 +78,12 @@ Record evidence that at least one binary was installed and run from an artifact 
 
 ```bash
 ADP_INSTALL_BIN="$(mktemp -d)"
-install -m 0755 dist/adp "${ADP_INSTALL_BIN}/adp"
+install -m 0755 dist/adp-1.0.1-linux-amd64 "${ADP_INSTALL_BIN}/adp"
 export PATH="${ADP_INSTALL_BIN}:${PATH}"
 adp version
 ```
 
-The install rehearsal should use temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, a temporary project root, and a fake local `codex` command. It should prove the installed binary can run the local-first workflow without real provider credentials:
+The install rehearsal should use temporary `ADP_HOME`, temporary `ADP_RUNTIME_DIR`, a temporary project root, and fake local agent commands. It should prove the installed binary can run the local-first workflow without real provider credentials:
 
 ```bash
 export ADP_HOME="${ADP_SMOKE_ROOT}/adp-home"
@@ -99,14 +107,14 @@ test -z "$ROOT_LEAKS"
 
 ## Package Contents Evidence
 
-Record the files included in each package. A preview package should include one target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `docs/release-packaging.md`, `docs/release-packaging.zh-CN.md`, `docs/release-evidence.md`, `docs/release-evidence.zh-CN.md`, and a short release note.
+Record the files included in each package. A release package should include one target-platform `adp` binary, `README.md`, `README.zh-CN.md`, `LICENSE`, `COMMERCIAL.md`, `COMMERCIAL.zh-CN.md`, `CONTRIBUTING.md`, `CONTRIBUTING.zh-CN.md`, `SECURITY.md`, `SECURITY.zh-CN.md`, `docs/license-policy.md`, `docs/license-policy.zh-CN.md`, `docs/release-packaging.md`, `docs/release-packaging.zh-CN.md`, `docs/release-evidence.md`, `docs/release-evidence.zh-CN.md`, and a release evidence note or short release note.
 
-Also record that the package excludes `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, logs, task state, credentials, machine-specific shell startup files, and temporary release rehearsal directories.
+Also record that the package excludes `.envrc`, `mvp.md`, `$ADP_HOME`, `$ADP_RUNTIME_DIR`, runtime overlays, logs, task state, credentials, provider-native session state, machine-specific shell startup files, local ADP planning ledgers, and temporary release rehearsal directories.
 
 Use a sorted archive listing or equivalent package tool output as the manifest:
 
 ```bash
-tar -tf adp-0.1.0-preview.1-linux-amd64.tar.gz | sort
+tar -tf adp-1.0.1-linux-amd64.tar.gz | sort
 ```
 
 If the manifest includes local state or misses required notices, classify the release as failed until a rebuilt package passes manifest inspection and checksum verification.
