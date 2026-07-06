@@ -2,11 +2,11 @@
 
 Simplified Chinese: [release-instructions.zh-CN.md](release-instructions.zh-CN.md)
 
-This guide is the operator procedure for publishing ADP stable release artifacts. It applies to the current `1.0.1` patch-prep release and to later patch releases with the version adjusted. ADP remains a terminal-first, local-first CLI; this process does not introduce hosted orchestration, dashboards, cloud sync, SaaS release tracking, automatic Git execution, or provider-managed Codex or Claude access.
+This guide is the operator procedure for publishing ADP stable release artifacts. The most recent published example is `1.0.1`; for later patch releases, replace the version, tag, artifact names, and release-note references consistently. ADP remains a terminal-first, local-first CLI; this process does not introduce hosted orchestration, dashboards, cloud sync, SaaS release tracking, automatic Git execution, or provider-managed Codex or Claude access.
 
 ## Release Scope
 
-The current release target is `1.0.1`. The source default version is also `1.0.1`, but release artifacts must still carry explicit build identity:
+For the `1.0.1` release, the source default version is `1.0.1`. Release artifacts must still carry explicit build identity, and future releases should set these values to the release being built:
 
 - `VERSION`, normally `1.0.1`.
 - `COMMIT`, normally the Git commit used for the release.
@@ -159,14 +159,14 @@ Do not include credentials, account identifiers, private prompts, provider-nativ
 
 ## Tag And Publish
 
-Create a release tag only after the source form is clean, the gate has passed, artifacts have been built and verified, and release evidence is complete. The tag must point at the same commit used for `COMMIT` in the artifacts.
+Create a release tag only after the source form is clean, the gate has passed, artifacts have been built and verified, and release evidence is complete. The tag must point at the same commit used for `COMMIT` in the artifacts. The commands below are the `1.0.1` release example; substitute the version for later releases.
 
 ```bash
 git tag -a v1.0.1 -m "ADP 1.0.1"
 git push origin v1.0.1
 ```
 
-Publish artifacts only after the tag points at the release commit. If using GitHub Releases, upload the checked binaries, `dist/SHA256SUMS`, package archives, package manifests, and the release evidence or release note. A `gh` CLI command can be used when the operator has sufficient permissions:
+Publish artifacts only after the tag points at the release commit. If using GitHub Releases, upload the checked binaries, `dist/SHA256SUMS`, package archives, package manifests, and the release evidence or release note. A `gh` CLI command can be used when the operator has sufficient permissions. This is the `1.0.1` example:
 
 ```bash
 gh release create v1.0.1 \
@@ -184,7 +184,7 @@ If release creation fails because of token permissions, keep the artifacts uncha
 
 ## Post-Publish Verification
 
-After publishing, verify that the tag, release metadata, artifacts, and checksums are publicly visible or visible to the intended repository audience:
+After publishing, verify that the tag, release metadata, artifacts, and checksums are publicly visible or visible to the intended repository audience. This is the `1.0.1` example:
 
 ```bash
 gh release view v1.0.1

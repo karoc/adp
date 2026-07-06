@@ -2,11 +2,11 @@
 
 English: [release-instructions.md](release-instructions.md)
 
-本文档是发布 ADP stable release artifacts 的 operator procedure。它适用于当前 `1.0.1` patch-prep release，也适用于后续只需调整版本号的 patch releases。ADP 仍然是 terminal-first、local-first 的 CLI；本流程不会引入 hosted orchestration、dashboard、cloud sync、SaaS release tracking、automatic Git execution，或 provider-managed Codex/Claude access。
+本文档是发布 ADP stable release artifacts 的 operator procedure。最近已发布的示例版本是 `1.0.1`；后续 patch releases 应一致替换 version、tag、artifact names 和 release-note references。ADP 仍然是 terminal-first、local-first 的 CLI；本流程不会引入 hosted orchestration、dashboard、cloud sync、SaaS release tracking、automatic Git execution，或 provider-managed Codex/Claude access。
 
 ## 发布范围
 
-当前发布目标是 `1.0.1`。源码默认版本也已经是 `1.0.1`，但 release artifacts 仍必须携带明确的 build identity：
+对于 `1.0.1` release，源码默认版本是 `1.0.1`。Release artifacts 仍必须携带明确的 build identity，后续 release 应把这些值设为正在构建的版本：
 
 - `VERSION`，通常是 `1.0.1`。
 - `COMMIT`，通常是本次发布使用的 Git commit。
@@ -159,14 +159,14 @@ Evidence 至少应包含：
 
 ## Tag 和发布
 
-只有在 source form 干净、门禁通过、artifacts 已构建并验证、release evidence 完整后，才创建 release tag。Tag 必须指向 artifacts 中 `COMMIT` 使用的同一个 commit。
+只有在 source form 干净、门禁通过、artifacts 已构建并验证、release evidence 完整后，才创建 release tag。Tag 必须指向 artifacts 中 `COMMIT` 使用的同一个 commit。下面的命令是 `1.0.1` release 示例；后续 release 需要替换版本号。
 
 ```bash
 git tag -a v1.0.1 -m "ADP 1.0.1"
 git push origin v1.0.1
 ```
 
-只有在 tag 指向 release commit 后，才发布 artifacts。如果使用 GitHub Releases，应上传已检查的 binaries、`dist/SHA256SUMS`、package archives、package manifests，以及 release evidence 或 release note。Operator 权限足够时，可以使用 `gh` CLI：
+只有在 tag 指向 release commit 后，才发布 artifacts。如果使用 GitHub Releases，应上传已检查的 binaries、`dist/SHA256SUMS`、package archives、package manifests，以及 release evidence 或 release note。Operator 权限足够时，可以使用 `gh` CLI。下面是 `1.0.1` 示例：
 
 ```bash
 gh release create v1.0.1 \
@@ -184,7 +184,7 @@ gh release create v1.0.1 \
 
 ## 发布后验证
 
-发布后，确认 tag、release metadata、artifacts 和 checksums 已公开可见，或对预期 repository audience 可见：
+发布后，确认 tag、release metadata、artifacts 和 checksums 已公开可见，或对预期 repository audience 可见。下面是 `1.0.1` 示例：
 
 ```bash
 gh release view v1.0.1

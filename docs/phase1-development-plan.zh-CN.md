@@ -72,8 +72,8 @@ ADP 采用 source-available non-commercial 授权模式，而不是 OSI 定义�
 
 代码规模约束：
 
-- 项目代码文件必须控制在 700 行以内。
-- 超过 700 行前必须按职责拆分。
+- 项目代码文件必须控制在 1000 行以内。
+- 超过 1000 行前必须按职责拆分。
 - 生成文件、vendor、lockfile、许可证和长文档不受此限制。
 - 本地检查命令：`scripts/check-file-lines.sh`。
 - 用于拆分规划的非阻断 pressure audit：`scripts/check-file-lines.sh --audit`，`LINE_PRESSURE_WARN_LINES` 默认 600。
@@ -716,7 +716,7 @@ $ADP_HOME/logs/events.jsonl
 - 子 Agent 必须拿到 disjoint write scopes；重叠文件集默认只做 read-only review，除非存在明确 handoff。
 - Public contract changes 必须明确说明，并跨 dependent packages 验证。
 - `LICENSE` 和 `COMMERCIAL*` 由项目维护者维护。
-- 手写代码文件必须保持在 700 行以内。
+- 手写代码文件必须保持在 1000 行以内。
 - 文档必须保持英文默认文件和简体中文 counterpart 对齐。
 - 每个 phase slice 都必须先 validation、acceptance、commit、push 并完成记录，然后才能开始下一阶段。
 
@@ -820,7 +820,7 @@ Phase process gate：
 
 ADP planning ledger 是 task、phase、acceptance、commit 和 push 状态的权威来源。本文档只是面向人的 roadmap 摘要；如果它与 `adp phase status`、`adp phase list`、`adp tasks list` 或 `adp plan doctor` 不一致，应以 `$ADP_HOME` 下的本地 ledger 为准，并更新本文档摘要。
 
-根据 2026-06-09 的本地 ledger 快照：到 P46 为止的已完成切片都已 pushed，P47 是当前 active 的 trial-readiness polish 切片。下面的未来 backlog 只是候选项；执行前必须先创建明确的 ADP phase 和 task。
+根据 P71 期间 2026-07-07 的本地 ledger 快照：到 P70 为止的已完成切片都已 pushed，`v1.0.1` 已 tag 并发布，P71 是当前 active 的 post-release backlog triage 切片。下面的 P72-P77 已作为 planned local ADP phases 写入本地 ledger，并带有 starter tasks；只有 P71 完成 validation、commit、push 并记录 push evidence 后，才能启动它们。
 
 - P0 已完成：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
 - P1 已完成：Runtime task binding。增加 `adp run <agent> --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
@@ -835,22 +835,22 @@ ADP planning ledger 是 task、phase、acceptance、commit 和 push 状态的权
 - P6 progress report output 已完成：`adp progress report [--workspace <name>] [--language <en|zh-CN>]` 会向 stdout 打印只读的本地 Markdown 规划/执行报告。默认语言是英文；简体中文必须显式传入 `--language zh-CN`。task-manager smoke 会证明 report 不会修改 task、phase、Git、runtime、event log 或 project-root 状态。
 - P7 progress report runtime session evidence 已完成：当本地 JSONL runtime events 和 session 数据存在时，`adp progress report [--workspace <name>] [--language <en|zh-CN>]` 会包含最近 runtime session evidence，供 inspection-only handoff 使用。它不会追加 events、修改 tasks 或 phases、创建 runtime 目录、启动 Agent、运行 Git、把报告文件写入项目根目录，或恢复 provider 原生会话。
 - P8 progress report JSON handoff snapshot 已完成：`adp progress report [--workspace <name>] [--language <en|zh-CN>] [--format markdown|json]` 保持默认输出为英文 Markdown，`--language zh-CN` 只作用于 Markdown，并通过 `--format json` 输出机器可读的只读 snapshot。JSON snapshot 包含 workspace、task 总数、phases、task counts、tasks、按优先级排序的 next work、phase evidence，以及在本地 JSONL event/session 数据存在时的最近 runtime session evidence。它用于跨工具解析，不能成为单独的状态存储。
-- P9 task-manager smoke modularization 已完成：oversized task-manager runtime smoke 已在触及 700 行代码文件限制前拆分为更小的公开入口、共享 shell helper library 和专用 JSON report validator。`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口，`scripts/check-all.sh` 仍然是聚合门禁。
+- P9 task-manager smoke modularization 已完成：oversized task-manager runtime smoke 已在触及当时的 700 行代码文件限制前拆分为更小的公开入口、共享 shell helper library 和专用 JSON report validator。`scripts/task-manager-smoke.sh` 仍然是 workspace-local task、phase 和 progress report runtime acceptance 的公开入口，`scripts/check-all.sh` 仍然是聚合门禁。
 - P9 只属于维护和 hardening。它保留了项目根目录污染防护和只读 progress report 行为的覆盖。
 - P10 task next-work endpoint 已完成：`adp tasks next [--workspace <name>] [--limit <n>] [--format text|json]` 提供紧凑的只读本地 task-selection snapshot，供终端用户和子 Agent 使用。它把既有 progress-report next-work 数据收窄为专用命令，但不领取任务、不修改状态、不运行 Git、不启动 Agent、不写入 project-root 文件、不同步 hosted tracker，也不创建另一份 planning store。
-- P11 task command test split 已完成：在任何手写代码文件触及 700 行限制前，把持续增长的 task command 测试覆盖拆分到更聚焦的测试文件中。P11 只属于维护和 hardening：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
-- P12 CLI parse helper split 已完成：在 `internal/cli/parse.go` helper 面触及 700 行代码文件限制前，将持续增长的解析辅助逻辑拆分到更聚焦的文件中。P12 只属于维护和 hardening：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
-- P13 CLI base test split 已完成：在 `internal/cli/cli_test.go` 基础 CLI 测试覆盖触及 700 行代码文件限制前，已将其拆分为更聚焦的测试文件。P13 只属于维护：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
+- P11 task command test split 已完成：在任何手写代码文件触及当时的 700 行限制前，把持续增长的 task command 测试覆盖拆分到更聚焦的测试文件中。P11 只属于维护和 hardening：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
+- P12 CLI parse helper split 已完成：在 `internal/cli/parse.go` helper 面触及当时的 700 行代码文件限制前，将持续增长的解析辅助逻辑拆分到更聚焦的文件中。P12 只属于维护和 hardening：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，不做 Git automation，也不改变 terminal-first 的本地 planning 边界。
+- P13 CLI base test split 已完成：在 `internal/cli/cli_test.go` 基础 CLI 测试覆盖触及当时的 700 行代码文件限制前，已将其拆分为更聚焦的测试文件。P13 只属于维护：不改变 runtime behavior，不新增 product command，不偏向 Web/SaaS/hosted orchestration，也不做 Git automation。
 - P14 local planning intake preview/apply 已完成：`adp plan preview --workspace <name> --file <path|-> [--format text|json]` 和 `adp plan apply --workspace <name> --file <path|-> [--format text|json]` 接收结构化 YAML/JSON phase 和 task 输入。Preview 保持只读；apply 必须显式执行，并且只写入 `$ADP_HOME/workspaces/<workspace>/planning`；JSON 输出不能成为第二份 planning store；第一版 ADP 不做自由文本自然语言拆任务。
 - P15 MVP completion audit 已完成：已审计 command/runtime coverage、release-gate 文档、maintainability pressure 和双语 roadmap 漂移。该审计把下一批本地 planning backlog 写入 planned phases P16-P23，但没有启动任何后续阶段。
 - P16 command surface hardening 已完成：本地 command metadata contract 已让 usage text、dispatch wiring、bash/zsh completion、聚焦测试、smoke 或文档验收保持一致。该阶段只属于本地 CLI 维护，不引入新的 CLI 框架或 hosted command surface。
-- P17 runtime smoke split 已完成：`scripts/runtime-smoke.sh` 仍然是公开入口，共享 helpers 和 fake diagnostics/session/prune slices 已拆到更聚焦的实现文件中，并保持在 700 行上限以内。该阶段只属于维护，不削弱 fake smoke 覆盖、fake subshell 隔离、真实 CLI opt-in 门禁，也继续保持 `scripts/check-all.sh` 作为聚合门禁。
+- P17 runtime smoke split 已完成：`scripts/runtime-smoke.sh` 仍然是公开入口，共享 helpers 和 fake diagnostics/session/prune slices 已拆到更聚焦的实现文件中，并保持在当时的 700 行上限以内。该阶段只属于维护，不削弱 fake smoke 覆盖、fake subshell 隔离、真实 CLI opt-in 门禁，也继续保持 `scripts/check-all.sh` 作为聚合门禁。
 - P18 CLI command test split 已完成：剩余的大型混合 CLI tests 已拆分为聚焦的 task CRUD/progress/report/phase/helper 文件，以及 shell/completion/events/sessions/runtime-prune 文件。该阶段只属于维护：不改变 runtime behavior，不改变 product command，不偏向 Web/SaaS/hosted orchestration，也不做 Git automation。
 - P19 workspace lifecycle and enter acceptance 已完成：runtime smoke 现在会覆盖 workspace rename/remove，并验证 project-root sentinel 保持存在、completion 不保留 stale workspace names，以及通过 fake `SHELL` 执行受控的非交互式 `adp enter`。enter smoke 会在不启动真实交互 shell 的前提下验证 runtime env/cwd、project symlink、默认 cleanup 与 `--keep-runtime`，以及不会修改 event log。
 - P20 plan stdin coverage 已完成：focused CLI tests 和 plan-intake smoke 现在覆盖通过 pipe 输入的 `adp plan preview --file -` 和 `adp plan apply --file -` YAML/JSON，保持 preview 只读、apply 必须显式执行、只写本地 planning ledger、JSON 仅用于 inspection，并且不产生 runtime/Git/event-log/project-root 副作用。
-- P21 taskstore maintainability split 已完成：`internal/tasks` core responsibilities 现在已拆分为同 package 下的 store、task model、task lifecycle、task persistence、progress events、task ranking、phase model、phase lifecycle、phase persistence 和 phase helper 文件。该拆分是机械维护，不改变 public APIs、本地 ledger 语义、plan-import atomic staging、phase-gate lifecycle 行为或 runtime acceptance 覆盖，并让所有 touched code files 都明显低于 700 行上限。
+- P21 taskstore maintainability split 已完成：`internal/tasks` core responsibilities 现在已拆分为同 package 下的 store、task model、task lifecycle、task persistence、progress events、task ranking、phase model、phase lifecycle、phase persistence 和 phase helper 文件。该拆分是机械维护，不改变 public APIs、本地 ledger 语义、plan-import atomic staging、phase-gate lifecycle 行为或 runtime acceptance 覆盖，并让所有 touched code files 都明显低于当时的 700 行上限。
 - P22 Phase 1 bilingual roadmap normalization 已完成：英文默认 roadmap 与简体中文 counterpart 现在拥有相同章节树、当前 command surface、目录职责、local-first 非目标、validation gates、E2E expectations，以及 validate/accept/commit/push/record 阶段纪律。
-- P23 line pressure audit tooling 已完成：`scripts/check-file-lines.sh --audit` 会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的文件，默认阈值为 600，并以退出码 0 结束，便于在触及 700 行硬限制前规划拆分阶段。必跑的 `scripts/check-file-lines.sh` 硬门禁和 `scripts/check-all.sh` pass/fail 语义保持不变。
+- P23 line pressure audit tooling 已完成：`scripts/check-file-lines.sh --audit` 会报告达到或超过 `LINE_PRESSURE_WARN_LINES` 的文件，默认阈值为 600，并以退出码 0 结束，便于在触及 1000 行硬限制前规划拆分阶段。必跑的 `scripts/check-file-lines.sh` 硬门禁和 `scripts/check-all.sh` pass/fail 语义保持不变。
 - P24 phase gate status and ordering hardening 已完成：`adp phase status [--workspace <name>] [--format text|json]` 暴露只读本地 gate snapshot；新 phase 带有显式本地 order；phase start 会拒绝跳过更早 planned 或 unfinished phases；successful push evidence 不能被 failed push evidence 覆盖。
 - P25 shell completion renderer split 已完成：bash 和 zsh completion rendering 已拆到按 shell 区分的文件中，同时 `RenderCompletion`、command-name validation、基于 metadata 的候选项、动态本地 value endpoints 以及公开 `adp completion` 行为保持不变。该阶段只属于维护性的 line-pressure 工作，不新增命令、shell 类型、Web/SaaS 行为、automatic Git execution、hosted orchestration、provider-native resume 或 project-root exports。
 - P26 planning ledger doctor 已完成：`adp plan doctor [--workspace <name>] [--format text|json]` 会报告 task、phase、progress-log、lock 和 phase-gate invariants 的只读本地 diagnostics；error diagnostics 返回退出码 `2`；focused tests 和 task-manager smoke 覆盖健康与坏账本路径，并且不做 automatic repair、Git execution、runtime mutation、hosted tracker sync 或 project-root exports。
@@ -863,18 +863,25 @@ ADP planning ledger 是 task、phase、acceptance、commit 和 push 状态的权
 - P45 task lease maintenance 已完成：`adp tasks renew` 会带 owner 校验地延长 active ownership；`adp tasks stale` 会列出过期的 in-progress claims，便于恢复，同时不修改状态也不抓取 provider-private sessions。
 - P46 lease-aware runtime handoff polish 已完成：task owner、claim time 和 lease expiration 现在会进入生成的 runtime instructions、environment、manifest 和 run-event snapshots，让 Agent 能通过 ADP 续租、检查 stale work 并进行恢复交接。
 
+P46 之后近期已完成的切片：
+
+- P47-P52 trial 和 operator polish 已完成：first-trial workflow、task-board visibility、resume-plan bridge、runtime audit split 和 release candidate operator path 已完成 hardening，同时没有引入 hosted services、dashboard surfaces、automatic Git execution 或 provider-private state scraping。
+- P53-P59 Git/runtime diagnostics hardening 已完成：runtime overlays 会隔离 Git metadata，继承的 Git 环境变量已被 sanitize，doctor output 会报告 structured Git context，runtime-context smoke coverage 已拆分，并保持 local-first 行为。
+- P60-P65 CLI、inspection 和 maintenance pressure 已完成：task ownership errors、command help examples、inspection JSON output、first-use readiness、CLI usability gaps 和 large-file split pressure 已处理，同时手写代码文件保持在当前 1000 行硬上限以内。
+- P66-P70 release 和 post-release hardening 已完成：AGENTS line-limit guidance 已提高到 1000 行，`scripts/check-all.sh` 已完成计时和并行化，`v1.0.1` 已 tag，artifacts 已构建并发布，post-release installation 已验证，planning-ledger concurrency coverage 已通过 focused tests 和 provider-free multi-process smoke 补齐。
+
 当前 active 切片：
 
-- P47 trial readiness and docs usability polish 正在进行：把 roadmap 和 command-surface 文档与当前 CLI 对齐，增加友好的 first-trial workflow，验证 local-first trial path，并让产品更容易理解，同时不增加 Web UI、SaaS sync、hosted orchestration、automatic Git execution、automatic task closure、provider-private state scraping 或 project-root planning/runtime files。
+- P71 post-release backlog triage 正在进行：把本文档与 `v1.0.1` 和 P70 状态对齐，种下下一批 local-first phase candidates，并继续把 ADP planning ledger 作为权威执行来源。
 
-P47 之后的优先级候选 backlog：
+P71 之后的优先级候选 backlog：
 
-- 高：Preview release candidate evidence。准备 `v0.1.0-preview` 风格的 release slice，包含本地 artifact evidence、install verification、release notes 和面向 operator 的 acceptance records，同时保持 Git tag 和 push 都是手动且显式的操作。
-- 高：Task-board visibility polish。在 `tasks next`、`progress report` 和 operator docs 等只读 planning view 中更清晰地展示 owner、claim、lease 和 stale-work 线索，让交接在启动 Agent 前就容易理解。
-- 高：First-trial runtime smoke consolidation。用一条清晰的 acceptance path 覆盖 init、workspace setup、task creation、task take、lease renewal、stale inspection、progress report、restore-plan 和 project-root cleanliness，保持友好 trial workflow 可重复且 provider-free。
-- 中：Generic adapter contract。在 Codex/Claude 路径达到 trial-ready 后，定义面向未来工具的稳定 adapter boundary，但不加入 provider-private state scraping 或 provider-native resume 语义。
-- 中：Recovery drill polish。文档化并测试 interrupted-agent recovery，通过 `tasks stale`、显式 reclaim、`sessions restore-plan` 和 `run --take` 完成交接，确保每条恢复路径仍以 ADP 为权威并需要 operator 批准。
-- 低：Local replay proposal。可以考虑未来增加一个从 ADP-owned invocation evidence 启动新本地 run 的命令，但只能作为显式 proposal/execution flow，不能成为 provider-native conversation resume。
+- 高：P72 release adoption evidence。在 P69 downloaded-asset verification 之外，为已发布的 `v1.0.1` install path 收集独立 fresh operator environment adoption evidence，记录非敏感 evidence，并保持默认 release validation provider-free。
+- 高：P73 gate ergonomics and failure triage。改进 `scripts/check-all.sh` failure inspection 和 targeted rerun guidance，同时不削弱 aggregate gate，也不增加外部服务。
+- 高：P74 real-agent optional evidence drill。收集或文档化 opt-in Codex/Claude command-availability 和 non-interactive invocation evidence，把它作为 operator evidence tier，与默认 release gates 和 quota-sensitive provider behavior 分离。
+- 中：P75 multi-agent handoff recovery polish。围绕 `tasks stale`、显式 reclaim、`sessions resume-plan`、`run --take`、lease renewal 和 read-only progress snapshots 补强 docs 与 focused tests，用于 interrupted multi-agent work。
+- 中：P76 roadmap and release-doc normalization。继续清理 archived 或 stale roadmap references，让维护中文档指向当前 ADP commands、本地 planning gates 和 `v1.0.1` release path。
+- 低：P77 local replay proposal。可以考虑未来增加一个从 ADP-owned invocation evidence 启动新本地 run 的命令，但只能作为显式 proposal/execution flow，不能成为 provider-native conversation resume。
 
 已完成的 Phase 1 slices 和未来候选项保持同一组非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 
