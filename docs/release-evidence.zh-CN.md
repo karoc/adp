@@ -4,6 +4,8 @@ English: [release-evidence.md](release-evidence.md)
 
 本文档模板记录发布 ADP release artifact 前需要保留的本地 evidence。它是 release note companion，不是 hosted release system、cloud ledger、SaaS workflow、provider credential check，也不能替代本地 release gate。ADP release evidence 默认必须保持 terminal-first、local-first 和 provider-neutral。
 
+对于从已发布 artifact 开始的 post-publish adoption notes，使用 [release-adoption-evidence.zh-CN.md](release-adoption-evidence.zh-CN.md)。这些 note 只是 release evidence 的补充；它们不能替代发布前门禁，也不会让 provider checks 变成必跑项。
+
 ## 必填字段
 
 每个 release artifact 都应记录这些字段：

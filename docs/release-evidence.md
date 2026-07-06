@@ -4,6 +4,8 @@ Simplified Chinese: [release-evidence.zh-CN.md](release-evidence.zh-CN.md)
 
 This template records the local evidence needed before publishing an ADP release artifact. It is a release note companion, not a hosted release system, cloud ledger, SaaS workflow, provider credential check, or replacement for the local release gate. ADP release evidence must stay terminal-first, local-first, and provider-neutral by default.
 
+For post-publish adoption notes that start from an already published artifact, use [release-adoption-evidence.md](release-adoption-evidence.md). Those notes supplement release evidence; they do not replace the pre-publish gate or make provider checks mandatory.
+
 ## Required Fields
 
 Record these fields for every release artifact:
