@@ -204,8 +204,9 @@ Session commands read those local events:
 - `adp sessions show <session-id> [--format text|json]`
 - `adp sessions restore-plan <session-id> [--format text|json]`
 - `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format text|json]`
+- `adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format text|json]`
 
-These JSON forms are inspection output for local tools. `adp sessions restore-plan <session-id> [--format text|json]` and `adp sessions resume-plan <session-id> ...` are read-only. They print suggested new local launch commands when enough non-sensitive data exists; they do not launch an agent, create a runtime, append events, mutate task or phase state, write to the project root, or resume a provider-native conversation.
+These JSON forms are inspection output for local tools. `adp sessions restore-plan <session-id> [--format text|json]`, `adp sessions resume-plan <session-id> ...`, and `adp sessions replay <session-id> --dry-run ...` are read-only. Restore and resume planning print suggested new local launch commands when enough non-sensitive data exists; replay dry-run turns the same plan into a local replay preflight. They do not launch an agent, create a runtime, append events, mutate task or phase state, write to the project root, or resume a provider-native conversation.
 
 ## Project-Root Cleanliness
 

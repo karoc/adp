@@ -309,6 +309,56 @@ func TestParseSessionsListArgs(t *testing.T) {
 	})
 }
 
+func TestParseSessionsReplayArgs(t *testing.T) {
+	t.Run("dry run with all options", func(t *testing.T) {
+		opts, err := parseSessionsReplayArgs([]string{
+			"session-1", "--dry-run", "--workspace", "game-a", "--owner", "codex-main", "--lease", "2h", "--agent", "claude", "--format", "json",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if opts.sessionID != "session-1" || !opts.dryRun || opts.workspace != "game-a" || opts.owner != "codex-main" || opts.lease != 2*time.Hour || opts.targetAgent != "claude" || opts.format != outputFormatJSON {
+			t.Fatalf("opts = %+v", opts)
+		}
+	})
+	t.Run("dry run is required", func(t *testing.T) {
+		_, err := parseSessionsReplayArgs([]string{"session-1"})
+		if err == nil || !strings.HasPrefix(err.Error(), "--dry-run is required; usage: adp sessions replay") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("execute rejected", func(t *testing.T) {
+		_, err := parseSessionsReplayArgs([]string{"session-1", "--execute"})
+		if err == nil || err.Error() != "sessions replay --execute is not implemented in this phase; use --dry-run" {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("negative lease", func(t *testing.T) {
+		_, err := parseSessionsReplayArgs([]string{"session-1", "--dry-run", "--lease", "-1m"})
+		if err == nil || err.Error() != "lease must not be negative" {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("bad format", func(t *testing.T) {
+		_, err := parseSessionsReplayArgs([]string{"session-1", "--dry-run", "--format", "yaml"})
+		if err == nil || err.Error() != `unknown output format "yaml"` {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("workspace eats flag rejected", func(t *testing.T) {
+		_, err := parseSessionsReplayArgs([]string{"session-1", "--dry-run", "--workspace", "--owner"})
+		if err == nil || err.Error() != "--workspace requires a value" {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("duplicate session id", func(t *testing.T) {
+		_, err := parseSessionsReplayArgs([]string{"session-1", "session-2", "--dry-run"})
+		if err == nil || !strings.Contains(err.Error(), "usage: adp sessions replay") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+}
+
 func TestParseRuntimePruneArgs(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		opts, err := parseRuntimePruneArgs(nil)

@@ -203,6 +203,7 @@ func TestFirstUseHelpIncludesCopyableExamples(t *testing.T) {
 		{command: "events", subcommand: "list", want: "adp events list --workspace game-a --task task-20260611-0001 --type run_finished --limit 5 --format json"},
 		{command: "sessions", subcommand: "restore-plan", want: "adp sessions restore-plan session-20260611-0001 --format json"},
 		{command: "sessions", subcommand: "resume-plan", want: "adp sessions resume-plan session-20260611-0001 --workspace game-a --agent claude --owner claude-main --lease 4h --format json"},
+		{command: "sessions", subcommand: "replay", want: "adp sessions replay session-20260611-0001 --dry-run --workspace game-a --owner claude-main --lease 4h --format json"},
 		{command: "runtime", subcommand: "prune", want: "adp runtime prune --older-than 24h --dry-run --format json"},
 		{command: "tasks", subcommand: "stale", want: "adp tasks stale --workspace game-a --format json"},
 		{command: "plan", subcommand: "doctor", want: "adp plan doctor --workspace game-a --format json"},
@@ -290,7 +291,13 @@ func TestSeeAlsoSection(t *testing.T) {
 			name:       "sessions resume-plan subcommand",
 			command:    "sessions",
 			subcommand: "resume-plan",
-			wantRefs:   []string{"sessions restore-plan --help", "run --take", "sessions --help"},
+			wantRefs:   []string{"sessions restore-plan --help", "sessions replay --help", "run --take", "sessions --help"},
+		},
+		{
+			name:       "sessions replay subcommand",
+			command:    "sessions",
+			subcommand: "replay",
+			wantRefs:   []string{"sessions resume-plan --help", "sessions restore-plan --help", "run --help", "sessions --help"},
 		},
 		{
 			name:       "run root command",
@@ -403,6 +410,7 @@ func TestP0CommandsHaveSeeAlso(t *testing.T) {
 		{command: "workspace", subcommand: "doctor"},
 		{command: "sessions", subcommand: "restore-plan"},
 		{command: "sessions", subcommand: "resume-plan"},
+		{command: "sessions", subcommand: "replay"},
 		{command: "run", subcommand: ""},
 	}
 

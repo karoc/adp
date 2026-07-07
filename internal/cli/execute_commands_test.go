@@ -218,6 +218,24 @@ func TestExecuteReportsSubcommandUsageHelpHints(t *testing.T) {
 			hint: "try: adp sessions resume-plan --help",
 		},
 		{
+			name: "sessions replay missing session",
+			args: []string{"sessions", "replay", "--dry-run"},
+			want: "session-id is required; usage: adp sessions replay",
+			hint: "try: adp sessions replay --help",
+		},
+		{
+			name: "sessions replay missing dry run",
+			args: []string{"sessions", "replay", "session-1"},
+			want: "--dry-run is required; usage: adp sessions replay",
+			hint: "try: adp sessions replay --help",
+		},
+		{
+			name: "sessions replay execute rejected",
+			args: []string{"sessions", "replay", "session-1", "--execute"},
+			want: "sessions replay --execute is not implemented in this phase; use --dry-run",
+			hint: "",
+		},
+		{
 			name: "progress report invalid language",
 			args: []string{"progress", "report", "--language", "de"},
 			want: `unknown progress report language "de"`,

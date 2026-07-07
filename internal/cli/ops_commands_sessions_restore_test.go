@@ -7,8 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/karoc/adp/internal/adapters"
 	"github.com/karoc/adp/internal/events"
 	"github.com/karoc/adp/internal/paths"
+	"github.com/karoc/adp/internal/runner"
+	"github.com/karoc/adp/internal/runtime"
 	"github.com/karoc/adp/internal/sessions"
 	taskstore "github.com/karoc/adp/internal/tasks"
 )
@@ -416,5 +419,162 @@ func TestSessionsResumePlanCommandPrintsStaleSameOwnerRenewalGuidance(t *testing
 	assertJSONBoolField(t, guarantees, "task_mutation", false)
 	if store.claimReq.TaskID != "" || store.renewReq.TaskID != "" || store.updatedStatus != "" {
 		t.Fatalf("json resume-plan mutated fake store: claim=%+v renew=%+v status=%q", store.claimReq, store.renewReq, store.updatedStatus)
+	}
+}
+
+func TestSessionsReplayDryRunPrintsReadyPlan(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
+	now := time.Now().UTC().Truncate(time.Second)
+	task := testTask("task-1", "Replay task", taskstore.StatusInProgress)
+	task.Owner = "codex-main"
+	task.LeaseExpiresAt = now.Add(time.Hour)
+	store := &fakeTaskStore{
+		tasks:  []taskstore.Task{task},
+		phases: []taskstore.Phase{testPhase("phase-1.5", "Replay phase", taskstore.PhaseStatusActive)},
+	}
+	var stdout bytes.Buffer
+	buildRuntimeCalled := false
+	deps := Dependencies{
+		Layout:           layout,
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+		BuildRuntime: func(context.Context, runtime.BuildRequest) (*runtime.Handle, error) {
+			buildRuntimeCalled = true
+			return nil, nil
+		},
+		RunProcess: func(context.Context, adapters.LaunchSpec, runner.Streams) (*runner.Result, error) {
+			t.Fatal("dry-run should not launch a process")
+			return nil, nil
+		},
+		EventLogger: eventLoggerFunc(func(context.Context, events.Event) error {
+			t.Fatal("dry-run should not append events")
+			return nil
+		}),
+		GetSession: func(_ context.Context, _ paths.Layout, sessionID string) (*sessions.Detail, error) {
+			if sessionID != "session-1" {
+				t.Fatalf("session id = %q", sessionID)
+			}
+			return &sessions.Detail{
+				Summary: sessions.Summary{
+					SessionID: "session-1",
+					Workspace: "game-a",
+					Agent:     "codex",
+					TaskID:    "task-1",
+				},
+				Events: []events.Event{{
+					Type: "run_started",
+					Fields: map[string]any{
+						"invocation": map[string]any{
+							"schema_version": 1,
+							"keep_runtime":   true,
+							"agent_args":     []any{"--probe", "payload"},
+						},
+					},
+				}},
+			}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &bytes.Buffer{}).Execute(context.Background(), []string{
+		"sessions", "replay", "session-1", "--dry-run", "--owner", "codex-main", "--lease", "2h",
+	})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if buildRuntimeCalled {
+		t.Fatal("dry-run should not build a runtime")
+	}
+	if store.claimReq.TaskID != "" || store.renewReq.TaskID != "" || store.updatedStatus != "" {
+		t.Fatalf("dry-run mutated fake store: claim=%+v renew=%+v status=%q", store.claimReq, store.renewReq, store.updatedStatus)
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		"source_session: session-1",
+		"status: ready",
+		"mode: dry_run",
+		"task_preflight: task is owned by codex-main and lease is valid",
+		"runtime: would create a new ADP runtime",
+		"provider_native_resume: false",
+		"git_side_effects: false",
+		"project_root_writes_by_adp: false",
+		"read_only: true",
+		"would_mutate_task: false",
+		"would_create_runtime: true",
+		"launch: adp run codex --workspace game-a --task task-1 --keep-runtime -- --probe payload",
+		"required_commands: -",
+		"blockers: -",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("replay dry-run output missing %q: %q", want, output)
+		}
+	}
+}
+
+func TestSessionsReplayDryRunPrintsJSONAndDoesNotMutate(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
+	now := time.Now().UTC().Truncate(time.Second)
+	task := testTask("task-1", "Replay task", taskstore.StatusInProgress)
+	task.Owner = "same-agent"
+	task.LeaseExpiresAt = now.Add(-time.Minute)
+	store := &fakeTaskStore{
+		tasks:  []taskstore.Task{task},
+		phases: []taskstore.Phase{testPhase("phase-1.5", "Replay phase", taskstore.PhaseStatusActive)},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	deps := Dependencies{
+		Layout:           layout,
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+		GetSession: func(_ context.Context, _ paths.Layout, _ string) (*sessions.Detail, error) {
+			return &sessions.Detail{
+				Summary: sessions.Summary{
+					SessionID: "session-1",
+					Workspace: "game-a",
+					Agent:     "codex",
+					TaskID:    "task-1",
+				},
+				Events: []events.Event{{
+					Type: "run_started",
+					Fields: map[string]any{
+						"invocation": map[string]any{
+							"schema_version": 1,
+							"keep_runtime":   false,
+							"agent_args":     []any{"--probe"},
+						},
+					},
+				}},
+			}, nil
+		},
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{
+		"sessions", "replay", "session-1", "--dry-run", "--owner", "same-agent", "--lease", "45m", "--format", "json",
+	})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	assertJSONStringField(t, payload, "source_session_id", "session-1")
+	assertJSONStringField(t, payload, "mode", "dry_run")
+	assertJSONStringField(t, payload, "status", "blocked")
+	assertJSONBoolField(t, payload, "read_only", true)
+	assertJSONBoolField(t, payload, "would_mutate_task", false)
+	assertJSONBoolField(t, payload, "would_create_runtime", false)
+	assertJSONObjectListField(t, payload, "executed_commands")
+	commands := assertJSONObjectListField(t, payload, "required_commands")
+	renewCommand := findJSONObject(t, commands, "label", "renew-task-lease")
+	assertJSONStringField(t, renewCommand, "side_effect", "task_mutation")
+	guarantees := assertJSONObjectField(t, payload, "guarantees")
+	assertJSONBoolField(t, guarantees, "read_only", true)
+	assertJSONBoolField(t, guarantees, "runtime_creation", false)
+	if store.claimReq.TaskID != "" || store.renewReq.TaskID != "" || store.updatedStatus != "" {
+		t.Fatalf("dry-run mutated fake store: claim=%+v renew=%+v status=%q", store.claimReq, store.renewReq, store.updatedStatus)
 	}
 }

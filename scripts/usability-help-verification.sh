@@ -152,7 +152,7 @@ assert_contains "$output" "Usage:" "events list help"
 info "✓ events list --help works"
 
 # sessions subcommands
-for subcmd in list show restore-plan resume-plan; do
+for subcmd in list show restore-plan resume-plan replay; do
   output=$("$ADP_BIN" sessions "$subcmd" --help 2>&1 || true)
   assert_contains "$output" "Usage:" "sessions $subcmd help"
   info "✓ sessions $subcmd --help works"
@@ -252,7 +252,7 @@ if echo "$output" | grep -qE "Examples?:"; then
   info "✓ events list --help includes examples"
 fi
 
-for subcmd in list show restore-plan resume-plan; do
+for subcmd in list show restore-plan resume-plan replay; do
   output=$("$ADP_BIN" sessions "$subcmd" --help 2>&1 || true)
   if echo "$output" | grep -qE "Examples?:"; then
     info "✓ sessions $subcmd --help includes examples"
@@ -380,6 +380,11 @@ if echo "$output" | grep -E "20260611-00" | head -1 | grep -qE "session"; then
   info "✓ sessions resume-plan help includes prefix matching examples"
 fi
 
+output=$("$ADP_BIN" sessions replay --help 2>&1 || true)
+if echo "$output" | grep -E "20260611-00" | head -1 | grep -qE "session"; then
+  info "✓ sessions replay help includes prefix matching examples"
+fi
+
 # Check task-related commands mention prefix matching
 output=$("$ADP_BIN" tasks claim --help 2>&1 || true)
 if echo "$output" | grep -E "task-001" | head -1 | grep -qE "task"; then
@@ -420,7 +425,7 @@ if echo "$output" | grep -E "adp quickstart$" | head -1 | grep -qE "adp quicksta
   info "✓ quickstart shows simple interactive example"
 fi
 
-if echo "$output" | grep "non-interactive" | grep -qE "--workspace-name"; then
+if echo "$output" | grep "non-interactive" | grep -qE -- "--workspace-name"; then
   info "✓ quickstart shows comprehensive non-interactive example"
 fi
 

@@ -84,6 +84,7 @@ Implemented Phase 1 foundations. If you are trying ADP for the first time, start
 - `adp sessions show <session-id> [--format <text|json>]`
 - `adp sessions restore-plan <session-id> [--format <text|json>]`
 - `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]`
+- `adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]`
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--yes] [--format <text|json>]`
 - `adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>`
 - `adp tasks list/next/take/stale/show/update/claim/renew/release/done/block`
@@ -105,6 +106,8 @@ Implemented Phase 1 foundations. If you are trying ADP for the first time, start
 - process runner and workspace shell
 
 `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` provides read-only cross-tool ADP work-context resume guidance. It complements `restore-plan`: `restore-plan` focuses on rerun guidance for one recorded session, while `resume-plan` adds owner, lease, task, phase, and target-agent context for operator review.
+
+`adp sessions replay <session-id> --dry-run ...` turns the resume guidance into a read-only local replay preflight. It prints whether a future explicit replay could create a new ADP runtime, which launch command would be used, and which task ownership command must be run first. Dry-run does not launch an agent, create a runtime, append events, mutate task or phase state, run Git, write ADP-generated files into the project root, or resume provider-native conversations. Execute mode is intentionally not implemented in this release slice.
 
 Command discovery stays inside the CLI. Use `adp --help` for the root command list, `adp <command> --help` for a command group such as `adp tasks --help`, and `adp <command> <subcommand> --help` for a leaf command such as `adp tasks take --help`. If you are using `ADP_BIN`, `adp_local`, or a packaged binary name, substitute that command name in the same pattern. Leaf help may point back to parent help with `See also:`; if a build prints a friendly `try:` hint, treat it as a pointer to the same help surface, not as an automatic action or state change.
 
@@ -137,7 +140,7 @@ adp tasks show task-20
 #   - task-20260612-0002
 ```
 
-Prefix matching works across all task and session commands, including `tasks show`, `tasks claim`, `tasks renew`, `tasks release`, `tasks done`, `tasks block`, `sessions show`, `sessions restore-plan`, `sessions resume-plan`, `events list --task`, `events list --session`, and `run --task`.
+Prefix matching works across all task and session commands, including `tasks show`, `tasks claim`, `tasks renew`, `tasks release`, `tasks done`, `tasks block`, `sessions show`, `sessions restore-plan`, `sessions resume-plan`, `sessions replay`, `events list --task`, `events list --session`, and `run --task`.
 
 ## 🚀 Quick Start
 
@@ -284,11 +287,14 @@ P16 hardens the command surface with a local metadata contract that keeps usage 
 
 `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` extends that read-only guidance into ADP work-context resume planning. It can suggest a new same-tool or cross-tool `adp run ...` command, include owner and lease preflight notes, show phase context from the local ledger, and classify each suggested command with a machine-readable `side_effect` such as `inspect`, `task_mutation`, or `runtime_creation`. Same-tool plans can reuse non-sensitive `--profile`, `--keep-runtime`, and post-`--` agent arguments from the invocation snapshot. Cross-tool plans keep ADP-safe runtime options such as `--keep-runtime`, but omit provider-specific profile and agent arguments with explicit guidance. The command itself must not claim or renew tasks, complete tasks, accept phases, run Git, create runtimes, append events, write to the project root, or attach to provider-native Codex or Claude conversations.
 
+`adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` is a read-only local replay preflight built from the same resume plan. It reports the source session, task preflight decision, required explicit task ownership commands, the launch command that a future execute mode would use, and guarantees such as `read_only: true`, `would_mutate_task: false`, `provider_native_resume: false`, and `git_side_effects: false`. It refuses redacted or incomplete invocation data, workspace-only replay, stale or unowned task replay, blocked/closed tasks, and cross-workspace replay instead of guessing or mutating state. It does not implement `--execute`.
+
 Operator examples:
 
 ```bash
 adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format text
 adp sessions resume-plan <session-id> --agent claude --owner reviewer --lease 1h --format json
+adp sessions replay <session-id> --dry-run --owner reviewer --lease 1h --format json
 ```
 
 `adp workspace doctor [name] [--verbose] [--format <text|json>]` validates workspace configuration, project root reachability, runtime parent safety, referenced prompt, memory, MCP, and profile files, agent command settings, reserved project-root paths, and read-only Git topology/status. It reports adapter default command fallback, inline command arguments, missing or non-executable path-like command wrappers, missing, ambiguous, or escaping non-default profiles, and Git boundary caveats as local diagnostics. Without a name it checks all registered workspaces and returns a non-zero exit code when error-level diagnostics are found.

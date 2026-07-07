@@ -115,7 +115,7 @@ adp tasks show task-20
 #   - task-20260612-0002
 ```
 
-前缀匹配在所有接受 task 或 session ID 的命令中可用，包括 `tasks show/claim/renew/release/done/block`、`sessions show/restore-plan/resume-plan`、`events list` 和 `run --task`。
+前缀匹配在所有接受 task 或 session ID 的命令中可用，包括 `tasks show/claim/renew/release/done/block`、`sessions show/restore-plan/resume-plan/replay`、`events list` 和 `run --task`。
 
 提示：
 - 当有许多 task 或 session 时使用较长的前缀

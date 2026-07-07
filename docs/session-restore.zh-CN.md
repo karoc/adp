@@ -61,12 +61,14 @@ Resume plan 回答“如何启动一次新的运行来继续这个 ADP work cont
 - 它不会执行建议命令。
 - 它不会创建 runtime workspace，不会启动 Agent，不会追加新 events，不会修改 task 或 phase 状态，不会运行 Git，也不会写入真实项目根目录。
 
-Future replay 回答“替我启动一次新运行”：
+Replay dry-run 回答“显式 replay 是否安全”：
 
-- Replay 不属于当前阶段。
-- 未来的 replay 命令也只能启动一次新的本地运行，而不是恢复 provider conversation。
-- 任何未来的执行型命令都必须显式触发、经过本地 gate，并且与只读 inspection 分离。
-- P77 proposal 见 [local-replay-proposal.zh-CN.md](local-replay-proposal.zh-CN.md)，它评估未来可能的执行型命令，并保持 `resume-plan` 只读。
+- `adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` 会构建同一个 resume plan，并渲染 local replay preflight。
+- 它会报告 source session、plan status、task preflight decision、必须显式执行的 ownership commands，以及未来 execute mode 会使用的 launch command。
+- 它是只读的。它不会启动 Agent、创建 runtime、追加 events、修改 task 或 phase state、运行 Git、把 ADP-generated files 写入 project root，或恢复 provider-native conversations。
+- 它会阻断 redacted invocation arguments、incomplete invocation snapshots、workspace-only replay、cross-workspace replay、stale 或 unowned tasks、blocked 或 closed tasks，以及任何需要显式 claim、renew 或其他 ownership command 的 task state。
+- `adp sessions replay <session-id> --execute` 在本阶段有意不实现。
+- P77 proposal 见 [local-replay-proposal.zh-CN.md](local-replay-proposal.zh-CN.md)，现在它记录设计背景；P78 只实现 dry-run preflight，并继续推迟 execute mode。
 
 ## Invocation Snapshot
 
@@ -129,6 +131,15 @@ adp run codex --workspace game-a --profile senior-engineer --task task-20260608-
 
 如果数据缺失，ADP 应报告 missing fields 和 reasons，而不是假装 session 可以完整重建。Invocation snapshot 加入前创建的旧 sessions 在 task 和 workspace context 可用时，仍然可以输出 ready 的 task-level plan，但输出必须显示 invocation snapshot gap。
 
+复核 resume plan 后，可使用 replay dry-run 在不修改状态的情况下预检同一份 local replay contract：
+
+```bash
+adp sessions replay <session-id> --dry-run --owner handoff-agent --lease 2h --format text
+adp sessions replay <session-id> --dry-run --owner handoff-agent --lease 2h --format json
+```
+
+Text output 应短小并可审计：source session、mode、status、task preflight、required commands、launch command、blockers 和 read-only guarantees。JSON output 会为本地工具暴露同一份 contract，字段包括 `source_session_id`、`mode`、`status`、`plan_status`、`task_preflight`、`launch_command`、`required_commands`、`blockers`、`executed_commands`、`read_only`、`would_mutate_task`、`would_create_runtime`、`provider_native_resume`、`git_side_effects` 和 `project_root_writes_by_adp`。
+
 ## Cross-Tool Example
 
 当 operator 希望下一次运行使用与原始 session 不同的 ADP adapter 时，使用 `--agent <agent>`：
@@ -179,9 +190,10 @@ adp events list --workspace game-a --task "$TASK_ID" --format json
 adp sessions list --workspace game-a --agent codex --task "$TASK_ID" --format json
 adp sessions show <session-id> --format json
 adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format text
+adp sessions replay <session-id> --dry-run --owner handoff-agent --lease 2h --format text
 ```
 
-运行 `resume-plan` 只能打印 inspection output。Event count、task state、phase state、runtime directories 和真实项目根目录不应因为 resume-plan 命令本身而变化。
+运行 `resume-plan` 或 `replay --dry-run` 只能打印 inspection output。Event count、task state、phase state、runtime directories 和真实项目根目录不应因为任一命令本身而变化。
 
 如果手动运行建议命令，它会启动一次新的本地 Agent run，并产生新的 session ID。它不会 attach 到之前的 provider conversation。
 
@@ -213,7 +225,9 @@ Plan-mode compatibility 遵循同一边界。Provider 原生 plan panel 可以�
 ## 操作规则
 
 - 将 resume-plan output 视为指导，而不是自动修复或 resume 动作。
+- 将 replay dry-run output 视为 preflight report，而不是 execution evidence。
 - 运行 JSON 输出中的任何 suggested command 前，先检查 `suggested_commands[*].side_effect`。
+- 手动运行任何 ownership 或 launch command 前，先检查 replay dry-run 输出中的 `required_commands` 和 `blockers`。
 - 如果 session 需要纳入项目规划追踪，使用 `adp run <agent> --task <task-id>` 绑定工作。
 - worker 需要在启动时原子领取看板任务时，优先使用 `adp run <agent> --take --owner <owner> --lease <duration>`。
 - 长时间 ownership 使用 `adp tasks renew` 续租；意外中断后使用 `adp tasks stale` 查看 lease 已过期的 in-progress claims。
@@ -222,5 +236,6 @@ Plan-mode compatibility 遵循同一边界。Provider 原生 plan panel 可以�
 - 通过 `adp phase start`、`adp phase accept`、`adp phase commit` 和 `adp phase push` 显式推进 phase 状态。
 - 将 provider 原生 plan 和 task panels 视为 mirror 或 scratch surfaces，而不是 recovery evidence。
 - 只有当 operator 明确需要 provider-private conversation state 时，才使用 provider-native Codex 或 Claude resume；不要把它当作 ADP ownership、lease、task、phase、commit 或 push evidence。
-- 将 resume-plan checks 与 `adp events list`、`adp sessions list`、`adp sessions show`、`adp sessions restore-plan`、`adp tasks show`、`adp tasks stale`、`adp phase status` 和 `adp progress report` 配合使用，保留本地 acceptance evidence。本地工具需要可解析 inspection output 时使用 `--format json`。
+- 将 resume-plan 和 replay dry-run checks 与 `adp events list`、`adp sessions list`、`adp sessions show`、`adp sessions restore-plan`、`adp sessions replay <session-id> --dry-run`、`adp tasks show`、`adp tasks stale`、`adp phase status` 和 `adp progress report` 配合使用，保留本地 acceptance evidence。本地工具需要可解析 inspection output 时使用 `--format json`。
 - 不要把 resume-plan 描述为云同步、远程 issue 跟踪、托管编排、provider-private state scraping、automatic task completion、automatic phase acceptance 或 provider-native resume。
+- 不要把 replay dry-run 描述为 automatic replay、provider-native resume、task recovery、phase acceptance、Git execution 或 runtime creation。

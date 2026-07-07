@@ -84,6 +84,7 @@ adp quickstart --non-interactive \
 - `adp sessions show <session-id> [--format <text|json>]`
 - `adp sessions restore-plan <session-id> [--format <text|json>]`
 - `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]`
+- `adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]`
 - `adp runtime prune [--older-than <duration>] [--include-kept] [--dry-run] [--yes] [--format <text|json>]`
 - `adp tasks add [--workspace <name>] [--priority <value>] [--phase <value>] [--description <text>] <title>`
 - `adp tasks list/next/take/stale/show/update/claim/renew/release/done/block`
@@ -105,6 +106,8 @@ adp quickstart --non-interactive \
 - process runner 和 workspace shell
 
 `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` 提供只读的 cross-tool ADP work-context resume guidance。它补充 `restore-plan`：`restore-plan` 聚焦于某个已记录 session 的 rerun guidance，而 `resume-plan` 会增加 owner、lease、task、phase 和 target-agent context，供 operator 复核。
+
+`adp sessions replay <session-id> --dry-run ...` 会把 resume guidance 转成只读的 local replay preflight。它会打印未来显式 replay 是否可以创建新的 ADP runtime、会使用哪条 launch command、以及必须先显式运行哪条 task ownership command。Dry-run 不会启动 Agent、创建 runtime、追加 events、修改 task 或 phase state、运行 Git、把 ADP-generated files 写入 project root，也不会恢复 provider-native conversations。本 release slice 有意不实现 execute mode。
 
 命令发现仍然留在 CLI 内完成。用 `adp --help` 查看根命令列表，用 `adp <command> --help` 查看命令组，例如 `adp tasks --help`，用 `adp <command> <subcommand> --help` 查看叶子命令，例如 `adp tasks take --help`。如果使用的是 `ADP_BIN`、`adp_local` 或打包后的二进制名，把同一模式中的命令名替换掉即可。叶子 help 可能通过 `See also:` 指回父级 help；如果某个构建打印友好的 `try:` hint，把它当作指向同一 help surface 的提示，而不是自动 action 或状态变更。
 
@@ -236,7 +239,7 @@ adp tasks show task-20
 #   - task-20260612-0002
 ```
 
-前缀匹配适用于所有任务和会话命令，包括 `tasks show`、`tasks claim`、`tasks renew`、`tasks release`、`tasks done`、`tasks block`、`sessions show`、`sessions restore-plan`、`sessions resume-plan`、`events list --task`、`events list --session` 和 `run --task`。
+前缀匹配适用于所有任务和会话命令，包括 `tasks show`、`tasks claim`、`tasks renew`、`tasks release`、`tasks done`、`tasks block`、`sessions show`、`sessions restore-plan`、`sessions resume-plan`、`sessions replay`、`events list --task`、`events list --session` 和 `run --task`。
 
 常用环境变量：
 
@@ -284,11 +287,14 @@ P16 会用本地 metadata contract 强化命令面，防止 usage text、dispatc
 
 `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` 会把同一个只读 guidance 扩展为 ADP work-context resume planning。它可以建议一次 same-tool 或 cross-tool 的新 `adp run ...` 命令，包含 owner 和 lease preflight notes，展示来自本地 ledger 的 phase context，并用机器可读的 `side_effect` 给每条建议命令分类，例如 `inspect`、`task_mutation` 或 `runtime_creation`。Same-tool plan 可以复用 invocation snapshot 中非敏感的 `--profile`、`--keep-runtime` 和 `--` 后置 agent arguments。Cross-tool plan 会保留 `--keep-runtime` 这类 ADP-safe runtime options，但会省略 provider-specific profile 和 agent arguments，并明确输出 guidance。命令本身不得 claim 或 renew tasks、complete tasks、accept phases、运行 Git、创建 runtimes、追加 events、写入项目根目录，或 attach 到 provider-native Codex 或 Claude conversations。
 
+`adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` 是基于同一个 resume plan 的只读 local replay preflight。它会报告 source session、task preflight decision、必须显式执行的 task ownership commands、未来 execute mode 将使用的 launch command，以及 `read_only: true`、`would_mutate_task: false`、`provider_native_resume: false` 和 `git_side_effects: false` 等 guarantees。它会拒绝 redacted 或 incomplete invocation data、workspace-only replay、stale 或 unowned task replay、blocked/closed tasks 和 cross-workspace replay，而不是猜测或修改状态。它不实现 `--execute`。
+
 Operator examples：
 
 ```bash
 adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format text
 adp sessions resume-plan <session-id> --agent claude --owner reviewer --lease 1h --format json
+adp sessions replay <session-id> --dry-run --owner reviewer --lease 1h --format json
 ```
 
 `adp workspace doctor [name] [--verbose] [--format <text|json>]` 会检查 workspace 配置、project root 可访问性、runtime parent 安全性、prompt、memory、MCP、profile 文件引用、agent command 设置、project root 中的保留路径，以及只读 Git topology/status。它会把 adapter default command fallback、写在 command 字段里的 inline arguments、缺失或不可执行的路径型 command wrapper、缺失、重复或逃逸到 workspace 外部的非 default profile，以及 Git boundary caveats 报告为本地 diagnostics。不传 name 时检查所有已注册 workspace；发现 error 级 diagnostics 时返回非零退出码。

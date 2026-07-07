@@ -63,6 +63,16 @@ type sessionsResumePlanOptions struct {
 	format      outputFormat
 }
 
+type sessionsReplayOptions struct {
+	sessionID   string
+	workspace   string
+	owner       string
+	lease       time.Duration
+	targetAgent string
+	dryRun      bool
+	format      outputFormat
+}
+
 type runtimePruneOptions struct {
 	olderThan   time.Duration
 	includeKept bool
@@ -480,6 +490,76 @@ func parseSessionsResumePlanArgs(args []string) (sessionsResumePlanOptions, erro
 	}
 	if opts.sessionID == "" {
 		return sessionsResumePlanOptions{}, errors.New("session-id is required; usage: adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]")
+	}
+	return opts, nil
+}
+
+func parseSessionsReplayArgs(args []string) (sessionsReplayOptions, error) {
+	const usage = "adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]"
+	opts := sessionsReplayOptions{format: outputFormatText}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--dry-run":
+			opts.dryRun = true
+		case "--execute":
+			return sessionsReplayOptions{}, errors.New("sessions replay --execute is not implemented in this phase; use --dry-run")
+		case "--workspace", "-w":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsReplayOptions{}, err
+			}
+			opts.workspace, i = value, next
+		case "--owner":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsReplayOptions{}, err
+			}
+			opts.owner, i = value, next
+		case "--lease":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsReplayOptions{}, err
+			}
+			lease, err := time.ParseDuration(value)
+			if err != nil {
+				return sessionsReplayOptions{}, fmt.Errorf("parse lease duration: %w", err)
+			}
+			if lease < 0 {
+				return sessionsReplayOptions{}, errors.New("lease must not be negative")
+			}
+			opts.lease, i = lease, next
+		case "--agent":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsReplayOptions{}, err
+			}
+			opts.targetAgent, i = value, next
+		case "--format":
+			value, next, err := requireValue(args, i, arg)
+			if err != nil {
+				return sessionsReplayOptions{}, err
+			}
+			format, err := parseOutputFormat(value)
+			if err != nil {
+				return sessionsReplayOptions{}, err
+			}
+			opts.format, i = format, next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return sessionsReplayOptions{}, fmt.Errorf("unknown sessions replay option %q", arg)
+			}
+			if opts.sessionID != "" {
+				return sessionsReplayOptions{}, errors.New("usage: " + usage)
+			}
+			opts.sessionID = arg
+		}
+	}
+	if opts.sessionID == "" {
+		return sessionsReplayOptions{}, errors.New("session-id is required; usage: " + usage)
+	}
+	if !opts.dryRun {
+		return sessionsReplayOptions{}, errors.New("--dry-run is required; usage: " + usage)
 	}
 	return opts, nil
 }

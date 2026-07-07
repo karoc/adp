@@ -217,6 +217,49 @@ func TestSessionsResumePlanWithPrefix(t *testing.T) {
 	}
 }
 
+func TestSessionsReplayWithPrefix(t *testing.T) {
+	ctx := context.Background()
+	layout := setupTestLayout(t)
+	logger := events.NewLogger(layout)
+
+	now := time.Date(2026, 6, 11, 10, 20, 30, 0, time.UTC)
+	if err := logger.Log(ctx, events.Event{
+		SessionID: "20260611T102030-abc123",
+		Workspace: "workspace1",
+		Agent:     "test-agent",
+		Type:      "run_started",
+		Timestamp: now,
+	}); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	var gotSessionID string
+
+	deps := Dependencies{
+		Layout: layout,
+		GetSession: func(ctx context.Context, layout paths.Layout, sessionID string) (*sessions.Detail, error) {
+			gotSessionID = sessionID
+			return sessions.Get(ctx, layout, sessionID)
+		},
+	}
+
+	code := NewApp(deps, &stdout, &stderr).Execute(
+		context.Background(),
+		[]string{"sessions", "replay", "20260611", "--dry-run"},
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0, stderr: %s", code, stderr.String())
+	}
+	if gotSessionID != "20260611T102030-abc123" {
+		t.Fatalf("GetSession called with %q, want %q", gotSessionID, "20260611T102030-abc123")
+	}
+	if !strings.Contains(stdout.String(), "mode: dry_run") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
 func TestSessionsAmbiguousPrefix(t *testing.T) {
 	ctx := context.Background()
 	layout := setupTestLayout(t)

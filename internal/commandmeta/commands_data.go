@@ -18,7 +18,8 @@ var subcommandRelationships = map[string][]string{
 
 	// P0: Session restoration confusion
 	"sessions.restore-plan": {"sessions resume-plan", "run"},
-	"sessions.resume-plan":  {"sessions restore-plan", "run --take"},
+	"sessions.resume-plan":  {"sessions restore-plan", "sessions replay", "run --take"},
+	"sessions.replay":       {"sessions resume-plan", "sessions restore-plan", "run"},
 }
 
 var rootCommands = []Command{
@@ -134,13 +135,15 @@ var rootCommands = []Command{
 			"adp sessions show <session-id> [--format <text|json>]",
 			"adp sessions restore-plan <session-id> [--format <text|json>]",
 			"adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]",
+			"adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]",
 		},
 		Subcommands: describedValues(valueDescriptions{
 			"list":         "list runtime sessions",
 			"show":         "show one session",
 			"restore-plan": "print read-only rerun guidance",
 			"resume-plan":  "print read-only cross-tool resume guidance",
-		}, "list", "show", "restore-plan", "resume-plan"),
+			"replay":       "dry-run local replay preflight",
+		}, "list", "show", "restore-plan", "resume-plan", "replay"),
 		Options: describedValues(valueDescriptions{
 			"--workspace": "filter by workspace",
 			"-w":          "filter by workspace",
@@ -149,8 +152,9 @@ var rootCommands = []Command{
 			"--limit":     "limit result count",
 			"--owner":     "task owner",
 			"--lease":     "ownership lease duration",
+			"--dry-run":   "print replay preflight without executing",
 			"--format":    "output format",
-		}, "--workspace", "-w", "--agent", "--task", "--limit", "--owner", "--lease", "--format"),
+		}, "--workspace", "-w", "--agent", "--task", "--limit", "--owner", "--lease", "--dry-run", "--format"),
 	},
 	{
 		Name:        "runtime",

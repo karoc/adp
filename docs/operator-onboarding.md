@@ -115,7 +115,7 @@ adp tasks show task-20
 #   - task-20260612-0002
 ```
 
-Prefix matching is available in all commands that accept task or session IDs, including `tasks show/claim/renew/release/done/block`, `sessions show/restore-plan/resume-plan`, `events list`, and `run --task`.
+Prefix matching is available in all commands that accept task or session IDs, including `tasks show/claim/renew/release/done/block`, `sessions show/restore-plan/resume-plan/replay`, `events list`, and `run --task`.
 
 Tips:
 - Use longer prefixes when you have many tasks or sessions

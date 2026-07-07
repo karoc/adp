@@ -24,6 +24,7 @@ var commandHelpExamples = map[string][]string{
 		"adp sessions list --workspace game-a --agent codex --format json",
 		"adp sessions show 20260611T10",
 		"adp sessions resume-plan session-20260611-0001 --workspace game-a --agent claude --owner claude-main --lease 4h",
+		"adp sessions replay session-20260611-0001 --dry-run --workspace game-a --owner claude-main --lease 4h",
 	},
 	"runtime": {
 		"adp runtime prune --older-than 24h --dry-run --format json",
@@ -91,6 +92,10 @@ var subcommandHelpExamples = map[string]map[string][]string{
 		"resume-plan": {
 			"adp sessions resume-plan session-20260611-0001 --workspace game-a --agent claude --owner claude-main --lease 4h --format json",
 			"adp sessions resume-plan 20260611-00 --workspace game-a --owner reviewer --lease 2h",
+		},
+		"replay": {
+			"adp sessions replay session-20260611-0001 --dry-run --workspace game-a --owner claude-main --lease 4h --format json",
+			"adp sessions replay 20260611-00 --dry-run --workspace game-a --owner reviewer",
 		},
 	},
 	"runtime": {

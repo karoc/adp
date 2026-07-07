@@ -99,6 +99,8 @@ assert_help "sessions help restore note" "restore-plan - print read-only rerun g
 assert_help "sessions restore-plan help" "adp sessions restore-plan <session-id>" sessions restore-plan --help
 assert_help "sessions help resume note" "resume-plan - print read-only cross-tool resume guidance" sessions --help
 assert_help "sessions resume-plan help" "adp sessions resume-plan <session-id>" sessions resume-plan --help
+assert_help "sessions help replay note" "replay - dry-run local replay preflight" sessions --help
+assert_help "sessions replay help" "adp sessions replay <session-id> --dry-run" sessions replay --help
 assert_help "runtime help" "adp runtime prune" runtime --help
 assert_help "runtime prune help" "adp runtime prune" runtime prune --help
 assert_help "runtime prune help confirmation bypass" "--yes - skip confirmation prompts" runtime prune --help
@@ -480,6 +482,36 @@ assert_contains "$output" '"omitted": [' "sessions resume-plan json output"
 assert_contains "$output" '"agent_args"' "sessions resume-plan json output"
 assert_contains "$output" '"read_only": true' "sessions resume-plan json output"
 assert_contains "$output" '"task_mutation": false' "sessions resume-plan json output"
+output=$(run_adp "$REPO_ROOT" sessions replay "$take_session" --dry-run --owner audit-run-take --lease 2h)
+assert_contains "$output" "source_session: $take_session" "sessions replay dry-run output"
+assert_contains "$output" "status: ready" "sessions replay dry-run output"
+assert_contains "$output" "mode: dry_run" "sessions replay dry-run output"
+assert_contains "$output" "task_id: $take_task_id" "sessions replay dry-run output"
+assert_contains "$output" "task_resume_action: run" "sessions replay dry-run output"
+assert_contains "$output" "runtime: would create a new ADP runtime" "sessions replay dry-run output"
+assert_contains "$output" "provider_native_resume: false" "sessions replay dry-run output"
+assert_contains "$output" "git_side_effects: false" "sessions replay dry-run output"
+assert_contains "$output" "project_root_writes_by_adp: false" "sessions replay dry-run output"
+assert_contains "$output" "read_only: true" "sessions replay dry-run output"
+assert_contains "$output" "would_mutate_task: false" "sessions replay dry-run output"
+assert_contains "$output" "would_create_runtime: true" "sessions replay dry-run output"
+assert_contains "$output" "launch: adp run codex --workspace game-a --task $take_task_id -- --probe codex-payload" "sessions replay dry-run output"
+assert_contains "$output" "required_commands: -" "sessions replay dry-run output"
+assert_contains "$output" "blockers: -" "sessions replay dry-run output"
+output=$(run_adp "$REPO_ROOT" sessions replay "$take_session" --dry-run --owner audit-run-take --lease 2h --format json)
+assert_json_valid "$output" "sessions replay dry-run json output"
+assert_contains "$output" "\"source_session_id\": \"$take_session\"" "sessions replay dry-run json output"
+assert_contains "$output" '"mode": "dry_run"' "sessions replay dry-run json output"
+assert_contains "$output" '"status": "ready"' "sessions replay dry-run json output"
+assert_contains "$output" "\"id\": \"$take_task_id\"" "sessions replay dry-run json output"
+assert_contains "$output" '"task_preflight": "task is owned by audit-run-take and lease is valid"' "sessions replay dry-run json output"
+assert_contains "$output" '"read_only": true' "sessions replay dry-run json output"
+assert_contains "$output" '"would_mutate_task": false' "sessions replay dry-run json output"
+assert_contains "$output" '"would_create_runtime": true' "sessions replay dry-run json output"
+assert_contains "$output" '"provider_native_resume": false' "sessions replay dry-run json output"
+assert_contains "$output" '"git_side_effects": false' "sessions replay dry-run json output"
+assert_contains "$output" '"project_root_writes_by_adp": false' "sessions replay dry-run json output"
+assert_contains "$output" '"executed_commands": []' "sessions replay dry-run json output"
 assert_read_only_lease_state "sessions resume-plan" "$tasks_before_resume" "$phases_before_resume" "$progress_before_resume" "$events_before_resume" "$runtime_before_resume" "$project_before_resume" "$git_before_resume"
 
 output=$(run_adp "$REPO_ROOT" tasks renew --workspace game-a "$take_task_id" --owner audit-run-take --lease 1ns)
@@ -494,6 +526,25 @@ tasks_before_stale_resume=$(cat "$TASKS_FILE"); phases_before_stale_resume=$(cat
 progress_before_stale_resume=$(cat "$PROGRESS_FILE"); events_before_stale_resume=$(event_log_count)
 runtime_before_stale_resume=$(runtime_dirs_state); project_before_stale_resume=$(project_root_state); git_before_stale_resume=$(git_state)
 reset_git_tripwire
+output=$(run_adp "$REPO_ROOT" sessions replay "$take_session" --dry-run --owner stale-session-reclaimer --lease 30m)
+assert_contains "$output" "source_session: $take_session" "stale sessions replay dry-run output"
+assert_contains "$output" "status: blocked" "stale sessions replay dry-run output"
+assert_contains "$output" "task_id: $take_task_id" "stale sessions replay dry-run output"
+assert_contains "$output" "task_claim_state: stale" "stale sessions replay dry-run output"
+assert_contains "$output" "task_resume_action: claim" "stale sessions replay dry-run output"
+assert_contains "$output" "would_create_runtime: false" "stale sessions replay dry-run output"
+assert_contains "$output" "claim-task [task_mutation]: adp tasks claim --workspace game-a $take_task_id --owner stale-session-reclaimer --lease 30m" "stale sessions replay dry-run output"
+assert_contains "$output" "task preflight requires explicit ADP ownership action before replay: claim" "stale sessions replay dry-run output"
+output=$(run_adp "$REPO_ROOT" sessions replay "$take_session" --dry-run --owner stale-session-reclaimer --lease 30m --format json)
+assert_json_valid "$output" "stale sessions replay dry-run json output"
+assert_contains "$output" "\"source_session_id\": \"$take_session\"" "stale sessions replay dry-run json output"
+assert_contains "$output" '"status": "blocked"' "stale sessions replay dry-run json output"
+assert_contains "$output" '"mode": "dry_run"' "stale sessions replay dry-run json output"
+assert_contains "$output" '"resume_action": "claim"' "stale sessions replay dry-run json output"
+assert_contains "$output" '"label": "claim-task"' "stale sessions replay dry-run json output"
+assert_contains "$output" '"side_effect": "task_mutation"' "stale sessions replay dry-run json output"
+assert_contains "$output" '"would_create_runtime": false' "stale sessions replay dry-run json output"
+assert_contains "$output" '"executed_commands": []' "stale sessions replay dry-run json output"
 output=$(run_adp "$REPO_ROOT" sessions resume-plan "$take_session" --owner stale-session-reclaimer --lease 30m)
 assert_contains "$output" "session_id: $take_session" "stale sessions resume-plan output"
 assert_contains "$output" "task_id: $take_task_id" "stale sessions resume-plan output"

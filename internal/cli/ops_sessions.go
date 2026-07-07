@@ -15,7 +15,7 @@ import (
 
 func (a *App) sessions(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: adp sessions <list|show|restore-plan|resume-plan>")
+		return errors.New("usage: adp sessions <list|show|restore-plan|resume-plan|replay>")
 	}
 
 	switch args[0] {
@@ -27,6 +27,8 @@ func (a *App) sessions(ctx context.Context, args []string) error {
 		return a.sessionsRestorePlan(ctx, args[1:])
 	case "resume-plan":
 		return a.sessionsResumePlan(ctx, args[1:])
+	case "replay":
+		return a.sessionsReplay(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown sessions command %q", args[0])
 	}
@@ -229,6 +231,54 @@ func (a *App) sessionsResumePlan(ctx context.Context, args []string) error {
 	return nil
 }
 
+func (a *App) sessionsReplay(ctx context.Context, args []string) error {
+	opts, err := parseSessionsReplayArgs(args)
+	if err != nil {
+		return err
+	}
+	if a.deps.GetSession == nil {
+		return errors.New("session reader is not configured")
+	}
+
+	summaries, err := sessions.FindByPrefix(ctx, a.deps.Layout, opts.sessionID)
+	if err != nil {
+		if errors.Is(err, sessions.ErrAmbiguousSessionID) {
+			ids := extractSessionIDs(summaries)
+			return fmt.Errorf("adp: ambiguous session ID %q, matches multiple sessions:\n%s\n\nPlease use a more specific prefix.", opts.sessionID, formatSessionIDList(ids))
+		}
+		return err
+	}
+	if len(summaries) != 1 {
+		return fmt.Errorf("%w: %q", sessions.ErrSessionNotFound, opts.sessionID)
+	}
+	resolvedSessionID := summaries[0].SessionID
+
+	detail, err := a.deps.GetSession(ctx, a.deps.Layout, resolvedSessionID)
+	if err != nil {
+		return err
+	}
+	workspaceName := opts.workspace
+	if workspaceName == "" {
+		workspaceName = detail.Summary.Workspace
+	}
+	req := adpresume.Request{
+		Detail:      detail,
+		Workspace:   workspaceName,
+		TargetAgent: opts.targetAgent,
+		Owner:       opts.owner,
+		Lease:       opts.lease,
+		Now:         time.Now().UTC(),
+	}
+	a.fillResumePlanState(ctx, &req)
+	plan := adpresume.BuildPlan(req)
+	dryRun := adpresume.BuildReplayDryRun(plan)
+	if opts.format == outputFormatJSON {
+		return writePlanningJSON(a.stdout, dryRun)
+	}
+	a.printReplayDryRun(dryRun)
+	return nil
+}
+
 func (a *App) fillResumePlanState(ctx context.Context, req *adpresume.Request) {
 	if req == nil || req.Workspace == "" {
 		return
@@ -254,6 +304,61 @@ func (a *App) fillResumePlanState(ctx context.Context, req *adpresume.Request) {
 	}
 	gate := taskstore.PhaseGateStatus(phases)
 	req.PhaseGate = &gate
+}
+
+func (a *App) printReplayDryRun(dryRun adpresume.ReplayDryRun) {
+	fmt.Fprintf(a.stdout, "source_session: %s\n", valueOrDash(dryRun.SourceSessionID))
+	fmt.Fprintf(a.stdout, "status: %s\n", valueOrDash(dryRun.Status))
+	fmt.Fprintf(a.stdout, "plan_status: %s\n", valueOrDash(dryRun.PlanStatus))
+	fmt.Fprintf(a.stdout, "mode: %s\n", valueOrDash(dryRun.Mode))
+	fmt.Fprintf(a.stdout, "summary: %s\n", valueOrDash(dryRun.Summary))
+	fmt.Fprintf(a.stdout, "source_workspace: %s\n", valueOrDash(dryRun.Source.Workspace))
+	fmt.Fprintf(a.stdout, "source_agent: %s\n", valueOrDash(dryRun.Source.Agent))
+	fmt.Fprintf(a.stdout, "target_workspace: %s\n", valueOrDash(dryRun.Target.Workspace))
+	fmt.Fprintf(a.stdout, "target_agent: %s\n", valueOrDash(dryRun.Target.Agent))
+	fmt.Fprintf(a.stdout, "target_owner: %s\n", valueOrDash(dryRun.Target.Owner))
+	fmt.Fprintf(a.stdout, "task_preflight: %s\n", valueOrDash(dryRun.TaskPreflight))
+	if dryRun.Task != nil {
+		fmt.Fprintf(a.stdout, "task_id: %s\n", valueOrDash(dryRun.Task.ID))
+		fmt.Fprintf(a.stdout, "task_claim_state: %s\n", valueOrDash(dryRun.Task.ClaimState))
+		fmt.Fprintf(a.stdout, "task_resume_action: %s\n", valueOrDash(dryRun.Task.ResumeAction))
+	} else {
+		fmt.Fprintln(a.stdout, "task_id: -")
+	}
+	fmt.Fprintf(a.stdout, "runtime: %s\n", replayRuntimeLine(dryRun))
+	fmt.Fprintf(a.stdout, "provider_native_resume: %t\n", dryRun.ProviderNativeResume)
+	fmt.Fprintf(a.stdout, "git_side_effects: %t\n", dryRun.GitSideEffects)
+	fmt.Fprintf(a.stdout, "project_root_writes_by_adp: %t\n", dryRun.ProjectRootWritesByADP)
+	fmt.Fprintf(a.stdout, "read_only: %t\n", dryRun.ReadOnly)
+	fmt.Fprintf(a.stdout, "would_mutate_task: %t\n", dryRun.WouldMutateTask)
+	fmt.Fprintf(a.stdout, "would_create_runtime: %t\n", dryRun.WouldCreateRuntime)
+	fmt.Fprintf(a.stdout, "launch: %s\n", formatSuggestedCommand(dryRun.LaunchCommand))
+	if len(dryRun.RequiredCommands) == 0 {
+		fmt.Fprintln(a.stdout, "required_commands: -")
+	} else {
+		fmt.Fprintln(a.stdout, "required_commands:")
+		for _, command := range dryRun.RequiredCommands {
+			fmt.Fprintf(a.stdout, "- %s [%s]: %s\n", command.Label, valueOrDash(command.SideEffect), formatSuggestedCommand(command.Args))
+			if command.Reason != "" {
+				fmt.Fprintf(a.stdout, "  reason: %s\n", command.Reason)
+			}
+		}
+	}
+	if len(dryRun.Blockers) == 0 {
+		fmt.Fprintln(a.stdout, "blockers: -")
+		return
+	}
+	fmt.Fprintln(a.stdout, "blockers:")
+	for _, blocker := range dryRun.Blockers {
+		fmt.Fprintf(a.stdout, "- %s\n", safeText(blocker))
+	}
+}
+
+func replayRuntimeLine(dryRun adpresume.ReplayDryRun) string {
+	if dryRun.WouldCreateRuntime {
+		return "would create a new ADP runtime"
+	}
+	return "blocked"
 }
 
 func (a *App) printResumePlan(plan adpresume.Plan) {

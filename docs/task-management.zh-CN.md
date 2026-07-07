@@ -98,6 +98,7 @@ adp run claude --workspace <workspace> --take --owner <owner> --lease 4h -- <cla
 adp tasks renew --workspace <workspace> <task-id> --owner <owner> --lease 4h
 adp tasks stale --workspace <workspace> --format json
 adp sessions resume-plan <session-id> --owner <owner> --lease 4h
+adp sessions replay <session-id> --dry-run --owner <owner> --lease 4h
 ```
 
 5. 通过显式本地命令完成收尾：
@@ -109,7 +110,7 @@ adp phase commit --workspace <workspace> <phase-id> --hash <commit-hash>
 adp phase push --workspace <workspace> <phase-id> --remote origin --branch main --result pushed
 ```
 
-`tasks next`、`tasks stale`、`phase status`、`progress report`、`plan preview`、`sessions restore-plan` 和 `sessions resume-plan` 是 inspection 或 proposal 命令。`tasks add`、`plan apply`、`tasks take`、`tasks claim`、`tasks renew`、`tasks release`、`tasks done`、`tasks block`、`phase start`、`phase accept`、`phase commit` 和 `phase push` 会修改本地 ADP ledger。这些命令都不会自动运行 Git、自动关闭 phase、同步 hosted tracker、抓取 provider-private task panel，或把 planning/runtime 文件写入真实 project root。
+`tasks next`、`tasks stale`、`phase status`、`progress report`、`plan preview`、`sessions restore-plan`、`sessions resume-plan` 和 `sessions replay --dry-run` 是 inspection 或 proposal 命令。`tasks add`、`plan apply`、`tasks take`、`tasks claim`、`tasks renew`、`tasks release`、`tasks done`、`tasks block`、`phase start`、`phase accept`、`phase commit` 和 `phase push` 会修改本地 ADP ledger。这些命令都不会自动运行 Git、自动关闭 phase、同步 hosted tracker、抓取 provider-private task panel，或把 planning/runtime 文件写入真实 project root。
 
 ## Operator Loop
 
@@ -119,7 +120,7 @@ adp phase push --workspace <workspace> <phase-id> --remote origin --branch main 
 2. 用 `adp tasks take`、显式 `adp tasks claim`，或 `adp run <agent> --take` 只领取一项工作。
 3. 已经分配具体 task 时，用 `adp run <agent> --task <task-id>` 启动 worker；如果 provider 有原生 task box，可以把当前 ADP task 镜像进去提升可见性。
 4. 长时间任务在 lease 过期前续租；意外中断后先检查 stale claims，只能通过 ADP ownership commands 接管工作。
-5. 用 `adp sessions resume-plan` 生成只读的 same-tool 或 cross-tool 重启方案，运行任何建议命令前先检查该命令和它的 `side_effect`。
+5. 用 `adp sessions resume-plan` 生成只读的 same-tool 或 cross-tool 重启方案；需要 local replay preflight 时，先运行 `adp sessions replay <session-id> --dry-run`，再手动执行任何命令。行动前检查每条 suggested command、`side_effect`、required command 和 blocker。
 6. 收尾必须显式更新 task status、phase acceptance、commit evidence、push evidence，并保持 Git 工作树干净。
 
 这个循环刻意保持本地化。Provider 原生 todo list、plan panel、chat resume 和进程退出可以帮助 operator 理解上下文，但它们不能 complete tasks、renew leases、accept phases、证明 Git state，或替代 ADP evidence。

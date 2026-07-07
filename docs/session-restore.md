@@ -61,12 +61,14 @@ Resume plan answers "how could I start a new run that continues this ADP work co
 - It does not execute suggested commands.
 - It does not create a runtime workspace, launch an agent, append new events, change task or phase state, run Git, or write to the real project root.
 
-Future replay would answer "start a new run for me":
+Replay dry-run answers "would an explicit replay be safe":
 
-- Replay is intentionally not part of this slice.
-- A future replay command would still start a new local run, not resume a provider conversation.
-- Any future execution command must remain explicit, locally gated, and separate from read-only inspection.
-- The P77 proposal in [local-replay-proposal.md](local-replay-proposal.md) evaluates a possible future execution command and keeps `resume-plan` read-only.
+- `adp sessions replay <session-id> --dry-run [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format <text|json>]` builds the same resume plan and renders a local replay preflight.
+- It reports the source session, plan status, task preflight decision, required explicit ownership commands, and the launch command a future execute mode would use.
+- It is read-only. It does not launch an agent, create a runtime, append events, mutate task or phase state, run Git, write ADP-generated files into the project root, or resume provider-native conversations.
+- It blocks redacted invocation arguments, incomplete invocation snapshots, workspace-only replay, cross-workspace replay, stale or unowned tasks, blocked or closed tasks, and any task state requiring an explicit claim, renew, or other ownership command.
+- `adp sessions replay <session-id> --execute` is intentionally not implemented in this phase.
+- The P77 proposal in [local-replay-proposal.md](local-replay-proposal.md) now records the design background; P78 implements the dry-run-only preflight and still defers execute mode.
 
 ## Invocation Snapshot
 
@@ -129,6 +131,15 @@ adp run codex --workspace game-a --profile senior-engineer --task task-20260608-
 
 If data is missing, ADP should report missing fields and reasons instead of pretending the session is fully reconstructable. Old sessions created before invocation snapshots can still produce a ready task-level plan when task and workspace context are available, but the output must show the invocation snapshot gap.
 
+After reviewing the resume plan, use replay dry-run to preflight the same local replay contract without mutating state:
+
+```bash
+adp sessions replay <session-id> --dry-run --owner handoff-agent --lease 2h --format text
+adp sessions replay <session-id> --dry-run --owner handoff-agent --lease 2h --format json
+```
+
+Text output should be short and auditable: source session, mode, status, task preflight, required commands, launch command, blockers, and read-only guarantees. JSON output exposes the same contract for local tooling with fields such as `source_session_id`, `mode`, `status`, `plan_status`, `task_preflight`, `launch_command`, `required_commands`, `blockers`, `executed_commands`, `read_only`, `would_mutate_task`, `would_create_runtime`, `provider_native_resume`, `git_side_effects`, and `project_root_writes_by_adp`.
+
 ## Cross-Tool Example
 
 Use `--agent <agent>` when the operator wants the next run to use a different ADP adapter from the original session:
@@ -179,9 +190,10 @@ adp events list --workspace game-a --task "$TASK_ID" --format json
 adp sessions list --workspace game-a --agent codex --task "$TASK_ID" --format json
 adp sessions show <session-id> --format json
 adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format text
+adp sessions replay <session-id> --dry-run --owner handoff-agent --lease 2h --format text
 ```
 
-Running `resume-plan` should only print inspection output. The event count, task state, phase state, runtime directories, and real project root should not change because of the resume-plan command itself.
+Running `resume-plan` or `replay --dry-run` should only print inspection output. The event count, task state, phase state, runtime directories, and real project root should not change because of either command itself.
 
 If the suggested command is run manually, it starts a new local agent run with a new session ID. It does not attach to the previous provider conversation.
 
@@ -213,7 +225,9 @@ Plan-mode compatibility follows the same boundary. A provider-native plan panel 
 ## Operating Rules
 
 - Treat resume-plan output as guidance, not as an automatic repair or resume action.
+- Treat replay dry-run output as a preflight report, not as execution evidence.
 - Review `suggested_commands[*].side_effect` before running any suggested command from JSON output.
+- Review `required_commands` and `blockers` from replay dry-run before running any ownership or launch command manually.
 - Bind work to tasks with `adp run <agent> --task <task-id>` when the session should be traceable in project planning.
 - Prefer `adp run <agent> --take --owner <owner> --lease <duration>` when a worker should atomically take a board item at launch.
 - Renew long-running ownership with `adp tasks renew`; use `adp tasks stale` to inspect expired in-progress claims after interruptions.
@@ -222,5 +236,6 @@ Plan-mode compatibility follows the same boundary. A provider-native plan panel 
 - Move phase status explicitly with `adp phase start`, `adp phase accept`, `adp phase commit`, and `adp phase push`.
 - Treat provider-native plan and task panels as mirror or scratch surfaces, not as recovery evidence.
 - Use provider-native Codex or Claude resume only when the operator intentionally wants provider-private conversation state; do not treat it as ADP ownership, lease, task, phase, commit, or push evidence.
-- Keep acceptance evidence local by pairing resume-plan checks with `adp events list`, `adp sessions list`, `adp sessions show`, `adp sessions restore-plan`, `adp tasks show`, `adp tasks stale`, `adp phase status`, and `adp progress report`. Use `--format json` when a local tool needs parseable inspection output.
+- Keep acceptance evidence local by pairing resume-plan and replay dry-run checks with `adp events list`, `adp sessions list`, `adp sessions show`, `adp sessions restore-plan`, `adp sessions replay <session-id> --dry-run`, `adp tasks show`, `adp tasks stale`, `adp phase status`, and `adp progress report`. Use `--format json` when a local tool needs parseable inspection output.
 - Do not describe resume-plan as cloud sync, remote issue tracking, hosted orchestration, provider-private state scraping, automatic task completion, automatic phase acceptance, or provider-native resume.
+- Do not describe replay dry-run as automatic replay, provider-native resume, task recovery, phase acceptance, Git execution, or runtime creation.
