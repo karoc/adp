@@ -337,7 +337,7 @@ ADP 自身开发也 dogfood 同一套本地 task 和 phase ledger。在本仓库
 
 Session resume planning 和 cross-tool `resume-plan` 命令见 [docs/session-restore.zh-CN.md](docs/session-restore.zh-CN.md)。
 
-真实 Agent 兼容边界见 [docs/real-agent-compatibility.zh-CN.md](docs/real-agent-compatibility.zh-CN.md)，发布就绪检查见 [docs/release-checklist.zh-CN.md](docs/release-checklist.zh-CN.md)，early preview 打包说明见 [docs/release-packaging.zh-CN.md](docs/release-packaging.zh-CN.md)。
+真实 Agent 兼容边界见 [docs/real-agent-compatibility.zh-CN.md](docs/real-agent-compatibility.zh-CN.md)，发布就绪检查见 [docs/release-checklist.zh-CN.md](docs/release-checklist.zh-CN.md)，stable release 打包说明见 [docs/release-packaging.zh-CN.md](docs/release-packaging.zh-CN.md)。
 
 Agent 执行标准，包括多 Agent 协作规则与项目约束，见 [AGENTS.zh-CN.md](AGENTS.zh-CN.md)。
 

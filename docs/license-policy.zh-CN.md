@@ -8,7 +8,7 @@ English: [license-policy.md](license-policy.md)
 
 ADP 使用 [PolyForm Noncommercial License 1.0.0](../LICENSE) 提供公共非商业使用。仓库以 source-available 形式提供给学习、研究、评估和非商业开放协作。
 
-公共许可证不授予商业使用权。任何商业使用都必须取得版权持有人的单独付费授权。公开源码、公开 fork、preview package 和非商业再分发都不授予商业权利。
+公共许可证不授予商业使用权。任何商业使用都必须取得版权持有人的单独付费授权。公开源码、公开 fork、public release artifact 和非商业再分发都不授予商业权利。
 
 ADP 没有使用 OSI-approved open-source license，因为公共许可证限制商业使用。描述公共授权模型时，请使用 `source-available` 或 `noncommercial source-available`。
 
@@ -40,6 +40,6 @@ ADP 没有使用 OSI-approved open-source license，因为公共许可证限制�
 
 ## Release Packages
 
-Release package 必须完整保留公共许可证和商业声明，且不得暗示 preview binary 已授予商业权利。Package 不得包含本地 `$ADP_HOME` 状态、`$ADP_RUNTIME_DIR` 内容、runtime overlay、日志、task state、credential、`.envrc`、`mvp.md` 或机器特定 shell 配置。
+Release package 必须完整保留公共许可证和商业声明，且不得暗示任何 public binary 已授予商业权利。Package 不得包含本地 `$ADP_HOME` 状态、`$ADP_RUNTIME_DIR` 内容、runtime overlay、日志、task state、credential、`.envrc`、`mvp.md` 或机器特定 shell 配置。
 
 Package 细节见 [release-packaging.zh-CN.md](release-packaging.zh-CN.md)。

@@ -1,12 +1,13 @@
 # ADP Project Roadmap - June 2026
 
-> **Status update (2026-06-27): Archived roadmap snapshot.** This roadmap was
-> written before the later P24-P65 work, v1.0.0 release hardening, and the
-> 2026-06-27 Windows portability fixes. The ADP ledger is now authoritative:
-> workspace `adp` has no planned, ready, in-progress, blocked, or stale work.
-> Treat the unchecked items below as historical planning context, not current
-> backlog. Optional future work should be reintroduced through a new ADP phase
-> and task plan.
+> **Status update (2026-07-07): Archived roadmap snapshot.** This roadmap was
+> written before the later P24-P75 work, the `v1.0.1` release, and current
+> phase-gate dogfooding. The ADP ledger is now authoritative for active work:
+> use `adp phase status --workspace adp`, `adp tasks next --workspace adp`, and
+> `adp plan doctor --workspace adp` before acting. Treat the goals, timelines,
+> unchecked items, and future ideas below as historical planning context, not
+> current backlog. Optional future work should be reintroduced through a new ADP
+> phase and task plan.
 
 **Document Date**: 2026-06-15  
 **Project Status**: Phase 4 Complete, CI Stable  
@@ -19,7 +20,7 @@
 
 ADP has completed Phases 1-4 (Documentation Excellence) and P0-P2 (Basic Usability). The project is now in excellent shape with stable CI, comprehensive documentation, and solid foundational features.
 
-**Next Goal**: Achieve 5.0/5 excellence through final usability polish and technical debt resolution.
+**Historical Next Goal**: Achieve 5.0/5 excellence through final usability polish and technical debt resolution.
 
 **Estimated Timeline**: 2-3 weeks to production-ready 1.0
 
@@ -38,12 +39,12 @@ ADP has completed Phases 1-4 (Documentation Excellence) and P0-P2 (Basic Usabili
 | **FAQ Documentation** | ✅ Complete | 9.9/10 | 22 Q&A, 5 categories |
 | **Practical Examples** | ✅ Complete | 9.9/10 | game-dev, web-app |
 | **CI Stability** | ✅ Complete | 100% | All checks passing |
-| **Code Quality** | ✅ Complete | 100% | <700 lines/file limit met |
+| **Code Quality** | ✅ Complete | 100% | Historical 700-line code-file cap satisfied; current hard cap is 1000 lines |
 | **Bilingual Docs** | ✅ Complete | ~95% | Core docs fully translated |
 
-### 🔄 In Progress / Planned
+### Historical In Progress / Planned
 
-**P1 Usability Polish** (Current Plan - 易用性全面打磨计划):
+**P1 Usability Polish** (historical plan - 易用性全面打磨计划):
 - ⏳ Color output support
 - ⏳ Dangerous operation confirmations
 - ⏳ Enhanced success messages with next-step suggestions
@@ -395,7 +396,7 @@ Next steps:
 
 ---
 
-## Timeline Summary
+## Historical Timeline Summary
 
 ```
 Week 1: Usability Excellence - Core Features
@@ -497,26 +498,28 @@ Total: ~15 working days (3 weeks)
 
 ---
 
-## Post-1.0 Roadmap (Future)
+## Historical Post-1.0 Brainstorm
 
-**Not in current scope**, but ideas for v1.1+:
+This section is a historical brainstorm, not current roadmap. Items that imply
+cloud sync, hosted dashboards, SaaS task management, or public hosted roadmap
+boards are outside the current ADP product boundary unless an explicit
+maintainer request changes that boundary.
 
 1. **Performance Optimization**
    - Profile hot paths
    - Optimize runtime overlay creation
    - Cache doctor diagnostics
 
-2. **Advanced Features**
+2. **Advanced Local Features**
    - Workspace templates system
-   - Built-in agent marketplace
-   - Cloud sync (optional)
-   - Web UI (optional)
+   - Local adapter/plugin extension points
+   - Additional local-first runtime diagnostics
 
 3. **Community Building**
    - Example repository
    - Plugin system
    - Community contributions guide
-   - Public roadmap board
+   - Release notes and local operator runbooks
 
 4. **Enterprise Features**
    - Team collaboration enhancements
@@ -539,7 +542,7 @@ Total: ~15 working days (3 weeks)
 - **v1.0 released**: Public announcement
 
 ### Documentation Updates
-- Update this roadmap as phases complete
+- Update the ADP planning ledger as phases complete; keep this roadmap archived
 - Create phase completion reports
 - Maintain CHANGELOG.md continuously
 
@@ -558,7 +561,7 @@ Total: ~15 working days (3 weeks)
 
 ## Conclusion
 
-**ADP is in excellent shape** with stable CI, comprehensive documentation, and solid core functionality. The path to 1.0 is clear:
+**Historical conclusion**: ADP was in excellent shape with stable CI, comprehensive documentation, and solid core functionality. At the time, the path to 1.0 was:
 
 1. **Complete usability excellence** (Phase 5) - The final polish
 2. **Resolve technical debt** (Phase 6) - Clean house
@@ -570,7 +573,7 @@ Total: ~15 working days (3 weeks)
 
 ---
 
-**Next Action**: Begin Phase 5, Day 1-2 - Implement color output support
+**Historical Next Action**: Begin Phase 5, Day 1-2 - Implement color output support
 
 **Document Owner**: Development Team  
 **Last Updated**: 2026-06-15  

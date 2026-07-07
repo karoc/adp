@@ -170,7 +170,7 @@ export ADP_HOME
 export ADP_RUNTIME_DIR
 export PATH="$FAKE_BIN:$PATH"
 
-info "building preview binary with release ldflags"
+info "building release-rehearsal binary with release ldflags"
 mkdir -p "$CHECKOUT_ROOT/dist"
 VERSION="0.1.0-rehearsal"
 COMMIT="rehearsal"

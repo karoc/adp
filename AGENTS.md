@@ -238,7 +238,7 @@ The release rehearsal smoke path is:
 scripts/release-rehearsal-smoke.sh
 ```
 
-It copies the current non-ignored repository files into a temporary clean workspace, builds a preview binary with release ldflags, verifies copied docs and file limits, bootstraps the copied example workspace with isolated ADP paths, and checks phase evidence recording with a fake Git tripwire.
+It copies the current non-ignored repository files into a temporary clean workspace, builds a release-rehearsal binary with release ldflags, verifies copied docs and file limits, bootstraps the copied example workspace with isolated ADP paths, and checks phase evidence recording with a fake Git tripwire.
 
 The release artifact smoke path is:
 

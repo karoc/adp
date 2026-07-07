@@ -1,5 +1,13 @@
 # Phase 7 Completion Report
 
+> **Archive note (2026-07-07):** This is a historical report for the original
+> `v1.0.0` release engineering pass. Do not use the manual release steps or
+> download commands below as current operator instructions. Current release
+> procedure, packaging, and evidence guidance live in
+> [release-instructions.md](release-instructions.md),
+> [release-packaging.md](release-packaging.md), and
+> [release-evidence.md](release-evidence.md); current examples use `v1.0.1`.
+
 **Date**: 2026-06-15  
 **Phase**: Phase 7 — Release Engineering  
 **Status**: ✅ **COMPLETED** (with manual release step required)
@@ -446,7 +454,7 @@ Phase 7 successfully delivered all release engineering requirements for ADP 1.0.
 - ✅ Release notes with installation instructions
 - ✅ Automated build script for future releases
 
-**Outstanding Action**:
+**Historical Outstanding Action**:
 - ⚠️ Manual GitHub Release creation (5 minutes estimated)
 - Follow instructions in `docs/release-instructions.md`
 
@@ -456,4 +464,4 @@ Phase 7 successfully delivered all release engineering requirements for ADP 1.0.
 
 **Report Author**: Claude Opus 4.8  
 **Phase 7 Completion Date**: 2026-06-15  
-**Next Action**: Manual GitHub Release creation via Web UI
+**Historical Next Action**: Manual GitHub Release creation via Web UI

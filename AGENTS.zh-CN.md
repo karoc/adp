@@ -238,7 +238,7 @@ release rehearsal smoke 路径是：
 scripts/release-rehearsal-smoke.sh
 ```
 
-它会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 preview binary，验证复制后的文档和文件行数，使用隔离 ADP 路径 bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。
+它会把当前未被 ignored 的仓库文件复制到临时干净 workspace，使用 release ldflags 构建 release-rehearsal binary，验证复制后的文档和文件行数，使用隔离 ADP 路径 bootstrap 复制后的 example workspace，并通过 fake Git tripwire 检查 phase evidence recording。
 
 release artifact smoke 路径是：
 

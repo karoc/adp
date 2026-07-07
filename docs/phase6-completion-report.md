@@ -1,5 +1,12 @@
 # Phase 6 Completion Report
 
+> **Archive note (2026-07-07):** This is a historical report for the pre-1.0.0
+> documentation phase. Do not use its release-planning bullets as current
+> operator instructions. Current release procedure, packaging, and evidence
+> guidance live in [release-instructions.md](release-instructions.md),
+> [release-packaging.md](release-packaging.md), and
+> [release-evidence.md](release-evidence.md); current examples use `v1.0.1`.
+
 **Date**: 2026-06-15  
 **Phase**: Phase 6 — Documentation Refinement & Technical Debt Resolution  
 **Status**: ✅ **COMPLETED**

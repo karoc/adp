@@ -10,7 +10,7 @@
 
 English: [phase1-development-plan.md](phase1-development-plan.md)
 
-本文档把 ADP MVP 转换为当前 Phase 1 实施计划和运行 roadmap。它记录产品边界、架构、模块所有权、多 Agent 拆分点，以及后续实现必须继续遵守的验收门禁。
+本文档记录了 ADP MVP 如何转化为 Phase 1 实施计划和运行 roadmap。它仍可作为产品边界、架构、模块所有权、多 Agent 拆分点和验证门禁的历史上下文；当前执行状态以本地 ADP planning ledger 和当前发布文档为准。
 
 ## 1. MVP 结论
 
@@ -820,11 +820,11 @@ Phase process gate：
 
 ADP planning ledger 是 task、phase、acceptance、commit 和 push 状态的权威来源。本文档只是面向人的 roadmap 摘要；如果它与 `adp phase status`、`adp phase list`、`adp tasks list` 或 `adp plan doctor` 不一致，应以 `$ADP_HOME` 下的本地 ledger 为准，并更新本文档摘要。
 
-根据 P74 期间 2026-07-07 的本地 ledger 快照：到 P73 为止的已完成切片都已 pushed，`v1.0.1` 已 tag 并发布，P74 是当前 active 的可选 real-agent evidence 切片。下面的 P75-P77 仍是带 starter tasks 的 planned local ADP phases；只有 P74 完成 validation、commit、push 并记录 push evidence 后，才能启动它们。
+2026-07-07 的 P74-P76 文档归一化窗口期间，本地 ledger 快照显示 `v1.0.1` 已 tag 并发布，后续阶段启动前已完成切片都已 pushed，当前工作由 phase-gate evidence 控制，而不是由本文档控制。执行任何候选项前，先用 `adp phase status --workspace adp --format json`、`adp tasks next --workspace adp --limit 0 --format json` 和 `adp plan doctor --workspace adp --format json` 核对。
 
 - P0 已完成：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
 - P1 已完成：Runtime task binding。增加 `adp run <agent> --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
-- P2 已完成：Early preview hardening。动态 agent/workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明已纳入聚合门禁和 runtime smoke。
+- P2 已完成：Early release-path hardening。动态 agent/workspace/profile completion、全局 `adp doctor`、version 输出、`scripts/check-all.sh` CI 和发布打包说明已纳入聚合门禁和 runtime smoke。
 - P3 Phase Gate MVP 已完成：项目规划与执行进度管理现在具备 phase records、task claim 和 owner records、acceptance 或 gate records、commit records、push records，并已纳入 task-manager smoke。
 - P3 planning coordination hardening 已完成：会用本地 lock 保护 planning 修改操作，task claim 会强制 owner conflict 和可选 lease，release 支持 owner 校验；phase ledger 存在后 task 会校验 phase ID；phase lifecycle guards 会强制 accept-before-commit、commit-before-push，以及 push-before-next-phase 纪律。
 - P4 runtime manifest compatibility 已完成：runtime manifest 现在使用显式 manifest version，runtime smoke 会检查核心 manifest 字段，pruning 会跳过不兼容或自相矛盾的 manifest，而不是把每个 `generated_by: adp` 文件都当作可安全删除的证据。
@@ -854,7 +854,7 @@ ADP planning ledger 是 task、phase、acceptance、commit 和 push 状态的权
 - P24 phase gate status and ordering hardening 已完成：`adp phase status [--workspace <name>] [--format text|json]` 暴露只读本地 gate snapshot；新 phase 带有显式本地 order；phase start 会拒绝跳过更早 planned 或 unfinished phases；successful push evidence 不能被 failed push evidence 覆盖。
 - P25 shell completion renderer split 已完成：bash 和 zsh completion rendering 已拆到按 shell 区分的文件中，同时 `RenderCompletion`、command-name validation、基于 metadata 的候选项、动态本地 value endpoints 以及公开 `adp completion` 行为保持不变。该阶段只属于维护性的 line-pressure 工作，不新增命令、shell 类型、Web/SaaS 行为、automatic Git execution、hosted orchestration、provider-native resume 或 project-root exports。
 - P26 planning ledger doctor 已完成：`adp plan doctor [--workspace <name>] [--format text|json]` 会报告 task、phase、progress-log、lock 和 phase-gate invariants 的只读本地 diagnostics；error diagnostics 返回退出码 `2`；focused tests 和 task-manager smoke 覆盖健康与坏账本路径，并且不做 automatic repair、Git execution、runtime mutation、hosted tracker sync 或 project-root exports。
-- P27-P39 release、runtime、operator 和 provider-compatibility hardening 已完成：real CLI acceptance runbooks、adapter extension boundaries、runtime audit polish、release readiness 和 rehearsal evidence、preview artifact dry runs、operator onboarding、runtime-context configuration audit、AGENTS guide consistency、真实 Codex/Claude invocation evidence、release-evidence alignment，以及 project provider-config overlay compatibility 都已完成验证并 pushed，同时保留 local-first 边界。
+- P27-P39 release、runtime、operator 和 provider-compatibility hardening 已完成：real CLI acceptance runbooks、adapter extension boundaries、runtime audit polish、release readiness 和 rehearsal evidence、release artifact dry runs、operator onboarding、runtime-context configuration audit、AGENTS guide consistency、真实 Codex/Claude invocation evidence、release-evidence alignment，以及 project provider-config overlay compatibility 都已完成验证并 pushed，同时保留 local-first 边界。
 - P40 deep shell completion hardening 已完成：bash 和 zsh completion 现在通过只读 `adp completion values` 端点覆盖本地 task ID、phase ID、session ID、task owner 和 task status。端点只读取 `$ADP_HOME` 下的 planning 或 event 状态；不会修改 task、phase、runtime overlay、provider、Git 或 project root。
 - P41 runtime planning contract and taskbox bridge 已完成：生成给 Codex、Claude 和未来 adapter 的 runtime instructions 现在会声明 ADP 是权威 task ledger，暴露 `ADP_CLI`，并允许 provider 原生 task panel mirror 当前 ADP task，但不能成为 durable planning store。
 - P42 tool plan mode bridge 已完成：provider 原生 plan mode 只作为 proposal 和 scratch view；`adp plan preview` 保持只读，`adp plan apply` 必须经过显式批准后才会修改本地 ADP ledger。
@@ -870,16 +870,13 @@ P46 之后近期已完成的切片：
 - P60-P65 CLI、inspection 和 maintenance pressure 已完成：task ownership errors、command help examples、inspection JSON output、first-use readiness、CLI usability gaps 和 large-file split pressure 已处理，同时手写代码文件保持在当前 1000 行硬上限以内。
 - P66-P70 release 和 post-release hardening 已完成：AGENTS line-limit guidance 已提高到 1000 行，`scripts/check-all.sh` 已完成计时和并行化，`v1.0.1` 已 tag，artifacts 已构建并发布，post-release installation 已验证，planning-ledger concurrency coverage 已通过 focused tests 和 provider-free multi-process smoke 补齐。
 - P71-P73 post-release evidence 和 gate ergonomics 已完成：roadmap 和 release docs 已与 `v1.0.1` 对齐，已为发布 artifact 记录 fresh post-publish adoption evidence，`scripts/check-all.sh` failure triage 现在会打印 targeted rerun guidance、failed-smoke-first summary、可选保留日志、可选通过项日志，以及 opt-in keep-going diagnostic mode。
+- P74 real-agent optional evidence drill 已完成：已记录 Codex 和 Claude command availability 作为 optional operator evidence；非交互真实 invocation 和手工交互式 acceptance 仍保持为独立 optional tiers，默认 release gate 仍保持 provider-free。
+- P75 multi-agent handoff recovery polish 已完成：围绕 `tasks stale`、显式 reclaim、`sessions resume-plan`、`run --take`、lease renewal 和 read-only progress snapshots 补强了 docs 与 focused tests，用于 interrupted multi-agent work。
 
-当前 active 切片：
+可能出现在 ledger 中的候选主题：
 
-- P74 real-agent optional evidence drill 正在进行：收集或文档化 opt-in Codex/Claude command-availability evidence，把非交互真实 invocation 和手工交互式 acceptance 保持为独立 optional tiers，并保持默认 release gate provider-free。
-
-P74 之后的优先级候选 backlog：
-
-- 中：P75 multi-agent handoff recovery polish。围绕 `tasks stale`、显式 reclaim、`sessions resume-plan`、`run --take`、lease renewal 和 read-only progress snapshots 补强 docs 与 focused tests，用于 interrupted multi-agent work。
-- 中：P76 roadmap and release-doc normalization。继续清理 archived 或 stale roadmap references，让维护中文档指向当前 ADP commands、本地 planning gates 和 `v1.0.1` release path。
-- 低：P77 local replay proposal。可以考虑未来增加一个从 ADP-owned invocation evidence 启动新本地 run 的命令，但只能作为显式 proposal/execution flow，不能成为 provider-native conversation resume。
+- P76 roadmap and release-doc normalization：清理 archived 或 stale roadmap references，让维护中文档指向当前 ADP commands、本地 planning gates 和 `v1.0.1` release path。
+- P77 local replay proposal：可以考虑未来增加一个从 ADP-owned invocation evidence 启动新本地 run 的命令，但只能作为显式 proposal/execution flow，不能成为 provider-native conversation resume。
 
 已完成的 Phase 1 slices 和未来候选项保持同一组非目标：不做 Web dashboard、SaaS tracker、cloud sync、hosted orchestration、hosted tracker sync、automatic Git execution、automatic claim/done/phase acceptance、provider-native conversation resume、远程 issue-service 集成、project-root report 或 planning export，或 hosted tracker semantics。
 

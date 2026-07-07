@@ -13,7 +13,7 @@ Date: 2026-06-08
 
 简体中文：[phase1-development-plan.zh-CN.md](phase1-development-plan.zh-CN.md)
 
-This document turns the ADP MVP into the current Phase 1 implementation plan and operating roadmap. It records the product boundary, architecture, module ownership, multi-agent split points, and validation gates that must remain true as implementation continues.
+This document recorded how the ADP MVP became the Phase 1 implementation plan and operating roadmap. It remains useful historical context for the product boundary, architecture, module ownership, multi-agent split points, and validation gates, but the active execution state now lives in the local ADP planning ledger and current release documents.
 
 ## 1. MVP Scope
 
@@ -821,11 +821,11 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 
 The ADP planning ledger is authoritative for task, phase, acceptance, commit, and push status. This document is a human-readable roadmap summary only; if it disagrees with `adp phase status`, `adp phase list`, `adp tasks list`, or `adp plan doctor`, treat the local ledger under `$ADP_HOME` as the source of truth and update this summary.
 
-Status snapshot from the local ledger during P74 on 2026-07-07: all completed slices through P73 are pushed, `v1.0.1` is tagged and published, and P74 is the active optional real-agent evidence slice. The P75-P77 entries below remain planned local ADP phases with starter tasks; start them only after P74 has passed validation, been committed, been pushed, and recorded push evidence.
+Recent status snapshots from the local ledger during the P74-P76 normalization window on 2026-07-07 showed `v1.0.1` tagged and published, all completed slices pushed before later phases started, and current work controlled by phase-gate evidence rather than this file. Use `adp phase status --workspace adp --format json`, `adp tasks next --workspace adp --limit 0 --format json`, and `adp plan doctor --workspace adp --format json` before acting on any candidate listed here.
 
 - P0 completed: Task and Progress Manager MVP. Store workspace-scoped task state under `$ADP_HOME/workspaces/<workspace>/planning`, expose `adp tasks` and `adp progress`, and validate it with a task-manager smoke.
 - P1 completed: Runtime task binding. Add `adp run <agent> --task <task-id>`, inject task context into runtime env and generated adapter instructions, and connect task IDs to events and sessions.
-- P2 completed: Early preview hardening. Dynamic agent/workspace/profile completion, global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes are covered by the aggregate gate and runtime smoke.
+- P2 completed: Early release-path hardening. Dynamic agent/workspace/profile completion, global `adp doctor`, version output, CI for `scripts/check-all.sh`, and release packaging notes are covered by the aggregate gate and runtime smoke.
 - P3 Phase Gate MVP completed: Project planning and execution progress management now has phase records, task claim and owner records, acceptance or gate records, commit records, push records, and task-manager smoke coverage.
 - P3 planning coordination hardening completed: Mutating planning operations use a local lock, task claims enforce owner conflicts and optional leases, owner-checked release is available, tasks validate phase IDs once a phase ledger exists, and phase lifecycle guards enforce accept-before-commit, commit-before-push, and push-before-next-phase discipline.
 - P4 runtime manifest compatibility completed: runtime manifests now use an explicit manifest version, runtime smoke checks core manifest fields, and pruning skips incompatible or self-inconsistent manifests instead of treating every `generated_by: adp` file as safe deletion evidence.
@@ -855,7 +855,7 @@ Status snapshot from the local ledger during P74 on 2026-07-07: all completed sl
 - P24 phase gate status and ordering hardening completed: `adp phase status [--workspace <name>] [--format text|json]` exposes a read-only local gate snapshot, new phases carry explicit local order, phase start rejects skipped earlier planned or unfinished phases, and successful push evidence cannot be overwritten by failed push evidence.
 - P25 shell completion renderer split completed: bash and zsh completion rendering are split into shell-specific files while `RenderCompletion`, command-name validation, metadata-backed candidates, dynamic local value endpoints, and public `adp completion` behavior remain unchanged. This is maintenance-only line-pressure work and does not add commands, shell types, Web/SaaS behavior, automatic Git execution, hosted orchestration, provider-native resume, or project-root exports.
 - P26 planning ledger doctor completed: `adp plan doctor [--workspace <name>] [--format text|json]` reports read-only local diagnostics for task, phase, progress-log, lock, and phase-gate invariants; error diagnostics return exit code `2`; healthy and broken ledger paths are covered by focused tests and task-manager smoke without automatic repair, Git execution, runtime mutation, hosted tracker sync, or project-root exports.
-- P27-P39 release, runtime, operator, and provider-compatibility hardening completed: real CLI acceptance runbooks, adapter extension boundaries, runtime audit polish, release readiness and rehearsal evidence, preview artifact dry runs, operator onboarding, runtime-context configuration audit, AGENTS guide consistency, real Codex/Claude invocation evidence, release-evidence alignment, and project provider-config overlay compatibility were validated and pushed while preserving the local-first boundaries.
+- P27-P39 release, runtime, operator, and provider-compatibility hardening completed: real CLI acceptance runbooks, adapter extension boundaries, runtime audit polish, release readiness and rehearsal evidence, release artifact dry runs, operator onboarding, runtime-context configuration audit, AGENTS guide consistency, real Codex/Claude invocation evidence, release-evidence alignment, and project provider-config overlay compatibility were validated and pushed while preserving the local-first boundaries.
 - P40 deep shell completion hardening completed: bash and zsh completion now cover local task IDs, phase IDs, session IDs, task owners, and task statuses through read-only `adp completion values` endpoints. The endpoints read `$ADP_HOME` planning or event state only; they do not mutate tasks, phases, runtime overlays, providers, Git, or project roots.
 - P41 runtime planning contract and taskbox bridge completed: generated Codex, Claude, and future-adapter instructions now state that ADP is the authoritative task ledger, expose `ADP_CLI`, and let provider-native task panels mirror the active ADP task without becoming the durable planning store.
 - P42 tool plan mode bridge completed: provider-native plan modes are treated as proposal and scratch views, while `adp plan preview` remains read-only and `adp plan apply` requires explicit approval before mutating the local ADP ledger.
@@ -871,16 +871,13 @@ Recent completed slices after P46:
 - P60-P65 CLI, inspection, and maintenance pressure completed: task ownership errors, command help examples, inspection JSON output, first-use readiness, CLI usability gaps, and large-file split pressure were addressed while keeping hand-written code files below the current 1000-line hard limit.
 - P66-P70 release and post-release hardening completed: AGENTS line-limit guidance moved to 1000 lines, `scripts/check-all.sh` was timed and parallelized, `v1.0.1` was tagged, artifacts were built and published, post-release installation was verified, and planning-ledger concurrency coverage was added through focused tests plus a provider-free multi-process smoke.
 - P71-P73 post-release evidence and gate ergonomics completed: the roadmap and release docs were reconciled with `v1.0.1`, fresh post-publish adoption evidence was recorded for the published artifact, and `scripts/check-all.sh` failure triage now prints targeted rerun guidance, failed-smoke-first summaries, optional kept logs, optional passing-smoke logs, and an opt-in keep-going diagnostic mode.
+- P74 real-agent optional evidence drill completed: Codex and Claude command availability was recorded as optional operator evidence, while non-interactive real invocation and manual interactive acceptance stayed separate optional tiers and the default release gate stayed provider-free.
+- P75 multi-agent handoff recovery polish completed: docs and focused tests were tightened around `tasks stale`, explicit reclaim, `sessions resume-plan`, `run --take`, lease renewal, and read-only progress snapshots for interrupted multi-agent work.
 
-Current active slice:
+Candidate themes that may appear in the ledger:
 
-- P74 real-agent optional evidence drill is active: collect or document opt-in Codex/Claude command-availability evidence, keep non-interactive real invocation and manual interactive acceptance as separate optional tiers, and preserve the provider-free default release gate.
-
-Prioritized candidate backlog after P74:
-
-- Normal: P75 multi-agent handoff recovery polish. Tighten docs and focused tests around `tasks stale`, explicit reclaim, `sessions resume-plan`, `run --take`, lease renewal, and read-only progress snapshots for interrupted multi-agent work.
-- Normal: P76 roadmap and release-doc normalization. Continue pruning archived or stale roadmap references so maintained docs point users to current ADP commands, local planning gates, and the `v1.0.1` release path.
-- Lower: P77 local replay proposal. Consider a future command that starts a new local run from ADP-owned invocation evidence, but only as an explicit proposal/execution flow and never as provider-native conversation resume.
+- P76 roadmap and release-doc normalization: prune archived or stale roadmap references so maintained docs point users to current ADP commands, local planning gates, and the `v1.0.1` release path.
+- P77 local replay proposal: consider a future command that starts a new local run from ADP-owned invocation evidence, but only as an explicit proposal/execution flow and never as provider-native conversation resume.
 
 Completed Phase 1 slices and future candidates keep the same non-goals: no Web dashboard, SaaS tracker, cloud sync, hosted orchestration, hosted tracker sync, automatic Git execution, automatic claim/done/phase acceptance, provider-native conversation resume, remote issue-service integration, project-root report or planning exports, or hosted tracker semantics.
 

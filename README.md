@@ -337,7 +337,7 @@ ADP development dogfoods the same local task and phase ledger. For work on this 
 
 Session resume planning and the cross-tool `resume-plan` command are documented in [docs/session-restore.md](docs/session-restore.md).
 
-Real agent compatibility boundaries are documented in [docs/real-agent-compatibility.md](docs/real-agent-compatibility.md), release readiness is tracked in [docs/release-checklist.md](docs/release-checklist.md), and early preview packaging notes are in [docs/release-packaging.md](docs/release-packaging.md).
+Real agent compatibility boundaries are documented in [docs/real-agent-compatibility.md](docs/real-agent-compatibility.md), release readiness is tracked in [docs/release-checklist.md](docs/release-checklist.md), and stable release packaging notes are in [docs/release-packaging.md](docs/release-packaging.md).
 
 Agent execution standards, including multi-agent coordination rules and project constraints, are documented in [AGENTS.md](AGENTS.md).
 

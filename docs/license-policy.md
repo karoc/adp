@@ -8,7 +8,7 @@ This document explains ADP's licensing and contribution policy for operators and
 
 ADP uses the [PolyForm Noncommercial License 1.0.0](../LICENSE) for public noncommercial use. The repository is source-available for learning, research, evaluation, and noncommercial open collaboration.
 
-Commercial use is not granted by the public license. Any commercial use requires separate paid authorization from the copyright holder. Public source availability, public forks, preview packages, and noncommercial redistribution do not grant commercial rights.
+Commercial use is not granted by the public license. Any commercial use requires separate paid authorization from the copyright holder. Public source availability, public forks, public release artifacts, and noncommercial redistribution do not grant commercial rights.
 
 ADP is not published under an OSI-approved open-source license because the public license restricts commercial use. Use `source-available` or `noncommercial source-available` when describing the public licensing model.
 
@@ -40,6 +40,6 @@ Dependency changes must be checked for compatibility with a noncommercial source
 
 ## Release Packages
 
-Release packages must keep the public license and commercial notice intact and must not imply that a preview binary grants commercial rights. Packages must not include local `$ADP_HOME` state, `$ADP_RUNTIME_DIR` contents, runtime overlays, logs, task state, credentials, `.envrc`, `mvp.md`, or machine-specific shell configuration.
+Release packages must keep the public license and commercial notice intact and must not imply that any public binary grants commercial rights. Packages must not include local `$ADP_HOME` state, `$ADP_RUNTIME_DIR` contents, runtime overlays, logs, task state, credentials, `.envrc`, `mvp.md`, or machine-specific shell configuration.
 
 For package details, see [release-packaging.md](release-packaging.md).

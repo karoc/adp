@@ -1,5 +1,12 @@
 # Phase 6 & 7 最终验收报告
 
+> **归档说明（2026-07-07）：** 本文是原始 `v1.0.0` 发布工程与验收的历史报告。
+> 不要把下方手工 release 步骤、tag 重建步骤或下载命令当作当前 operator 指令。
+> 当前 release procedure、packaging 和 evidence guidance 见
+> [release-instructions.zh-CN.md](release-instructions.zh-CN.md)、
+> [release-packaging.zh-CN.md](release-packaging.zh-CN.md) 和
+> [release-evidence.zh-CN.md](release-evidence.zh-CN.md)；当前示例版本使用 `v1.0.1`。
+
 **日期**: 2026-06-15  
 **验收范围**: Phase 6（文档精炼）+ Phase 7（发布工程）  
 **验收标准**: acceptance-standard.md 完整要求  
