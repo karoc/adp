@@ -66,6 +66,7 @@ Future replay would answer "start a new run for me":
 - Replay is intentionally not part of this slice.
 - A future replay command would still start a new local run, not resume a provider conversation.
 - Any future execution command must remain explicit, locally gated, and separate from read-only inspection.
+- The P77 proposal in [local-replay-proposal.md](local-replay-proposal.md) evaluates a possible future execution command and keeps `resume-plan` read-only.
 
 ## Invocation Snapshot
 

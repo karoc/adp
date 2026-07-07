@@ -66,6 +66,7 @@ Future replay 回答“替我启动一次新运行”：
 - Replay 不属于当前阶段。
 - 未来的 replay 命令也只能启动一次新的本地运行，而不是恢复 provider conversation。
 - 任何未来的执行型命令都必须显式触发、经过本地 gate，并且与只读 inspection 分离。
+- P77 proposal 见 [local-replay-proposal.zh-CN.md](local-replay-proposal.zh-CN.md)，它评估未来可能的执行型命令，并保持 `resume-plan` 只读。
 
 ## Invocation Snapshot
 
