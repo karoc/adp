@@ -91,7 +91,9 @@ PATH="${ADP_INSTALL_BIN}:${PATH}" adp version
 
 ## 门禁失败
 
-对于 `scripts/check-all.sh`，检查第一个失败的 child command，并从同一个 source form 直接重新运行该 child。Aggregate gate 是 release decision point，但最小失败 command 通常是最快的 triage target。
+对于 `scripts/check-all.sh`，先看脚本打印的 triage footer。它会指出失败的 child command，给出应从仓库根目录直接重新运行的目标，并提醒修复后重新运行聚合门禁。Aggregate gate 是 release decision point，但最小失败 command 通常是最快的 triage target。
+
+如果 failure 来自并行 smoke suite，先直接重新运行列出的失败 smoke command。只有在需要按确定顺序检查聚合 smoke 输出时，才使用 `CHECK_ALL_SERIAL=1 scripts/check-all.sh`。需要保留每个 smoke 的日志、避免默认临时目录清理时，使用 `CHECK_ALL_KEEP_LOGS=1 scripts/check-all.sh`。并行 smoke 失败时如果还需要通过项日志，使用 `CHECK_ALL_SHOW_PASSED_LOGS=1 scripts/check-all.sh`。需要一次 diagnostic pass 继续收集后续 gate failure 时，使用 `CHECK_ALL_KEEP_GOING=1 scripts/check-all.sh`。这些 diagnostic flags 不得用于跳过检查，也不能替代最终聚合门禁重跑。
 
 对于 `scripts/release-artifact-smoke.sh`，优先检查 package staging、checksums、manifest assertions、install-from-artifact、source archive `COMMIT`、fake Codex command、临时 ADP directories 和 project-root pollution output。
 

@@ -91,7 +91,9 @@ If the project-root pollution scan finds ADP files, fix runtime or planning outp
 
 ## Gate Failures
 
-For `scripts/check-all.sh`, inspect the first failing child command and rerun that child directly from the same source form. The aggregate gate is the release decision point, but the smallest failing command is usually the fastest triage target.
+For `scripts/check-all.sh`, start with the triage footer printed by the script. It names the failed child command, gives the direct rerun target from the repository root, and reminds you to rerun the aggregate gate after the fix. The aggregate gate is the release decision point, but the smallest failing command is usually the fastest triage target.
+
+If the failure came from the parallel smoke suite, rerun the listed failed smoke command directly first. Use `CHECK_ALL_SERIAL=1 scripts/check-all.sh` only when the aggregate smoke output needs to be inspected in deterministic order. Use `CHECK_ALL_KEEP_LOGS=1 scripts/check-all.sh` when the per-smoke logs should be preserved outside the default temporary cleanup. Use `CHECK_ALL_SHOW_PASSED_LOGS=1 scripts/check-all.sh` when a parallel smoke failure also needs the passing smoke logs. Use `CHECK_ALL_KEEP_GOING=1 scripts/check-all.sh` when you need a single diagnostic pass to collect later gate failures after an earlier failure. These diagnostic flags must not be used to skip checks or replace the final aggregate rerun.
 
 For `scripts/release-artifact-smoke.sh`, inspect package staging, checksums, manifest assertions, install-from-artifact, source archive `COMMIT`, fake Codex command, temporary ADP directories, and project-root pollution output first.
 

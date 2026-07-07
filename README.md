@@ -321,7 +321,7 @@ Use the aggregate validation gate before handoff:
 scripts/check-all.sh
 ```
 
-The aggregate gate covers deterministic runtime smoke, broad runtime audit smoke, focused runtime context smoke, release readiness smoke, release rehearsal smoke, release artifact smoke, release operator drill smoke, install onboarding smoke, example workspace smoke, task manager smoke, plan intake smoke, Go test and vet, file length limits, bilingual documentation pairing and command-reference sync, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
+The aggregate gate covers deterministic runtime smoke, broad runtime audit smoke, focused runtime context smoke, release readiness smoke, release rehearsal smoke, release artifact smoke, release operator drill smoke, install onboarding smoke, example workspace smoke, task manager smoke, plan intake smoke, planning concurrency smoke, coverage-enforced Go tests through `scripts/check-coverage.sh`, `go vet ./...`, file length limits, bilingual documentation pairing and command-reference sync, and whitespace diff checks. CI uses the same `scripts/check-all.sh` gate so local and automated release evidence stay aligned. For targeted example validation, run `scripts/example-workspace-smoke.sh`.
 
 Project code files must stay at or below 1000 physical lines. Split files by responsibility before they exceed the limit. See [docs/engineering-standards.md](docs/engineering-standards.md).
 

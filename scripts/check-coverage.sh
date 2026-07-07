@@ -47,8 +47,11 @@ printf 'total coverage: %s%% (floor: %s%%)\n' "$total_pct" "$coverage_min"
 
 # Compare as floats without relying on bc: awk is always present.
 if awk "BEGIN { exit !($total_pct < $coverage_min) }"; then
+  cleanup_profile=0
   printf 'coverage %s%% is below the required floor of %s%%\n' "$total_pct" "$coverage_min" >&2
-  printf 'run: go tool cover -func=<profile> to see which packages regressed\n' >&2
+  printf 'coverage profile kept: %s\n' "$profile" >&2
+  printf 'inspect: go tool cover -func=%s\n' "$profile" >&2
+  printf 'rerun: COVERAGE_PROFILE=%s scripts/check-coverage.sh\n' "$profile" >&2
   exit 1
 fi
 

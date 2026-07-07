@@ -42,6 +42,8 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
+When the aggregate gate fails, use its triage footer before editing. It prints the failed child command(s), the direct rerun target(s) to use from the repository root, and the aggregate rerun command required after the fix. For parallel smoke failures, set `CHECK_ALL_SERIAL=1` when ordered output is easier to inspect, set `CHECK_ALL_KEEP_LOGS=1` to preserve the per-smoke log directory printed by the gate, or set `CHECK_ALL_SHOW_PASSED_LOGS=1` to include passing smoke logs in the failure output. `CHECK_ALL_KEEP_GOING=1` is an opt-in diagnostic mode that continues through later gate commands and exits nonzero with a final failure summary. These flags only change operator diagnostics; they do not reduce the required gate coverage or replace the final aggregate rerun.
+
 ## Release Candidate Path
 
 Use this path for every release candidate:
@@ -302,7 +304,7 @@ If `scripts/planning-concurrency-smoke.sh` fails, inspect the planning lock, tas
 
 If a phase-gate smoke step fails, inspect phase record storage, task owner state, claim lease parsing, owner-checked release, append-only progress events, acceptance result recording, commit hash recording, push result recording, and lifecycle ordering. Expected operator errors include commit evidence before passed acceptance, push evidence before commit evidence, and starting a later phase before the earlier phase has pushed evidence. The repair path is the explicit sequence `adp phase accept`, `adp phase commit`, and `adp phase push` after real validation, commit, and push have happened outside ADP. The expected state must remain local under `$ADP_HOME`; failures should not be fixed by writing planning artifacts into the project root or by making ADP run Git automatically.
 
-If `scripts/check-coverage.sh` fails, narrow the failing package and rerun that package before making changes:
+If `scripts/check-coverage.sh` fails because coverage is below the floor, use the preserved profile path printed by the script with `go tool cover -func=<profile>` before deleting it. Then narrow the failing package and rerun that package before making changes:
 
 ```bash
 go test -count=1 ./internal/workspace

@@ -321,7 +321,7 @@ P3 提供项目规划和执行进度管理的本地 phase ledger。它会在 `$A
 scripts/check-all.sh
 ```
 
-聚合 gate 覆盖确定性 runtime smoke、广覆盖 runtime audit smoke、聚焦 runtime context smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、示例 workspace smoke、task manager smoke、plan intake smoke、Go test 和 vet、文件行数限制、双语文档配对和命令引用同步，以及 diff 空白检查。CI 使用同一个 `scripts/check-all.sh` gate，确保本地和自动化 release evidence 对齐。针对示例 workspace 的独立验证可运行 `scripts/example-workspace-smoke.sh`。
+聚合 gate 覆盖确定性 runtime smoke、广覆盖 runtime audit smoke、聚焦 runtime context smoke、release readiness smoke、release rehearsal smoke、release artifact smoke、release operator drill smoke、install onboarding smoke、示例 workspace smoke、task manager smoke、plan intake smoke、planning concurrency smoke、通过 `scripts/check-coverage.sh` 执行并带 coverage floor 的 Go tests、`go vet ./...`、文件行数限制、双语文档配对和命令引用同步，以及 diff 空白检查。CI 使用同一个 `scripts/check-all.sh` gate，确保本地和自动化 release evidence 对齐。针对示例 workspace 的独立验证可运行 `scripts/example-workspace-smoke.sh`。
 
 项目代码文件必须控制在 1000 行以内。超过前按职责拆分。详见 [docs/engineering-standards.zh-CN.md](docs/engineering-standards.zh-CN.md)。
 

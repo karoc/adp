@@ -42,6 +42,8 @@ scripts/check-docs-bilingual.sh
 git diff --check
 ```
 
+当聚合门禁失败时，修改前先使用脚本末尾的 triage footer。它会打印失败的 child command、应从仓库根目录直接重新运行的目标，以及修复后必须重新运行的聚合门禁命令；并行失败时可能列出多项。对于并行 smoke 失败，如果顺序输出更容易检查，可设置 `CHECK_ALL_SERIAL=1`；如果需要保留每个 smoke 的日志目录，可设置 `CHECK_ALL_KEEP_LOGS=1`，脚本会打印该目录；如果失败输出里也需要包含通过项日志，可设置 `CHECK_ALL_SHOW_PASSED_LOGS=1`。`CHECK_ALL_KEEP_GOING=1` 是 opt-in diagnostic mode，会继续运行后续 gate commands，并在末尾以非零退出码汇总失败项。这些 flag 只改变 operator diagnostics，不会减少必跑门禁覆盖范围，也不能替代最终聚合门禁重跑。
+
 ## Release Candidate 路径
 
 每个 release candidate 都使用这条路径：
@@ -302,7 +304,7 @@ adp run claude --workspace <name> --task <task-id> -- <claude-args>
 
 如果 phase-gate smoke 步骤失败，优先检查 phase record 存储、task owner 状态、claim lease parsing、owner-checked release、append-only progress events、acceptance 结果记录、commit hash 记录、push 结果记录和 lifecycle ordering。预期的 operator error 包括未通过 acceptance 就记录 commit evidence、未记录 commit evidence 就记录 push evidence，以及 earlier phase 没有 pushed evidence 就启动 later phase。修复路径是在真实 validation、commit 和 push 已经在 ADP 外部完成后，显式按 `adp phase accept`、`adp phase commit`、`adp phase push` 的顺序记录。预期状态必须继续保存在 `$ADP_HOME` 下，不能通过把 planning artifacts 写进项目根目录或让 ADP 自动执行 Git 来修复失败。
 
-如果 `scripts/check-coverage.sh` 失败，先定位失败 package，并在修改前单独重跑该 package：
+如果 `scripts/check-coverage.sh` 因 coverage 低于 floor 失败，先使用脚本打印并保留的 profile path 运行 `go tool cover -func=<profile>`，检查完再删除它。然后定位失败 package，并在修改前单独重跑该 package：
 
 ```bash
 go test -count=1 ./internal/workspace

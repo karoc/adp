@@ -319,7 +319,8 @@ scripts/install-onboarding-smoke.sh
 scripts/example-workspace-smoke.sh
 scripts/task-manager-smoke.sh
 scripts/plan-intake-smoke.sh
-go test -count=1 ./...
+scripts/planning-concurrency-smoke.sh
+scripts/check-coverage.sh
 go vet ./...
 scripts/check-file-lines.sh
 scripts/check-docs-bilingual.sh
