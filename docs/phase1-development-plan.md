@@ -821,7 +821,7 @@ Next work is prioritized by how much it improves ADP's terminal-first runtime an
 
 The ADP planning ledger is authoritative for task, phase, acceptance, commit, and push status. This document is a human-readable roadmap summary only; if it disagrees with `adp phase status`, `adp phase list`, `adp tasks list`, or `adp plan doctor`, treat the local ledger under `$ADP_HOME` as the source of truth and update this summary.
 
-Status snapshot from the local ledger during P71 on 2026-07-07: all completed slices through P70 are pushed, `v1.0.1` is tagged and published, and P71 is the active post-release backlog triage slice. The P72-P77 entries below have been seeded as planned local ADP phases with starter tasks; start them only after P71 has passed validation, been committed, been pushed, and recorded push evidence.
+Status snapshot from the local ledger during P74 on 2026-07-07: all completed slices through P73 are pushed, `v1.0.1` is tagged and published, and P74 is the active optional real-agent evidence slice. The P75-P77 entries below remain planned local ADP phases with starter tasks; start them only after P74 has passed validation, been committed, been pushed, and recorded push evidence.
 
 - P0 completed: Task and Progress Manager MVP. Store workspace-scoped task state under `$ADP_HOME/workspaces/<workspace>/planning`, expose `adp tasks` and `adp progress`, and validate it with a task-manager smoke.
 - P1 completed: Runtime task binding. Add `adp run <agent> --task <task-id>`, inject task context into runtime env and generated adapter instructions, and connect task IDs to events and sessions.
@@ -870,16 +870,14 @@ Recent completed slices after P46:
 - P53-P59 Git/runtime diagnostics hardening completed: runtime overlays isolate Git metadata, inherited Git environment variables are sanitized, doctor output reports structured Git context, and runtime-context smoke coverage is split while preserving local-first behavior.
 - P60-P65 CLI, inspection, and maintenance pressure completed: task ownership errors, command help examples, inspection JSON output, first-use readiness, CLI usability gaps, and large-file split pressure were addressed while keeping hand-written code files below the current 1000-line hard limit.
 - P66-P70 release and post-release hardening completed: AGENTS line-limit guidance moved to 1000 lines, `scripts/check-all.sh` was timed and parallelized, `v1.0.1` was tagged, artifacts were built and published, post-release installation was verified, and planning-ledger concurrency coverage was added through focused tests plus a provider-free multi-process smoke.
+- P71-P73 post-release evidence and gate ergonomics completed: the roadmap and release docs were reconciled with `v1.0.1`, fresh post-publish adoption evidence was recorded for the published artifact, and `scripts/check-all.sh` failure triage now prints targeted rerun guidance, failed-smoke-first summaries, optional kept logs, optional passing-smoke logs, and an opt-in keep-going diagnostic mode.
 
 Current active slice:
 
-- P71 post-release backlog triage is active: reconcile this roadmap with the `v1.0.1` and P70 state, seed the next local-first phase candidates, and keep ADP's planning ledger as the authoritative execution source.
+- P74 real-agent optional evidence drill is active: collect or document opt-in Codex/Claude command-availability evidence, keep non-interactive real invocation and manual interactive acceptance as separate optional tiers, and preserve the provider-free default release gate.
 
-Prioritized candidate backlog after P71:
+Prioritized candidate backlog after P74:
 
-- High: P72 release adoption evidence. Collect independent adoption evidence for the published `v1.0.1` install path in a fresh operator environment beyond the P69 downloaded-asset verification, document non-sensitive evidence, and keep release validation provider-free by default.
-- High: P73 gate ergonomics and failure triage. Improve `scripts/check-all.sh` failure inspection and targeted rerun guidance without weakening the aggregate gate or adding external services.
-- High: P74 real-agent optional evidence drill. Collect or document opt-in Codex/Claude command-availability and non-interactive invocation evidence as an operator tier, separate from default release gates and quota-sensitive provider behavior.
 - Normal: P75 multi-agent handoff recovery polish. Tighten docs and focused tests around `tasks stale`, explicit reclaim, `sessions resume-plan`, `run --take`, lease renewal, and read-only progress snapshots for interrupted multi-agent work.
 - Normal: P76 roadmap and release-doc normalization. Continue pruning archived or stale roadmap references so maintained docs point users to current ADP commands, local planning gates, and the `v1.0.1` release path.
 - Lower: P77 local replay proposal. Consider a future command that starts a new local run from ADP-owned invocation evidence, but only as an explicit proposal/execution flow and never as provider-native conversation resume.

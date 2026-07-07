@@ -321,7 +321,7 @@ ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
-For non-interactive real model invocation evidence, intentionally enable the dedicated invocation smoke. It may contact external providers and consume quota. It is not part of `scripts/check-all.sh` and must not become a default CI or release gate.
+For non-interactive real model invocation evidence, intentionally enable the dedicated invocation smoke. It may contact external providers and consume quota. Its real invocation paths are not part of `scripts/check-all.sh` and must not become default CI or release gates; the default audit may validate only provider-free help and missing-gate behavior.
 
 ```bash
 ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex

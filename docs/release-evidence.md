@@ -4,7 +4,7 @@ Simplified Chinese: [release-evidence.zh-CN.md](release-evidence.zh-CN.md)
 
 This template records the local evidence needed before publishing an ADP release artifact. It is a release note companion, not a hosted release system, cloud ledger, SaaS workflow, provider credential check, or replacement for the local release gate. ADP release evidence must stay terminal-first, local-first, and provider-neutral by default.
 
-For post-publish adoption notes that start from an already published artifact, use [release-adoption-evidence.md](release-adoption-evidence.md). Those notes supplement release evidence; they do not replace the pre-publish gate or make provider checks mandatory.
+For post-publish adoption notes that start from an already published artifact, use [release-adoption-evidence.md](release-adoption-evidence.md). For optional real-agent operator evidence, use [real-agent-optional-evidence.md](real-agent-optional-evidence.md). Those notes supplement release evidence; they do not replace the pre-publish gate or make provider checks mandatory.
 
 ## Required Fields
 
@@ -140,7 +140,7 @@ ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
-- Non-interactive real model invocation evidence uses the dedicated invocation smoke. It may contact external providers and consume quota. It is not part of `scripts/check-all.sh` and must not become a default CI or release gate.
+- Non-interactive real model invocation evidence uses the dedicated invocation smoke. It may contact external providers and consume quota. Its real invocation paths are not part of `scripts/check-all.sh` and must not become default CI or release gates; the default audit may validate only provider-free help and missing-gate behavior.
 
 ```bash
 ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex

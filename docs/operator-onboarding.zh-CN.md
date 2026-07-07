@@ -320,7 +320,7 @@ ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
-非交互真实模型 invocation evidence 需要有意启用专用 invocation smoke。它可能联系外部 provider 并消耗 quota。它不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate。
+非交互真实模型 invocation evidence 需要有意启用专用 invocation smoke。它可能联系外部 provider 并消耗 quota。它的真实 invocation 路径不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate；默认 audit 可以只验证 provider-free help 和 missing-gate 行为。
 
 ```bash
 ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex

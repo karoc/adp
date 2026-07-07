@@ -216,7 +216,7 @@ phase gate smoke 路径覆盖 phase records、带 lease 的 task claim ownership
 
 真实 Codex 和 Claude 检查不属于默认门禁。它们是 opt-in release evidence，因为 provider credentials、quota、model access、network behavior、外部 CLI versions 和交互行为都会随 operator environment 变化。这些都是 operator environment concerns，不是 ADP quality guarantees。
 
-这类证据必须与默认门禁证据分开记录。`scripts/check-all.sh` 保持 provider-free。`scripts/real-agent-invocation-smoke.sh` 不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate。除非该 release 明确声明对应 evidence tier，否则可选 real-agent evidence 失败不应导致默认 release gate 失败。
+这类证据必须与默认门禁证据分开记录。`scripts/check-all.sh` 保持 provider-free。`scripts/real-agent-invocation-smoke.sh` 的真实 invocation 路径不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate；默认 audit 可以只验证 provider-free help 和 missing-gate 行为。除非该 release 明确声明对应 evidence tier，否则可选 real-agent evidence 失败不应导致默认 release gate 失败。
 
 Command availability evidence 使用 runtime smoke 的真实 flag。它确认外部命令存在，并且轻量 `--version` 或 `--help` invocation 可以完成。它不会调用模型，也不能证明 provider account readiness。
 

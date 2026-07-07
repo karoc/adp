@@ -167,7 +167,7 @@ Manual real-agent acceptance is operator-owned. It may require local credentials
 
 `scripts/real-agent-invocation-smoke.sh` is the dedicated path for explicit non-interactive Codex and Claude invocation evidence through ADP. It is separate from `scripts/runtime-smoke.sh --real-codex` and `scripts/runtime-smoke.sh --real-claude`: the runtime smoke's real flags check command availability, while the invocation smoke is intended to prove that ADP can hand off a constrained non-interactive request to the installed external CLIs in the current operator environment.
 
-The invocation smoke is not part of `scripts/check-all.sh`, and it must not become a default CI or release gate. Run it only when a release, audit, or operator note explicitly asks for real-agent invocation evidence and the operator accepts that the script may contact external providers, use account credentials already present on the machine, and consume provider quota.
+The real invocation paths of `scripts/real-agent-invocation-smoke.sh` are not part of `scripts/check-all.sh`, and they must not become default CI or release gates. The default audit may validate only the script's provider-free help and missing-gate behavior. Run real invocation only when a release, audit, or operator note explicitly asks for real-agent invocation evidence and the operator accepts that the script may contact external providers, use account credentials already present on the machine, and consume provider quota.
 
 Run the script only with the explicit opt-in gates documented by the script or release procedure:
 
@@ -247,7 +247,7 @@ For real launch acceptance, choose operator-safe arguments supported by the inst
 "$ADP_BIN" run claude --workspace real-agent-smoke -- <operator-safe-claude-args>
 ```
 
-Common safe candidates are `--version` or `--help` when the installed external CLI supports them, but ADP does not define external CLI arguments.
+Common safe candidates are `--version` or `--help` when the installed external CLI supports them, but ADP does not define external CLI arguments. A `--version` or `--help` launch remains command availability evidence, even when routed through `adp run`; manual interactive acceptance must be recorded separately and only supports claims about the specific operator session tested.
 
 These commands may contact external providers. Do not run them as default CI or release gates, and do not record secrets, tokens, private prompts, account identifiers, or sensitive model output as evidence.
 

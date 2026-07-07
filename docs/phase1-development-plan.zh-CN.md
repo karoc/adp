@@ -820,7 +820,7 @@ Phase process gate：
 
 ADP planning ledger 是 task、phase、acceptance、commit 和 push 状态的权威来源。本文档只是面向人的 roadmap 摘要；如果它与 `adp phase status`、`adp phase list`、`adp tasks list` 或 `adp plan doctor` 不一致，应以 `$ADP_HOME` 下的本地 ledger 为准，并更新本文档摘要。
 
-根据 P71 期间 2026-07-07 的本地 ledger 快照：到 P70 为止的已完成切片都已 pushed，`v1.0.1` 已 tag 并发布，P71 是当前 active 的 post-release backlog triage 切片。下面的 P72-P77 已作为 planned local ADP phases 写入本地 ledger，并带有 starter tasks；只有 P71 完成 validation、commit、push 并记录 push evidence 后，才能启动它们。
+根据 P74 期间 2026-07-07 的本地 ledger 快照：到 P73 为止的已完成切片都已 pushed，`v1.0.1` 已 tag 并发布，P74 是当前 active 的可选 real-agent evidence 切片。下面的 P75-P77 仍是带 starter tasks 的 planned local ADP phases；只有 P74 完成 validation、commit、push 并记录 push evidence 后，才能启动它们。
 
 - P0 已完成：Task and Progress Manager MVP。把 workspace-scoped 任务状态保存在 `$ADP_HOME/workspaces/<workspace>/planning` 下，提供 `adp tasks` 和 `adp progress`，并通过 task-manager smoke 验收。
 - P1 已完成：Runtime task binding。增加 `adp run <agent> --task <task-id>`，把 task context 注入 runtime env 和 adapter 生成指令，并把 task ID 关联到 events 和 sessions。
@@ -869,16 +869,14 @@ P46 之后近期已完成的切片：
 - P53-P59 Git/runtime diagnostics hardening 已完成：runtime overlays 会隔离 Git metadata，继承的 Git 环境变量已被 sanitize，doctor output 会报告 structured Git context，runtime-context smoke coverage 已拆分，并保持 local-first 行为。
 - P60-P65 CLI、inspection 和 maintenance pressure 已完成：task ownership errors、command help examples、inspection JSON output、first-use readiness、CLI usability gaps 和 large-file split pressure 已处理，同时手写代码文件保持在当前 1000 行硬上限以内。
 - P66-P70 release 和 post-release hardening 已完成：AGENTS line-limit guidance 已提高到 1000 行，`scripts/check-all.sh` 已完成计时和并行化，`v1.0.1` 已 tag，artifacts 已构建并发布，post-release installation 已验证，planning-ledger concurrency coverage 已通过 focused tests 和 provider-free multi-process smoke 补齐。
+- P71-P73 post-release evidence 和 gate ergonomics 已完成：roadmap 和 release docs 已与 `v1.0.1` 对齐，已为发布 artifact 记录 fresh post-publish adoption evidence，`scripts/check-all.sh` failure triage 现在会打印 targeted rerun guidance、failed-smoke-first summary、可选保留日志、可选通过项日志，以及 opt-in keep-going diagnostic mode。
 
 当前 active 切片：
 
-- P71 post-release backlog triage 正在进行：把本文档与 `v1.0.1` 和 P70 状态对齐，种下下一批 local-first phase candidates，并继续把 ADP planning ledger 作为权威执行来源。
+- P74 real-agent optional evidence drill 正在进行：收集或文档化 opt-in Codex/Claude command-availability evidence，把非交互真实 invocation 和手工交互式 acceptance 保持为独立 optional tiers，并保持默认 release gate provider-free。
 
-P71 之后的优先级候选 backlog：
+P74 之后的优先级候选 backlog：
 
-- 高：P72 release adoption evidence。在 P69 downloaded-asset verification 之外，为已发布的 `v1.0.1` install path 收集独立 fresh operator environment adoption evidence，记录非敏感 evidence，并保持默认 release validation provider-free。
-- 高：P73 gate ergonomics and failure triage。改进 `scripts/check-all.sh` failure inspection 和 targeted rerun guidance，同时不削弱 aggregate gate，也不增加外部服务。
-- 高：P74 real-agent optional evidence drill。收集或文档化 opt-in Codex/Claude command-availability 和 non-interactive invocation evidence，把它作为 operator evidence tier，与默认 release gates 和 quota-sensitive provider behavior 分离。
 - 中：P75 multi-agent handoff recovery polish。围绕 `tasks stale`、显式 reclaim、`sessions resume-plan`、`run --take`、lease renewal 和 read-only progress snapshots 补强 docs 与 focused tests，用于 interrupted multi-agent work。
 - 中：P76 roadmap and release-doc normalization。继续清理 archived 或 stale roadmap references，让维护中文档指向当前 ADP commands、本地 planning gates 和 `v1.0.1` release path。
 - 低：P77 local replay proposal。可以考虑未来增加一个从 ADP-owned invocation evidence 启动新本地 run 的命令，但只能作为显式 proposal/execution flow，不能成为 provider-native conversation resume。

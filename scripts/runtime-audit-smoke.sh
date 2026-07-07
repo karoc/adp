@@ -63,8 +63,14 @@ assert_contains "$output" "requires ADP_REAL_INVOKE_CODEX=1" "real invocation co
 assert_not_contains "$output" "building temporary adp binary" "real invocation codex missing-gate output"
 assert_not_contains "$output" "running real Codex through ADP" "real invocation codex missing-gate output"
 
-output=$(ADP_REAL_INVOKE_CODEX=1 ADP_REAL_INVOKE_CLAUDE= run_script_expect_code 1 scripts/real-agent-invocation-smoke.sh --all)
+output=$(
+  ADP_REAL_INVOKE_CODEX=1 \
+    ADP_REAL_INVOKE_CLAUDE= \
+    ADP_REAL_CODEX_BIN=adp-missing-real-codex-tripwire \
+    run_script_expect_code 1 scripts/real-agent-invocation-smoke.sh --all
+)
 assert_contains "$output" "requires ADP_REAL_INVOKE_CLAUDE=1" "real invocation all missing-gate output"
+assert_not_contains "$output" "command is not available" "real invocation all missing-gate output"
 assert_not_contains "$output" "building temporary adp binary" "real invocation all missing-gate output"
 assert_not_contains "$output" "running real Codex through ADP" "real invocation all missing-gate output"
 assert_not_contains "$output" "running real Claude through ADP" "real invocation all missing-gate output"

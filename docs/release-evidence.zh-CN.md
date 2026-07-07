@@ -4,7 +4,7 @@ English: [release-evidence.md](release-evidence.md)
 
 本文档模板记录发布 ADP release artifact 前需要保留的本地 evidence。它是 release note companion，不是 hosted release system、cloud ledger、SaaS workflow、provider credential check，也不能替代本地 release gate。ADP release evidence 默认必须保持 terminal-first、local-first 和 provider-neutral。
 
-对于从已发布 artifact 开始的 post-publish adoption notes，使用 [release-adoption-evidence.zh-CN.md](release-adoption-evidence.zh-CN.md)。这些 note 只是 release evidence 的补充；它们不能替代发布前门禁，也不会让 provider checks 变成必跑项。
+对于从已发布 artifact 开始的 post-publish adoption notes，使用 [release-adoption-evidence.zh-CN.md](release-adoption-evidence.zh-CN.md)。可选 real-agent operator evidence 使用 [real-agent-optional-evidence.zh-CN.md](real-agent-optional-evidence.zh-CN.md)。这些 note 只是 release evidence 的补充；它们不能替代发布前门禁，也不会让 provider checks 变成必跑项。
 
 ## 必填字段
 
@@ -140,7 +140,7 @@ ADP_SMOKE_REAL_CODEX=1 scripts/runtime-smoke.sh --real-codex
 ADP_SMOKE_REAL_CLAUDE=1 scripts/runtime-smoke.sh --real-claude
 ```
 
-- 非交互真实模型 invocation evidence 使用专用 invocation smoke。它可能联系外部 provider 并消耗 quota。它不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate。
+- 非交互真实模型 invocation evidence 使用专用 invocation smoke。它可能联系外部 provider 并消耗 quota。它的真实 invocation 路径不属于 `scripts/check-all.sh`，也不得变成默认 CI 或 release gate；默认 audit 可以只验证 provider-free help 和 missing-gate 行为。
 
 ```bash
 ADP_REAL_INVOKE_CODEX=1 scripts/real-agent-invocation-smoke.sh --codex

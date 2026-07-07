@@ -167,7 +167,7 @@ ADP_SMOKE_REAL_CLAUDE=1 ADP_SMOKE_CLAUDE_BIN=/path/to/claude scripts/runtime-smo
 
 `scripts/real-agent-invocation-smoke.sh` 是通过 ADP 显式收集非交互 Codex 和 Claude invocation evidence 的专用路径。它独立于 `scripts/runtime-smoke.sh --real-codex` 和 `scripts/runtime-smoke.sh --real-claude`：runtime smoke 的真实 flag 检查 command availability，而 invocation smoke 用于证明在当前 operator 环境中，ADP 可以把受限的非交互请求交给已安装的外部 CLI。
 
-invocation smoke 不属于 `scripts/check-all.sh`，并且不能变成默认 CI 或 release gate。只有当某个 release、audit 或 operator note 明确要求 real-agent invocation evidence，且 operator 接受该脚本可能访问外部 provider、使用机器上已有账号凭据并消耗 provider quota 时，才运行它。
+`scripts/real-agent-invocation-smoke.sh` 中的真实 invocation 路径不属于 `scripts/check-all.sh`，并且不能变成默认 CI 或 release gate。默认 audit 可以只验证该脚本的 provider-free help 和 missing-gate 行为。只有当某个 release、audit 或 operator note 明确要求 real-agent invocation evidence，且 operator 接受该脚本可能访问外部 provider、使用机器上已有账号凭据并消耗 provider quota 时，才运行真实 invocation。
 
 只能在脚本或 release procedure 记录的显式 opt-in gates 已满足时运行该脚本：
 
@@ -247,7 +247,7 @@ printf 'real-agent-smoke\n' > "$tmp/project/README.md"
 "$ADP_BIN" run claude --workspace real-agent-smoke -- <operator-safe-claude-args>
 ```
 
-常见安全候选是已安装外部 CLI 支持的 `--version` 或 `--help`，但 ADP 不定义外部 CLI 参数。
+常见安全候选是已安装外部 CLI 支持的 `--version` 或 `--help`，但 ADP 不定义外部 CLI 参数。即使通过 `adp run` 路由，`--version` 或 `--help` 启动仍然只是 command availability evidence；手工交互式 acceptance 必须单独记录，并且只能支撑被测试的具体 operator session claim。
 
 这些命令可能访问外部 provider。不要把它们作为默认 CI 或 release gate，也不要把 secret、token、私有 prompt、账号标识或敏感模型输出记录为 evidence。
 

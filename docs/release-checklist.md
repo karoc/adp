@@ -216,7 +216,7 @@ The phase gate smoke path covers phase records, task claim ownership with leases
 
 Real Codex and Claude checks are not part of the default gate. They are opt-in release evidence because provider credentials, quota, model access, network behavior, external CLI versions, and interactive behavior vary by operator environment. These are operator environment concerns, not ADP quality guarantees.
 
-Keep this evidence separate from default gate evidence. `scripts/check-all.sh` remains provider-free. `scripts/real-agent-invocation-smoke.sh` is not part of `scripts/check-all.sh` and must not become a default CI or release gate. A failure in optional real-agent evidence does not fail the default release gate unless the release explicitly claims that evidence tier.
+Keep this evidence separate from default gate evidence. `scripts/check-all.sh` remains provider-free. The real invocation paths of `scripts/real-agent-invocation-smoke.sh` are not part of `scripts/check-all.sh` and must not become default CI or release gates; the default audit may validate only provider-free help and missing-gate behavior. A failure in optional real-agent evidence does not fail the default release gate unless the release explicitly claims that evidence tier.
 
 Command availability evidence uses the runtime smoke real flags. It confirms that the external command exists and that a lightweight `--version` or `--help` invocation completes. It does not invoke a model or prove provider account readiness.
 

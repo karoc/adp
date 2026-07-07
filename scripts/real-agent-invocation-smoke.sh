@@ -8,9 +8,11 @@ Usage:
 
 Runs explicit real-agent invocation evidence through ADP. This script may
 contact external providers and consume account quota. It is intentionally not
-part of scripts/check-all.sh. With no provider target selected, it performs a
-provider-free opt-in guidance check and exits successfully without building ADP,
-resolving Codex or Claude, creating runtimes, or invoking external CLIs.
+part of scripts/check-all.sh. The default audit may validate only its
+provider-free help and missing-gate behavior. With no provider target selected,
+it performs a provider-free opt-in guidance check and exits successfully without
+building ADP, resolving Codex or Claude, creating runtimes, or invoking external
+CLIs.
 
 Each provider requires both a command-line flag and an environment gate:
 
