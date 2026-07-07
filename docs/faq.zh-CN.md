@@ -967,6 +967,8 @@ adp tasks take --workspace game-a --owner bob --lease 2h
 
 通过释放所有权（`adp tasks release`）、让租约过期或使用 `adp sessions resume-plan` 进行跨工具交接来交接工作。下一个操作员认领任务并审查会话历史以获取上下文。
 
+中断 worker 的恢复必须从 ADP evidence 开始，而不是从 provider 原生状态开始。使用 `adp tasks stale`、`adp progress report`、`adp sessions list` 和 `adp sessions resume-plan` 检查 ADP 已知状态；然后在 ADP ownership rules 允许时，显式运行 `adp tasks renew`、`adp tasks take` 或 `adp tasks claim` 等 ownership command。不要从 provider task panel、plan panel、chat transcript、process exit 或原生 conversation resume 推断 task completion、lease ownership、phase acceptance、commit evidence、push evidence 或 Git state。
+
 **三种交接方法：**
 
 **方法 1：显式释放（立即）**
@@ -999,7 +1001,8 @@ adp tasks take --workspace game-a --owner bob --lease 2h
 
 ```bash
 # 操作员 Alice 用 Codex 工作
-adp run codex --workspace game-a --task task-20260614-0001 --owner alice --lease 2h
+adp tasks claim --workspace game-a task-20260614-0001 --owner alice --lease 2h
+adp run codex --workspace game-a --task task-20260614-0001
 # 会话：session-20260614T120000-abc123
 
 # Alice 释放任务
@@ -1009,9 +1012,9 @@ adp tasks release --workspace game-a task-20260614-0001 --owner alice
 adp sessions resume-plan session-20260614T120000-abc123 \
   --agent claude --owner bob --lease 2h
 
-# 建议的命令（复制并运行）：
-adp run claude --workspace game-a --task task-20260614-0001 \
-  --owner bob --lease 2h
+# 建议的命令（复核并运行）：
+adp tasks claim --workspace game-a task-20260614-0001 --owner bob --lease 2h
+adp run claude --workspace game-a --task task-20260614-0001
 ```
 
 **交接证据追踪：**
@@ -1027,7 +1030,16 @@ adp sessions list --workspace game-a --task task-20260614-0001
 
 # 获取进度快照
 adp progress report --workspace game-a --format json
+
+# 检查过期的 in-progress claims
+adp tasks stale --workspace game-a --format json
+
+# 生成只读 same-tool 或 cross-tool restart guidance
+adp sessions resume-plan session-20260614T120000-abc123 \
+  --agent claude --owner bob --lease 2h --format json
 ```
+
+运行 `resume-plan` JSON 中的任何建议命令前，应先检查 `suggested_commands[*].side_effect`。`inspect` 命令是只读的；`tasks claim` 或 `tasks renew` 等 `task_mutation` 命令会修改 ownership；`runtime_creation` 命令会启动一次新的本地运行。`resume-plan` 本身不会 claim task、renew lease、启动 Agent、追加 events、accept phase、运行 Git，或写入 project root。
 
 **完整交接示例：**
 
@@ -1050,8 +1062,8 @@ adp sessions show session-20260614T120000-abc123
 adp tasks show task-20260614-0001
 
 # 认领并用 Claude 审查
-adp run claude --workspace game-a --task task-20260614-0001 \
-  --owner bob --lease 1h --profile reviewer
+adp tasks claim --workspace game-a task-20260614-0001 --owner bob --lease 1h
+adp run claude --workspace game-a --task task-20260614-0001 --profile reviewer
 
 # 完成审查
 adp tasks done task-20260614-0001
@@ -1562,15 +1574,16 @@ adp run codex --workspace game-a --task task-001 \
 
 ```bash
 # 用 Codex 的原始会话
-adp run codex --workspace game-a --task task-001 --owner alice
+adp tasks claim --workspace game-a task-001 --owner alice --lease 2h
+adp run codex --workspace game-a --task task-001
 
 # 获取跨工具继续计划
 adp sessions resume-plan session-20260614T120000-abc123 \
   --agent claude --owner bob --lease 2h
 
 # 输出：建议的命令
-adp run claude --workspace game-a --task task-001 \
-  --owner bob --lease 2h
+adp tasks claim --workspace game-a task-001 --owner bob --lease 2h
+adp run claude --workspace game-a --task task-001
 # 注意：配置文件和智能体特定参数被省略（不同工具）
 ```
 
@@ -1602,7 +1615,8 @@ adp run claude --workspace game-a --task task-001 \
 
 ```bash
 # 步骤 1：Alice 用 Codex 工作
-adp run codex --workspace game-a --task task-001 --owner alice --lease 2h
+adp tasks claim --workspace game-a task-001 --owner alice --lease 2h
+adp run codex --workspace game-a --task task-001
 # 会话：session-20260614T120000-abc123
 
 # 步骤 2：Alice 完成实现，释放任务
@@ -1617,9 +1631,9 @@ adp progress report --workspace game-a
 adp sessions resume-plan session-20260614T120000-abc123 \
   --agent claude --owner bob --lease 1h
 
-# 步骤 5：Bob 运行建议的命令
-adp run claude --workspace game-a --task task-001 \
-  --owner bob --lease 1h --profile reviewer
+# 步骤 5：Bob 运行建议的 ownership 和 launch 命令
+adp tasks claim --workspace game-a task-001 --owner bob --lease 1h
+adp run claude --workspace game-a --task task-001 --profile reviewer
 
 # Claude 启动具有 ADP 任务上下文的新对话
 ```
@@ -1863,8 +1877,6 @@ if __name__ == '__main__':
 ---
 
 **有问题或反馈？** 参见[故障排除指南](troubleshooting.zh-CN.md)了解错误解决方法，或在项目仓库上打开 issue。
-
-
 
 
 

@@ -967,6 +967,8 @@ adp tasks take --workspace game-a --owner bob --lease 2h
 
 Hand off work by releasing ownership (`adp tasks release`), letting leases expire, or using `adp sessions resume-plan` for cross-tool handoffs. The next operator claims the task and reviews session history for context.
 
+Interrupted-worker recovery always starts from ADP evidence, not provider-native state. Use `adp tasks stale`, `adp progress report`, `adp sessions list`, and `adp sessions resume-plan` to inspect what ADP knows; then run an explicit ownership command such as `adp tasks renew`, `adp tasks take`, or `adp tasks claim` when ADP ownership rules allow it. Do not infer task completion, lease ownership, phase acceptance, commit evidence, push evidence, or Git state from a provider task panel, plan panel, chat transcript, process exit, or native conversation resume.
+
 **Three Handoff Methods:**
 
 **Method 1: Explicit Release (Immediate)**
@@ -999,7 +1001,8 @@ adp tasks take --workspace game-a --owner bob --lease 2h
 
 ```bash
 # Operator Alice worked with Codex
-adp run codex --workspace game-a --task task-20260614-0001 --owner alice --lease 2h
+adp tasks claim --workspace game-a task-20260614-0001 --owner alice --lease 2h
+adp run codex --workspace game-a --task task-20260614-0001
 # Session: session-20260614T120000-abc123
 
 # Alice releases task
@@ -1009,9 +1012,9 @@ adp tasks release --workspace game-a task-20260614-0001 --owner alice
 adp sessions resume-plan session-20260614T120000-abc123 \
   --agent claude --owner bob --lease 2h
 
-# Suggested command (copy and run):
-adp run claude --workspace game-a --task task-20260614-0001 \
-  --owner bob --lease 2h
+# Suggested commands (review and run):
+adp tasks claim --workspace game-a task-20260614-0001 --owner bob --lease 2h
+adp run claude --workspace game-a --task task-20260614-0001
 ```
 
 **Handoff Evidence Trail:**
@@ -1027,7 +1030,16 @@ adp sessions list --workspace game-a --task task-20260614-0001
 
 # Get progress snapshot
 adp progress report --workspace game-a --format json
+
+# Inspect expired in-progress claims
+adp tasks stale --workspace game-a --format json
+
+# Generate read-only same-tool or cross-tool restart guidance
+adp sessions resume-plan session-20260614T120000-abc123 \
+  --agent claude --owner bob --lease 2h --format json
 ```
+
+Review `suggested_commands[*].side_effect` before running anything from `resume-plan` JSON. `inspect` commands are read-only; `task_mutation` commands such as `tasks claim` or `tasks renew` change ownership; `runtime_creation` commands start a new local run. `resume-plan` itself does not claim tasks, renew leases, launch agents, append events, accept phases, run Git, or write to the project root.
 
 **Example Complete Handoff:**
 
@@ -1050,8 +1062,8 @@ adp sessions show session-20260614T120000-abc123
 adp tasks show task-20260614-0001
 
 # Claim and review with Claude
-adp run claude --workspace game-a --task task-20260614-0001 \
-  --owner bob --lease 1h --profile reviewer
+adp tasks claim --workspace game-a task-20260614-0001 --owner bob --lease 1h
+adp run claude --workspace game-a --task task-20260614-0001 --profile reviewer
 
 # Complete review
 adp tasks done task-20260614-0001
@@ -1562,15 +1574,16 @@ Suggests continuing work with a different agent:
 
 ```bash
 # Original session with Codex
-adp run codex --workspace game-a --task task-001 --owner alice
+adp tasks claim --workspace game-a task-001 --owner alice --lease 2h
+adp run codex --workspace game-a --task task-001
 
 # Get cross-tool resume plan
 adp sessions resume-plan session-20260614T120000-abc123 \
   --agent claude --owner bob --lease 2h
 
-# Output: Suggested command
-adp run claude --workspace game-a --task task-001 \
-  --owner bob --lease 2h
+# Output: Suggested commands
+adp tasks claim --workspace game-a task-001 --owner bob --lease 2h
+adp run claude --workspace game-a --task task-001
 # Note: Profile and agent-specific args omitted (different tool)
 ```
 
@@ -1602,7 +1615,8 @@ Same workspace config   Different agent instructions
 
 ```bash
 # Step 1: Alice works with Codex
-adp run codex --workspace game-a --task task-001 --owner alice --lease 2h
+adp tasks claim --workspace game-a task-001 --owner alice --lease 2h
+adp run codex --workspace game-a --task task-001
 # Session: session-20260614T120000-abc123
 
 # Step 2: Alice completes implementation, releases task
@@ -1617,9 +1631,9 @@ adp progress report --workspace game-a
 adp sessions resume-plan session-20260614T120000-abc123 \
   --agent claude --owner bob --lease 1h
 
-# Step 5: Bob runs suggested command
-adp run claude --workspace game-a --task task-001 \
-  --owner bob --lease 1h --profile reviewer
+# Step 5: Bob runs suggested ownership and launch commands
+adp tasks claim --workspace game-a task-001 --owner bob --lease 1h
+adp run claude --workspace game-a --task task-001 --profile reviewer
 
 # Claude starts fresh conversation with ADP task context
 ```
@@ -1863,4 +1877,3 @@ if __name__ == '__main__':
 ---
 
 **Questions or feedback?** See [Troubleshooting Guide](troubleshooting.md) for error resolution or open an issue on the project repository.
-

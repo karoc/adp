@@ -190,6 +190,85 @@ func TestRunCommandCanTakeTaskBeforeRuntimeLaunch(t *testing.T) {
 	}
 }
 
+func TestRunCommandKeepsTakenTaskOwnedWhenAgentExitsNonZero(t *testing.T) {
+	task := taskstore.Task{
+		ID:          "task-20260609-0026",
+		Title:       "Recover failed launch",
+		Status:      taskstore.StatusInProgress,
+		Priority:    "high",
+		Phase:       "P75",
+		Owner:       "codex-worker",
+		Description: "Taken before a failing launch.",
+	}
+	store := &runTaskStore{task: task}
+	adapter := &runTaskAdapter{name: "codex"}
+	registry := adapters.NewRegistry()
+	if err := registry.Register(adapter); err != nil {
+		t.Fatal(err)
+	}
+
+	cleanupCalled := false
+	var logged []events.Event
+	deps := Dependencies{
+		Layout:         paths.New("/tmp/adp-home", "/tmp/adp-runtime"),
+		WorkspaceStore: &fakeStore{cfg: testConfig()},
+		Adapters:       registry,
+		TaskStoreFactory: func(string) TaskStore {
+			return store
+		},
+		BuildRuntime: func(_ context.Context, req runtime.BuildRequest) (*runtime.Handle, error) {
+			return &runtime.Handle{
+				SessionID:     "session-failed",
+				WorkspaceName: "game-a",
+				TaskID:        req.Task.ID,
+				ProjectRoot:   "/srv/game-a",
+				Root:          "/tmp/runtime",
+				Env: map[string]string{
+					"ADP_TASK_ID": req.Task.ID,
+				},
+			}, nil
+		},
+		CleanupRuntime: func(context.Context, runtime.Handle) error {
+			cleanupCalled = true
+			return nil
+		},
+		RunProcess: func(context.Context, adapters.LaunchSpec, runner.Streams) (*runner.Result, error) {
+			return &runner.Result{ExitCode: 23}, nil
+		},
+		EventLogger: eventLoggerFunc(func(_ context.Context, event events.Event) error {
+			logged = append(logged, event)
+			return nil
+		}),
+	}
+
+	code := NewApp(deps, &bytes.Buffer{}, &bytes.Buffer{}).Execute(
+		context.Background(),
+		[]string{"run", "codex", "--workspace", "game-a", "--take", "--owner", "codex-worker", "--lease", "30m"},
+	)
+
+	if code != 23 {
+		t.Fatalf("exit code = %d, want 23", code)
+	}
+	if !store.takeCalled || store.takeReq.Owner != "codex-worker" || store.takeReq.Lease.String() != "30m0s" {
+		t.Fatalf("take request = %+v, called=%t", store.takeReq, store.takeCalled)
+	}
+	if adapter.renderCtx.Task.ID != task.ID || adapter.renderCtx.Task.Owner != "codex-worker" || adapter.renderCtx.Task.Status != string(taskstore.StatusInProgress) {
+		t.Fatalf("taken task context = %+v", adapter.renderCtx.Task)
+	}
+	if len(logged) != 2 || logged[0].Type != "run_started" || logged[1].Type != "run_finished" {
+		t.Fatalf("logged events = %+v", logged)
+	}
+	if logged[0].TaskID != task.ID || logged[1].TaskID != task.ID {
+		t.Fatalf("logged task IDs = %+v", logged)
+	}
+	if logged[1].ExitCode == nil || *logged[1].ExitCode != 23 {
+		t.Fatalf("run_finished exit code = %+v", logged[1].ExitCode)
+	}
+	if !cleanupCalled {
+		t.Fatalf("runtime cleanup was not called after failed agent exit")
+	}
+}
+
 func TestRunCommandRejectsMissingTaskBeforeRuntimeBuild(t *testing.T) {
 	registry := adapters.NewRegistry()
 	if err := registry.Register(&runTaskAdapter{name: "codex"}); err != nil {

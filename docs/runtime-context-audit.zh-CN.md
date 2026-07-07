@@ -203,8 +203,9 @@ Session commands 会读取这些本地 events：
 - `adp sessions list [--format text|json]`
 - `adp sessions show <session-id> [--format text|json]`
 - `adp sessions restore-plan <session-id> [--format text|json]`
+- `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format text|json]`
 
-这些 JSON 形态只是供本地工具使用的 inspection output。`adp sessions restore-plan <session-id> [--format text|json]` 是只读命令。它会在非敏感数据足够时打印建议的新本地启动命令；它不会启动 Agent、创建 runtime、追加 events、修改 task 或 phase 状态、写入 project root，或恢复 provider-native conversation。
+这些 JSON 形态只是供本地工具使用的 inspection output。`adp sessions restore-plan <session-id> [--format text|json]` 和 `adp sessions resume-plan <session-id> ...` 都是只读命令。它们会在非敏感数据足够时打印建议的新本地启动命令；它们不会启动 Agent、创建 runtime、追加 events、修改 task 或 phase 状态、写入 project root，或恢复 provider-native conversation。
 
 ## Project Root 干净性
 

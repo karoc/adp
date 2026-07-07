@@ -481,6 +481,40 @@ assert_contains "$output" '"agent_args"' "sessions resume-plan json output"
 assert_contains "$output" '"read_only": true' "sessions resume-plan json output"
 assert_contains "$output" '"task_mutation": false' "sessions resume-plan json output"
 assert_read_only_lease_state "sessions resume-plan" "$tasks_before_resume" "$phases_before_resume" "$progress_before_resume" "$events_before_resume" "$runtime_before_resume" "$project_before_resume" "$git_before_resume"
+
+output=$(run_adp "$REPO_ROOT" tasks renew --workspace game-a "$take_task_id" --owner audit-run-take --lease 1ns)
+assert_contains "$output" "task $take_task_id lease renewed until" "stale resume renew output"
+sleep 0.05
+output=$(run_adp "$REPO_ROOT" tasks stale --workspace game-a --format json)
+assert_json_valid "$output" "stale resume tasks stale json output"
+assert_contains "$output" "\"$take_task_id\"" "stale resume tasks stale json output"
+assert_contains "$output" "\"audit-run-take\"" "stale resume tasks stale json output"
+assert_contains "$output" '"claim_state": "stale"' "stale resume tasks stale json output"
+tasks_before_stale_resume=$(cat "$TASKS_FILE"); phases_before_stale_resume=$(cat "$PHASES_FILE")
+progress_before_stale_resume=$(cat "$PROGRESS_FILE"); events_before_stale_resume=$(event_log_count)
+runtime_before_stale_resume=$(runtime_dirs_state); project_before_stale_resume=$(project_root_state); git_before_stale_resume=$(git_state)
+reset_git_tripwire
+output=$(run_adp "$REPO_ROOT" sessions resume-plan "$take_session" --owner stale-session-reclaimer --lease 30m)
+assert_contains "$output" "session_id: $take_session" "stale sessions resume-plan output"
+assert_contains "$output" "task_id: $take_task_id" "stale sessions resume-plan output"
+assert_contains "$output" "task_claim_state: stale" "stale sessions resume-plan output"
+assert_contains "$output" "task_resume_action: claim" "stale sessions resume-plan output"
+assert_contains "$output" "inspect-stale-claims [inspect]: adp tasks stale --workspace game-a --format json" "stale sessions resume-plan output"
+assert_contains "$output" "claim-task [task_mutation]: adp tasks claim --workspace game-a $take_task_id --owner stale-session-reclaimer --lease 30m" "stale sessions resume-plan output"
+assert_contains "$output" "launch-resumed-worker [runtime_creation]: adp run codex --workspace game-a --task $take_task_id -- --probe codex-payload" "stale sessions resume-plan output"
+output=$(run_adp "$REPO_ROOT" sessions resume-plan "$take_session" --owner stale-session-reclaimer --lease 30m --format json)
+assert_json_valid "$output" "stale sessions resume-plan json output"
+assert_contains "$output" "\"session_id\": \"$take_session\"" "stale sessions resume-plan json output"
+assert_contains "$output" '"claim_state": "stale"' "stale sessions resume-plan json output"
+assert_contains "$output" '"resume_action": "claim"' "stale sessions resume-plan json output"
+assert_contains "$output" '"label": "inspect-stale-claims"' "stale sessions resume-plan json output"
+assert_contains "$output" '"label": "claim-task"' "stale sessions resume-plan json output"
+assert_contains "$output" '"side_effect": "task_mutation"' "stale sessions resume-plan json output"
+assert_contains "$output" '"side_effect": "runtime_creation"' "stale sessions resume-plan json output"
+assert_contains "$output" '"read_only": true' "stale sessions resume-plan json output"
+assert_contains "$output" '"task_mutation": false' "stale sessions resume-plan json output"
+assert_read_only_lease_state "stale sessions resume-plan" "$tasks_before_stale_resume" "$phases_before_stale_resume" "$progress_before_stale_resume" "$events_before_stale_resume" "$runtime_before_stale_resume" "$project_before_stale_resume" "$git_before_stale_resume"
+export ADP_EXPECT_TASK_ID="$task_id"
 tasks_before_prune=$(cat "$TASKS_FILE"); phases_before_prune=$(cat "$PHASES_FILE")
 progress_before_prune=$(cat "$PROGRESS_FILE"); events_before_prune=$(event_log_count)
 runtime_before_prune=$(runtime_dirs_state); project_before_prune=$(project_root_state); git_before_prune=$(git_state)

@@ -194,6 +194,7 @@ For task-bound sessions, pair resume planning with ADP planning inspection:
 adp tasks show --workspace <workspace> <task-id> --format json
 adp tasks stale --workspace <workspace> --format json
 adp phase status --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
 ```
 
 When the same owner continues a long-running task, renew before the lease expires:
@@ -220,5 +221,5 @@ Plan-mode compatibility follows the same boundary. A provider-native plan panel 
 - Move phase status explicitly with `adp phase start`, `adp phase accept`, `adp phase commit`, and `adp phase push`.
 - Treat provider-native plan and task panels as mirror or scratch surfaces, not as recovery evidence.
 - Use provider-native Codex or Claude resume only when the operator intentionally wants provider-private conversation state; do not treat it as ADP ownership, lease, task, phase, commit, or push evidence.
-- Keep acceptance evidence local by pairing resume-plan checks with `adp events list`, `adp sessions list`, `adp sessions show`, `adp sessions restore-plan`, `adp tasks show`, `adp tasks stale`, and `adp phase status`. Use `--format json` when a local tool needs parseable inspection output.
+- Keep acceptance evidence local by pairing resume-plan checks with `adp events list`, `adp sessions list`, `adp sessions show`, `adp sessions restore-plan`, `adp tasks show`, `adp tasks stale`, `adp phase status`, and `adp progress report`. Use `--format json` when a local tool needs parseable inspection output.
 - Do not describe resume-plan as cloud sync, remote issue tracking, hosted orchestration, provider-private state scraping, automatic task completion, automatic phase acceptance, or provider-native resume.

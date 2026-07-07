@@ -194,6 +194,7 @@ adp sessions resume-plan <session-id> --owner handoff-agent --lease 2h --format 
 adp tasks show --workspace <workspace> <task-id> --format json
 adp tasks stale --workspace <workspace> --format json
 adp phase status --workspace <workspace> --format json
+adp progress report --workspace <workspace> --format json
 ```
 
 同一 owner 继续长时间任务时，应在 lease 过期前续租：
@@ -220,5 +221,5 @@ Plan-mode compatibility 遵循同一边界。Provider 原生 plan panel 可以�
 - 通过 `adp phase start`、`adp phase accept`、`adp phase commit` 和 `adp phase push` 显式推进 phase 状态。
 - 将 provider 原生 plan 和 task panels 视为 mirror 或 scratch surfaces，而不是 recovery evidence。
 - 只有当 operator 明确需要 provider-private conversation state 时，才使用 provider-native Codex 或 Claude resume；不要把它当作 ADP ownership、lease、task、phase、commit 或 push evidence。
-- 将 resume-plan checks 与 `adp events list`、`adp sessions list`、`adp sessions show`、`adp sessions restore-plan`、`adp tasks show`、`adp tasks stale` 和 `adp phase status` 配合使用，保留本地 acceptance evidence。本地工具需要可解析 inspection output 时使用 `--format json`。
+- 将 resume-plan checks 与 `adp events list`、`adp sessions list`、`adp sessions show`、`adp sessions restore-plan`、`adp tasks show`、`adp tasks stale`、`adp phase status` 和 `adp progress report` 配合使用，保留本地 acceptance evidence。本地工具需要可解析 inspection output 时使用 `--format json`。
 - 不要把 resume-plan 描述为云同步、远程 issue 跟踪、托管编排、provider-private state scraping、automatic task completion、automatic phase acceptance 或 provider-native resume。

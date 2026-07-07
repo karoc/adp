@@ -203,8 +203,9 @@ Session commands read those local events:
 - `adp sessions list [--format text|json]`
 - `adp sessions show <session-id> [--format text|json]`
 - `adp sessions restore-plan <session-id> [--format text|json]`
+- `adp sessions resume-plan <session-id> [--workspace <name>] [--owner <owner>] [--lease <duration>] [--agent <agent>] [--format text|json]`
 
-These JSON forms are inspection output for local tools. `adp sessions restore-plan <session-id> [--format text|json]` is read-only. It prints a suggested new local launch command when enough non-sensitive data exists; it does not launch an agent, create a runtime, append events, mutate task or phase state, write to the project root, or resume a provider-native conversation.
+These JSON forms are inspection output for local tools. `adp sessions restore-plan <session-id> [--format text|json]` and `adp sessions resume-plan <session-id> ...` are read-only. They print suggested new local launch commands when enough non-sensitive data exists; they do not launch an agent, create a runtime, append events, mutate task or phase state, write to the project root, or resume a provider-native conversation.
 
 ## Project-Root Cleanliness
 

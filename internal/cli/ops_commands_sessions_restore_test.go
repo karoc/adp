@@ -333,3 +333,88 @@ func TestSessionsResumePlanCommandPrintsJSONAndDoesNotMutate(t *testing.T) {
 		t.Fatalf("resume-plan mutated fake store: claim=%+v renew=%+v status=%q", store.claimReq, store.renewReq, store.updatedStatus)
 	}
 }
+
+func TestSessionsResumePlanCommandPrintsStaleSameOwnerRenewalGuidance(t *testing.T) {
+	layout := setupSessionTestLayout(t)
+	createTestSession(t, layout, "session-1", "game-a")
+
+	now := time.Now().UTC().Truncate(time.Second)
+	task := testTask("task-1", "Resume task", taskstore.StatusInProgress)
+	task.Owner = "same-agent"
+	task.LeaseExpiresAt = now.Add(-time.Minute)
+	store := &fakeTaskStore{
+		tasks:  []taskstore.Task{task},
+		phases: []taskstore.Phase{testPhase("phase-1.5", "Resume phase", taskstore.PhaseStatusActive)},
+	}
+	deps := Dependencies{
+		Layout:           layout,
+		WorkspaceStore:   &fakeStore{cfg: testConfig()},
+		TaskStoreFactory: func(string) TaskStore { return store },
+		GetSession: func(_ context.Context, _ paths.Layout, _ string) (*sessions.Detail, error) {
+			return &sessions.Detail{
+				Summary: sessions.Summary{
+					SessionID: "session-1",
+					Workspace: "game-a",
+					Agent:     "codex",
+					TaskID:    "task-1",
+				},
+				Events: []events.Event{{
+					Type: "run_started",
+					Fields: map[string]any{
+						"invocation": map[string]any{
+							"schema_version": 1,
+							"agent_args":     []any{"--probe"},
+						},
+					},
+				}},
+			}, nil
+		},
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{
+		"sessions", "resume-plan", "session-1", "--owner", "same-agent", "--lease", "45m",
+	})
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		"task_claim_state: stale",
+		"task_resume_action: renew",
+		"renew-task-lease [task_mutation]: adp tasks renew --workspace game-a task-1 --owner same-agent --lease 45m",
+		"launch-resumed-worker [runtime_creation]: adp run codex --workspace game-a --task task-1 -- --probe",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("resume-plan output missing %q: %q", want, output)
+		}
+	}
+	if store.claimReq.TaskID != "" || store.renewReq.TaskID != "" || store.updatedStatus != "" {
+		t.Fatalf("resume-plan mutated fake store: claim=%+v renew=%+v status=%q", store.claimReq, store.renewReq, store.updatedStatus)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = NewApp(deps, &stdout, &stderr).Execute(context.Background(), []string{
+		"sessions", "resume-plan", "session-1", "--owner", "same-agent", "--lease", "45m", "--format", "json",
+	})
+
+	if code != 0 {
+		t.Fatalf("json exit code = %d, stderr = %q", code, stderr.String())
+	}
+	payload := decodeJSONObject(t, stdout.Bytes())
+	taskJSON := assertJSONObjectField(t, payload, "task")
+	assertJSONStringField(t, taskJSON, "claim_state", "stale")
+	assertJSONStringField(t, taskJSON, "resume_action", "renew")
+	commands := assertJSONObjectListField(t, payload, "suggested_commands")
+	renewCommand := findJSONObject(t, commands, "label", "renew-task-lease")
+	assertJSONStringField(t, renewCommand, "side_effect", "task_mutation")
+	guarantees := assertJSONObjectField(t, payload, "guarantees")
+	assertJSONBoolField(t, guarantees, "read_only", true)
+	assertJSONBoolField(t, guarantees, "task_mutation", false)
+	if store.claimReq.TaskID != "" || store.renewReq.TaskID != "" || store.updatedStatus != "" {
+		t.Fatalf("json resume-plan mutated fake store: claim=%+v renew=%+v status=%q", store.claimReq, store.renewReq, store.updatedStatus)
+	}
+}

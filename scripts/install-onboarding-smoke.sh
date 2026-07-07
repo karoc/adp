@@ -302,6 +302,10 @@ output=$(run_adp "$TMP_ROOT" progress report --workspace onboarding-a --format j
 assert_json_valid "$output" "progress report json output"
 assert_contains "$output" '"runtime_sessions"' "progress report json output"
 assert_contains "$output" "\"$take_session\"" "progress report json output"
+assert_contains "$output" "\"$STALE_TASK_ID\"" "progress report json stale task"
+assert_contains "$output" '"owner": "abandoned-agent"' "progress report json stale task"
+assert_contains "$output" '"claim_state": "stale"' "progress report json stale task"
+assert_contains "$output" '"lease_expires_at"' "progress report json stale task"
 output=$(run_adp "$TMP_ROOT" runtime prune --older-than 24h --dry-run --format json)
 assert_json_valid "$output" "runtime prune dry-run json output"
 assert_contains "$output" '"dry_run": true' "runtime prune dry-run json output"
